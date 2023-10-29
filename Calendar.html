@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>6-ukers Kalender</title>
+    <title>Vaktkode Kalender</title>
     <style>
         .calendar {
             display: grid;
@@ -11,44 +11,144 @@
             border: 1px solid #ccc;
             padding: 5px;
             text-align: center;
+            cursor: pointer;
+        }
+        .day.selected {
+            background-color: yellow;
+        }
+        .input-container {
+            display: flex;
+        }
+        .input-container label {
+            margin-right: 10px;
+        }
+        .input-container input[type="text"],
+        .input-container input[type="time"],
+        .input-container button {
+            margin-right: 10px;
+        }
+        .schedule-list {
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
-    <h1>6-ukers Kalender</h1>
+    <h1>Vaktkode Kalender</h1>
+
+    <div class="input-container">
+        <label for="scheduleName">Navn på vaktkode:</label>
+        <input id="scheduleName" type="text" placeholder="Skriv inn navn">
+        <label for="startTime">Starttid:</label>
+        <input id="startTime" type="time" placeholder="Velg starttid">
+        <label for="endTime">Sluttid:</label>
+        <input id="endTime" type="time" placeholder "Velg sluttid">
+        <button id="addSchedule">Legg til vaktkode</button>
+    </div>
+
     <div class="calendar" id="calendar"></div>
 
+    <div class="schedule-list" id="scheduleList">
+        <h2>Vaktkoder:</h2>
+        <ul id="schedules">
+            <li>Navn: Vaktkode 1, Starttid: 09:00, Sluttid: 17:00</li>
+            <li>Navn: Vaktkode 2, Starttid: 14:00, Sluttid: 22:00</li>
+            <!-- Legg til flere vaktkoder her -->
+        </ul>
+    </div>
+
     <script>
+        const calendar = document.getElementById("calendar");
+        const scheduleList = document.getElementById("scheduleList");
+        const addScheduleButton = document.getElementById("addSchedule");
+        const scheduleNameInput = document.getElementById("scheduleName");
+        const startTimeInput = document.getElementById("startTime");
+        const endTimeInput = document.getElementById("endTime");
+        const schedulesUl = document.getElementById("schedules");
+
+        const schedules = [];
+        let selectedDate = null;
+        const selectedDay = document.createElement("div");
+        selectedDay.id = "selectedDay";
+
+        addScheduleButton.addEventListener("click", () => {
+            const scheduleName = scheduleNameInput.value;
+            const startTime = startTimeInput.value;
+            const endTime = endTimeInput.value;
+
+            if (scheduleName && startTime && endTime) {
+                schedules.push({ name: scheduleName, startTime, endTime });
+                renderScheduleList();
+            }
+        });
+
+        function renderScheduleList() {
+            const scheduleListUl = scheduleList.querySelector("ul");
+            scheduleListUl.innerHTML = "";
+
+            schedules.forEach((schedule, index) => {
+                const li = document.createElement("li");
+                li.textContent = `Navn: ${schedule.name}, Starttid: ${schedule.startTime}, Sluttid: ${schedule.endTime}`;
+                li.dataset.index = index;
+                li.addEventListener("click", () => assignScheduleToDay(li));
+                scheduleListUl.appendChild(li);
+            });
+        }
+
         function createCalendar() {
-            const calendar = document.getElementById("calendar");
             const daysInMonth = 42; // 6 uker
             const currentDate = new Date();
             const currentDay = currentDate.getDate();
             const daysInPrevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0).getDate();
 
+            const daysOfWeek = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag", "Søndag"];
+            daysOfWeek.forEach(day => {
+                const dayHeader = document.createElement("div");
+                dayHeader.classList.add("day");
+                dayHeader.textContent = day;
+                calendar.appendChild(dayHeader);
+            });
+
             for (let i = 0; i < daysInMonth; i++) {
                 const dayElement = document.createElement("div");
                 dayElement.classList.add("day");
+
+                dayElement.addEventListener("click", () => {
+                    handleDayClick(dayElement);
+                });
 
                 const day = i - currentDate.getDay() + 1;
                 if (day <= 0) {
                     dayElement.textContent = daysInPrevMonth + day;
                     dayElement.classList.add("prev-month");
-                } else if (day > new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate()) {
-                    dayElement.textContent = day - new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-                    dayElement.classList.add("next-month");
-                } else {
-                    dayElement.textContent = day;
-                    if (day === currentDay) {
-                        dayElement.classList.add("current-day");
-                    }
                 }
 
                 calendar.appendChild(dayElement);
             }
         }
 
+        function handleDayClick(dayElement) {
+            if (selectedDate) {
+                selectedDate.classList.remove("selected");
+            }
+
+            selectedDate = dayElement;
+            selectedDate.classList.add("selected");
+            selectedDay.textContent = `Valgt dag: ${dayElement.textContent}`;
+        }
+
+        function assignScheduleToDay(scheduleLi) {
+            if (selectedDate) {
+                const index = scheduleLi.dataset.index;
+                const selectedDayText = selectedDate.textContent;
+                alert(`Tildelt ${schedules[index].name} til ${selectedDayText}`);
+            } else {
+                alert("Velg en dag i kalenderen først.");
+            }
+        }
+
         createCalendar();
+
+        scheduleList.appendChild(selectedDay);
     </script>
 </body>
 </html>
