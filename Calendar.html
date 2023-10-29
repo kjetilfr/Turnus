@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>6-ukers Kalender</title>
+    <style>
+        .calendar {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+        }
+        .day {
+            border: 1px solid #ccc;
+            padding: 5px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>6-ukers Kalender</h1>
+    <div class="calendar" id="calendar"></div>
+
+    <script>
+        function createCalendar() {
+            const calendar = document.getElementById("calendar");
+            const daysInMonth = 42; // 6 uker
+            const currentDate = new Date();
+            const currentDay = currentDate.getDate();
+            const daysInPrevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 0).getDate();
+
+            for (let i = 0; i < daysInMonth; i++) {
+                const dayElement = document.createElement("div");
+                dayElement.classList.add("day");
+
+                const day = i - currentDate.getDay() + 1;
+                if (day <= 0) {
+                    dayElement.textContent = daysInPrevMonth + day;
+                    dayElement.classList.add("prev-month");
+                } else if (day > new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate()) {
+                    dayElement.textContent = day - new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+                    dayElement.classList.add("next-month");
+                } else {
+                    dayElement.textContent = day;
+                    if (day === currentDay) {
+                        dayElement.classList.add("current-day");
+                    }
+                }
+
+                calendar.appendChild(dayElement);
+            }
+        }
+
+        createCalendar();
+    </script>
+</body>
+</html>
