@@ -1,3 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grid Generator</title>
+  <style>
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 20px;
+    }
+    table, th, td {
+      border: 1px solid black;
+    }
+    th, td {
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
+    }
+    #listButton, #generateButton {
+      margin-top: 10px;
+      padding: 5px;
+    }
+    #valuesList {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<button onclick="generateGrid()">Generate Grid</button>
+<button onclick="populateGrid()">Populate Grid with Values</button>
+
 <script>
   function generateGrid() {
     // Get the input value for rows
@@ -31,8 +65,8 @@
         const cell = document.createElement("td");
 
         if (j === 0) {
-          // The first column contains row numbers
-          cell.textContent = i;
+          // The first column contains "Week" followed by the row number
+          cell.textContent = "Week " + i;
         } else {
           // Other columns are empty for now
           cell.textContent = "";
@@ -55,5 +89,46 @@
 
     // Append the table to the body
     document.body.appendChild(table);
+
+    // Add the button for displaying the list of values
+    const listButton = document.createElement("button");
+    listButton.textContent = "Show List of Values";
+    listButton.id = "listButton";
+    listButton.addEventListener("click", showList);
+    document.body.appendChild(listButton);
+
+    // Add a container for displaying the list of values
+    const valuesListContainer = document.createElement("div");
+    valuesListContainer.id = "valuesList";
+    document.body.appendChild(valuesListContainer);
+  }
+
+  function populateGrid() {
+    // Get the input array of values
+    const inputValues = prompt("Enter an array of values separated by commas:");
+
+    // Convert the input string to an array
+    const valuesArray = inputValues.split(",");
+
+    // Get all the cells in the grid excluding the left column
+    const cells = document.querySelectorAll("td:not(:first-child)");
+
+    // Populate the cells with the values from the array
+    cells.forEach((cell, index) => {
+      cell.textContent = valuesArray[index] || "";
+    });
+  }
+
+  function showList() {
+    // Get all the values in the grid excluding the left column
+    const cells = document.querySelectorAll("td:not(:first-child)");
+    const values = Array.from(cells).map(cell => cell.textContent);
+
+    // Display the list of values in the container
+    const valuesListContainer = document.getElementById("valuesList");
+    valuesListContainer.textContent = "List of Values:\n" + values.join(", ");
   }
 </script>
+
+</body>
+</html>
