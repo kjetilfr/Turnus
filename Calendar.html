@@ -1,0 +1,59 @@
+<script>
+  function generateGrid() {
+    // Get the input value for rows
+    const rows = prompt("Enter the number of rows:");
+
+    // Create the table element
+    const table = document.createElement("table");
+
+    // Create the table header with weekdays
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+
+    const weekdays = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+    for (let i = 0; i < 8; i++) {
+      const th = document.createElement("th");
+      th.textContent = weekdays[i];
+      headerRow.appendChild(th);
+    }
+
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    // Create the table body with numbers
+    const tbody = document.createElement("tbody");
+
+    for (let i = 1; i <= rows; i++) {
+      const row = document.createElement("tr");
+
+      for (let j = 0; j < 8; j++) {
+        const cell = document.createElement("td");
+
+        if (j === 0) {
+          // The first column contains row numbers
+          cell.textContent = i;
+        } else {
+          // Other columns are empty for now
+          cell.textContent = "";
+          // Add a click event listener to each cell
+          cell.addEventListener("click", function() {
+            // Prompt the user to enter a value for the clicked cell
+            const value = prompt("Enter a value:");
+            // Set the value of the clicked cell
+            cell.textContent = value;
+          });
+        }
+
+        row.appendChild(cell);
+      }
+
+      tbody.appendChild(row);
+    }
+
+    table.appendChild(tbody);
+
+    // Append the table to the body
+    document.body.appendChild(table);
+  }
+</script>
