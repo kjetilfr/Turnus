@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Se ansatte</title>
+</head>
+<body>
+    {% include 'partials/_navbar.html' %}
+
+    <h1>Vakter</h1>
+    <table border="1">
+        <tr>
+            <th>ID</th>
+            <th>Navn</th>
+            <th>Start tidspunkt</th>
+            <th>Slutt tidspunkt</th>
+            <th>Lengde</th>
+        </tr>
+        {% for shift in shifts %}
+        <tr>
+            <td>{{ shift.Id }}</td>
+            <td>{{ shift.Name }}</td>
+            <td>{{ shift.StartTime }}</td>
+            <td>{{ shift.EndTime }}</td>
+            <td>{{ shift.Length }}</td>
+            <td><a href="/editShifts/{{ shift.Id }}">Rediger</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

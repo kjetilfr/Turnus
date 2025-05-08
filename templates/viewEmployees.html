@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Se ansatte</title>
+</head>
+<body>
+    {% include 'partials/_navbar.html' %}
+
+    <h1>Ansatte</h1>
+    <table border="1">
+        <tr>
+            <th>ID</th>
+            <th>Navn</th>
+            <th>Stillings Prosent</th>
+        </tr>
+        {% for emp in employees %}
+        <tr>
+            <td>{{ emp.Id }}</td>
+            <td>{{ emp.Name }}</td>
+            <td>{{ emp.PositionPercent }}</td>
+            <td><a href="/editEmployees/{{ emp.Id }}">Rediger</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>

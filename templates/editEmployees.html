@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Rediger ansatt</title>
+</head>
+<body>
+    {% include 'partials/_navbar.html' %}
+
+    <h1>Rediger ansatt</h1>
+    <form action="/updateEmployee/{{ employee.Id }}" method="post">
+        Navn: <input type="text" name="Name" value="{{ employee.Name }}"><br>
+        Stillings Prosent: <input type="text" name="PositionPercent" value="{{ employee.PositionPercent }}"><br>
+        <input type="submit" value="Oppdater">
+    </form>
+</body>
+</html>
