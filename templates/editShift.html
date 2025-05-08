@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Rediger ansatt</title>
+</head>
+<body>
+    {% include 'partials/_navbar.html' %}
+
+    <h1>Rediger ansatt</h1>
+    <form action="/updateShift/{{ shift.Id }}" method="post">
+        Navn: <input type="text" name="Name" value="{{ employee.Name }}"><br>
+        Start tidspunkt: <input type="text" name="StartTime" value="{{ shift.StartTime }}"><br>
+        Slutt tidspunkt: <input type="text" name="EndTime" value="{{ shift.EndTime }}"><br>
+        Lengde: <input type="text" name="Length" value="{{ shift.Length }}"><br>
+        <input type="submit" value="Oppdater">
+    </form>
+</body>
+</html>

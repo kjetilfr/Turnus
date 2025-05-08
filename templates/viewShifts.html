@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Se ansatte</title>
+    <title>Se vakter</title>
 </head>
 <body>
     {% include 'partials/_navbar.html' %}
@@ -22,7 +22,7 @@
             <td>{{ shift.StartTime }}</td>
             <td>{{ shift.EndTime }}</td>
             <td>{{ shift.Length }}</td>
-            <td><a href="/editShifts/{{ shift.Id }}">Rediger</a></td>
+            <td><a href="/editShift/{{ shift.Id }}">Rediger</a></td>
         </tr>
         {% endfor %}
     </table>

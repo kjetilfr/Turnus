@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Registrer Skift</title>
+</head>
+<body>
+    {% include 'partials/_navbar.html' %}
+    <h1>Legg til nytt skift</h1>
+    <form action="/createShift" method="post">
+        Navn: <input type="text" name="Name"><br>
+        Start tidspunkt: <input type="text" name="StartTime"><br>
+        Slutt tidspunkt: <input type="text" name="EndTime"><br>
+        Lengde: <input type="text" name="Length"><br>
+        <input type="submit" value="Lagre">
+    </form>
+</body>
+</html>
