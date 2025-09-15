@@ -36,7 +36,10 @@ export default function SettingsPage() {
   const handleDarkModeToggle = () => {
     if (mounted) {
       toggleDarkMode()
-      showMessage(`Dark mode ${!darkMode ? 'enabled' : 'disabled'}`, 'success')
+      // Use setTimeout to ensure the toggle happens first
+      setTimeout(() => {
+        showMessage(`Dark mode ${!darkMode ? 'enabled' : 'disabled'}`, 'success')
+      }, 50)
     }
   }
 
@@ -228,43 +231,24 @@ export default function SettingsPage() {
                     <p className="text-sm text-gray-600 dark:text-gray-300">
                       Switch between light and dark themes
                     </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Currently: {darkMode ? 'Dark' : 'Light'} mode
+                    </p>
                   </div>
                   <button
                     type="button"
                     onClick={handleDarkModeToggle}
                     disabled={!mounted}
                     className={`${
-                      darkMode ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
+                      darkMode ? 'bg-blue-600' : 'bg-gray-200'
                     } relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50`}
                   >
+                    <span className="sr-only">Toggle dark mode</span>
                     <span
                       className={`${
                         darkMode ? 'translate-x-5' : 'translate-x-0'
                       } pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200`}
                     />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Danger Zone */}
-            <div className="bg-white dark:bg-gray-800 shadow rounded-lg border border-red-200 dark:border-red-800 transition-colors duration-200">
-              <div className="px-6 py-4 border-b border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
-                <h2 className="text-lg font-medium text-red-900 dark:text-red-300">Danger Zone</h2>
-              </div>
-              <div className="px-6 py-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-medium text-black dark:text-white">Sign Out</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                      Sign out of your account on this device
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleSignOut}
-                    className="px-4 py-2 border border-red-300 dark:border-red-700 rounded-md shadow-sm text-sm font-medium text-red-700 dark:text-red-300 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
-                  >
-                    Sign Out
                   </button>
                 </div>
               </div>

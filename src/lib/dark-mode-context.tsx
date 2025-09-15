@@ -16,12 +16,15 @@ export function DarkModeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setMounted(true)
-    // Check localStorage after component mounts
-    const savedDarkMode = localStorage.getItem('darkMode') === 'true'
-    setDarkMode(savedDarkMode)
     
-    // Apply the saved preference
-    if (savedDarkMode) {
+    // Check localStorage after component mounts
+    const savedDarkMode = localStorage.getItem('darkMode')
+    const shouldUseDarkMode = savedDarkMode === 'true'
+    
+    setDarkMode(shouldUseDarkMode)
+    
+    // Apply the preference to the document
+    if (shouldUseDarkMode) {
       document.documentElement.classList.add('dark')
     } else {
       document.documentElement.classList.remove('dark')
@@ -33,7 +36,7 @@ export function DarkModeProvider({ children }: { children: ReactNode }) {
     setDarkMode(newDarkMode)
     localStorage.setItem('darkMode', newDarkMode.toString())
     
-    // Apply to document
+    // Apply to document immediately
     if (newDarkMode) {
       document.documentElement.classList.add('dark')
     } else {
