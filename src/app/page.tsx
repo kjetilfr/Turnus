@@ -11,16 +11,16 @@ export default function HomePage() {
   // Show loading while components mount
   if (loading || !mounted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-xl">Loading...</div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center transition-colors duration-300">
+        <div className="text-xl text-gray-900 dark:text-white">Loading...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
       {/* Navigation */}
-      <nav className="bg-white dark:bg-gray-800 shadow transition-colors duration-200">
+      <nav className="bg-white dark:bg-gray-800 shadow transition-colors duration-300 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
@@ -63,11 +63,11 @@ export default function HomePage() {
       {/* Hero Section */}
       <main className="max-w-7xl mx-auto py-12 sm:px-6 lg:px-8">
         <div className="text-center">
-          <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white sm:text-5xl md:text-6xl">
+          <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white sm:text-5xl md:text-6xl transition-colors duration-300">
             Welcome to{' '}
             <span className="text-blue-600 dark:text-blue-400">My Next.js App</span>
           </h1>
-          <p className="mt-3 max-w-md mx-auto text-base text-gray-500 dark:text-gray-300 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
+          <p className="mt-3 max-w-md mx-auto text-base text-gray-500 dark:text-gray-300 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl transition-colors duration-300">
             Built with Next.js and Supabase. A modern web application with authentication,
             user management, and more features coming soon.
           </p>
@@ -85,7 +85,7 @@ export default function HomePage() {
               <div className="mt-3 rounded-md shadow sm:mt-0 sm:ml-3">
                 <Link
                   href="/login"
-                  className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 md:py-4 md:text-lg md:px-10 transition-colors duration-200"
+                  className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 md:py-4 md:text-lg md:px-10 transition-colors duration-200 border border-gray-300 dark:border-gray-600"
                 >
                   Sign In
                 </Link>
@@ -99,7 +99,7 @@ export default function HomePage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="lg:text-center">
               <h2 className="text-base text-blue-600 dark:text-blue-400 font-semibold tracking-wide uppercase">Features</h2>
-              <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
+              <p className="mt-2 text-3xl leading-8 font-extrabold tracking-tight text-gray-900 dark:text-white sm:text-4xl transition-colors duration-300">
                 Everything you need to get started
               </p>
             </div>
@@ -112,8 +112,8 @@ export default function HomePage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <p className="ml-16 text-lg leading-6 font-medium text-gray-900 dark:text-white">Secure Authentication</p>
-                  <p className="mt-2 ml-16 text-base text-gray-500 dark:text-gray-300">
+                  <p className="ml-16 text-lg leading-6 font-medium text-gray-900 dark:text-white transition-colors duration-300">Secure Authentication</p>
+                  <p className="mt-2 ml-16 text-base text-gray-500 dark:text-gray-300 transition-colors duration-300">
                     Built-in user authentication with email verification and secure sessions.
                   </p>
                 </div>
@@ -125,8 +125,8 @@ export default function HomePage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                   </div>
-                  <p className="ml-16 text-lg leading-6 font-medium text-gray-900 dark:text-white">User Settings</p>
-                  <p className="mt-2 ml-16 text-base text-gray-500 dark:text-gray-300">
+                  <p className="ml-16 text-lg leading-6 font-medium text-gray-900 dark:text-white transition-colors duration-300">User Settings</p>
+                  <p className="mt-2 ml-16 text-base text-gray-500 dark:text-gray-300 transition-colors duration-300">
                     Comprehensive settings page with password management and theme preferences.
                   </p>
                 </div>
@@ -137,8 +137,8 @@ export default function HomePage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                   </div>
-                  <p className="ml-16 text-lg leading-6 font-medium text-gray-900 dark:text-white">Fast & Modern</p>
-                  <p className="mt-2 ml-16 text-base text-gray-500 dark:text-gray-300">
+                  <p className="ml-16 text-lg leading-6 font-medium text-gray-900 dark:text-white transition-colors duration-300">Fast & Modern</p>
+                  <p className="mt-2 ml-16 text-base text-gray-500 dark:text-gray-300 transition-colors duration-300">
                     Built with Next.js 14, TypeScript, and Tailwind CSS for optimal performance.
                   </p>
                 </div>
@@ -149,12 +149,12 @@ export default function HomePage() {
 
         {/* Coming Soon Section */}
         {user && (
-          <div className="mt-20 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-8 transition-colors duration-200">
+          <div className="mt-20 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-8 transition-colors duration-300 border border-blue-200 dark:border-blue-800">
             <div className="text-center">
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 transition-colors duration-300">
                 More Features Coming Soon!
               </h3>
-              <p className="text-gray-600 dark:text-gray-300 mb-6">
+              <p className="text-gray-600 dark:text-gray-300 mb-6 transition-colors duration-300">
                 We&apos;re working on exciting new features to enhance your experience.
               </p>
               <Link

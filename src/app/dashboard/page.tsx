@@ -34,19 +34,17 @@ export default function SettingsPage() {
   }
 
   const handleDarkModeToggle = () => {
+    console.log('Toggle clicked. Mounted:', mounted, 'Current dark mode:', darkMode)
     if (mounted) {
       toggleDarkMode()
-      // Use setTimeout to ensure the toggle happens first
-      setTimeout(() => {
-        showMessage(`Dark mode ${!darkMode ? 'enabled' : 'disabled'}`, 'success')
-      }, 50)
+      showMessage(`Switched to ${!darkMode ? 'dark' : 'light'} mode`, 'success')
     }
   }
 
   const showMessage = (text: string, type: 'success' | 'error') => {
     setMessage(text)
     setMessageType(type)
-    setTimeout(() => setMessage(''), 5000)
+    setTimeout(() => setMessage(''), 3000)
   }
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -89,8 +87,8 @@ export default function SettingsPage() {
   // Show loading while components mount
   if (loading || !mounted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-xl">Loading...</div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center transition-colors duration-200">
+        <div className="text-xl text-gray-900 dark:text-white">Loading...</div>
       </div>
     )
   }
@@ -98,8 +96,8 @@ export default function SettingsPage() {
   if (!user) return null
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-      <nav className="bg-white dark:bg-gray-800 shadow transition-colors duration-200">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+      <nav className="bg-white dark:bg-gray-800 shadow transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center space-x-4">
@@ -130,7 +128,7 @@ export default function SettingsPage() {
         <div className="px-4 py-6 sm:px-0">
           {/* Message Display */}
           {message && (
-            <div className={`mb-6 p-4 rounded-md transition-colors duration-200 ${
+            <div className={`mb-6 p-4 rounded-md transition-all duration-200 ${
               messageType === 'success' 
                 ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300' 
                 : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
@@ -141,22 +139,22 @@ export default function SettingsPage() {
 
           <div className="space-y-6">
             {/* Account Information */}
-            <div className="bg-white dark:bg-gray-800 shadow rounded-lg transition-colors duration-200">
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg transition-colors duration-300 border border-gray-200 dark:border-gray-700">
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-lg font-medium text-gray-900 dark:text-white">Account Information</h2>
               </div>
               <div className="px-6 py-4">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-black dark:text-white">Email</label>
+                    <label className="block text-sm font-medium text-gray-900 dark:text-white">Email</label>
                     <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{user.email}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-black dark:text-white">User ID</label>
-                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 font-mono">{user.id}</p>
+                    <label className="block text-sm font-medium text-gray-900 dark:text-white">User ID</label>
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 font-mono break-all">{user.id}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-black dark:text-white">Account Created</label>
+                    <label className="block text-sm font-medium text-gray-900 dark:text-white">Account Created</label>
                     <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
                       {new Date(user.created_at).toLocaleDateString()}
                     </p>
@@ -166,14 +164,14 @@ export default function SettingsPage() {
             </div>
 
             {/* Change Password */}
-            <div className="bg-white dark:bg-gray-800 shadow rounded-lg transition-colors duration-200">
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg transition-colors duration-300 border border-gray-200 dark:border-gray-700">
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-lg font-medium text-gray-900 dark:text-white">Change Password</h2>
               </div>
               <div className="px-6 py-4">
                 <form onSubmit={handlePasswordChange} className="space-y-4">
                   <div>
-                    <label htmlFor="new-password" className="block text-sm font-medium text-black dark:text-white">
+                    <label htmlFor="new-password" className="block text-sm font-medium text-gray-900 dark:text-white">
                       New Password
                     </label>
                     <input
@@ -190,7 +188,7 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div>
-                    <label htmlFor="confirm-password" className="block text-sm font-medium text-black dark:text-white">
+                    <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-900 dark:text-white">
                       Confirm New Password
                     </label>
                     <input
@@ -220,36 +218,49 @@ export default function SettingsPage() {
             </div>
 
             {/* Dark Mode Setting */}
-            <div className="bg-white dark:bg-gray-800 shadow rounded-lg transition-colors duration-200">
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg transition-colors duration-300 border border-gray-200 dark:border-gray-700">
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-lg font-medium text-gray-900 dark:text-white">Appearance</h2>
               </div>
               <div className="px-6 py-4">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-medium text-black dark:text-white">Dark Mode</h3>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">Dark Mode</h3>
                     <p className="text-sm text-gray-600 dark:text-gray-300">
                       Switch between light and dark themes
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Currently: {darkMode ? 'Dark' : 'Light'} mode
-                    </p>
+                    <div className="mt-2 text-xs space-y-1">
+                      <p className="text-gray-500 dark:text-gray-400">
+                        Status: <span className="font-medium">{darkMode ? 'Dark Mode' : 'Light Mode'}</span>
+                      </p>
+                      <p className="text-gray-500 dark:text-gray-400">
+                        Mounted: <span className="font-medium">{mounted ? 'Yes' : 'No'}</span>
+                      </p>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleDarkModeToggle}
-                    disabled={!mounted}
-                    className={`${
-                      darkMode ? 'bg-blue-600' : 'bg-gray-200'
-                    } relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50`}
-                  >
-                    <span className="sr-only">Toggle dark mode</span>
-                    <span
+                  <div className="flex-shrink-0 ml-4">
+                    <button
+                      type="button"
+                      onClick={handleDarkModeToggle}
+                      disabled={!mounted}
                       className={`${
-                        darkMode ? 'translate-x-5' : 'translate-x-0'
-                      } pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200`}
-                    />
-                  </button>
+                        darkMode ? 'bg-blue-600' : 'bg-gray-200'
+                      } relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50`}
+                    >
+                      <span className="sr-only">Toggle dark mode</span>
+                      <span
+                        className={`${
+                          darkMode ? 'translate-x-5' : 'translate-x-0'
+                        } pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200`}
+                      />
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-md transition-colors duration-200">
+                  <p className="text-xs text-gray-600 dark:text-gray-300">
+                    💡 <strong>Test:</strong> Try clicking the toggle above. The page background should change from light gray to dark gray, 
+                    and text should switch from dark to light. Check the browser console for debugging info.
+                  </p>
                 </div>
               </div>
             </div>
