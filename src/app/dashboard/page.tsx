@@ -5,6 +5,7 @@ import { useDarkMode } from '@/lib/dark-mode-context'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import DarkModeTest from '@/components/DarkModeTest'
 
 export default function SettingsPage() {
   const { user, loading, signOut } = useAuth()
@@ -265,6 +266,8 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+          {/* Add this before the last closing </div> */}
+            <DarkModeTest />
         </div>
       </main>
     </div>
