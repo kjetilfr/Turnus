@@ -11,6 +11,7 @@ export default function LoginForm() {
   const [message, setMessage] = useState('')
   const router = useRouter()
   const supabase = createClient()
+  const [rememberMe, setRememberMe] = useState(true)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,6 +59,19 @@ export default function LoginForm() {
           className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
         />
       </div>
+      <div className="flex items-center">
+        <input
+            id="remember-me"
+            name="remember-me"
+            type="checkbox"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+        />
+        <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+            Keep me signed in
+        </label>
+        </div>
       <button
         type="submit"
         disabled={loading}
