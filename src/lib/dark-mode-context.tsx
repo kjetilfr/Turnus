@@ -5,6 +5,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 interface DarkModeContextType {
   darkMode: boolean
   toggleDarkMode: () => void
+  mounted: boolean
 }
 
 const DarkModeContext = createContext<DarkModeContextType | undefined>(undefined)
@@ -40,13 +41,8 @@ export function DarkModeProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Prevent hydration mismatch
-  if (!mounted) {
-    return <>{children}</>
-  }
-
   return (
-    <DarkModeContext.Provider value={{ darkMode, toggleDarkMode }}>
+    <DarkModeContext.Provider value={{ darkMode, toggleDarkMode, mounted }}>
       {children}
     </DarkModeContext.Provider>
   )
@@ -55,7 +51,8 @@ export function DarkModeProvider({ children }: { children: ReactNode }) {
 export const useDarkMode = () => {
   const context = useContext(DarkModeContext)
   if (context === undefined) {
-    throw new Error('useDarkMode must be used within a DarkModeProvider')
+    // Return safe defaults during SSR
+    return { darkMode: false, toggleDarkMode: () => {}, mounted: false }
   }
   return context
 }

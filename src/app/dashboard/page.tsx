@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase'
 
 export default function SettingsPage() {
   const { user, loading, signOut } = useAuth()
-  const { darkMode, toggleDarkMode } = useDarkMode()
+  const { darkMode, toggleDarkMode, mounted } = useDarkMode()
   const router = useRouter()
   const supabase = createClient()
   
@@ -34,8 +34,10 @@ export default function SettingsPage() {
   }
 
   const handleDarkModeToggle = () => {
-    toggleDarkMode()
-    showMessage(`Dark mode ${!darkMode ? 'enabled' : 'disabled'}`, 'success')
+    if (mounted) {
+      toggleDarkMode()
+      showMessage(`Dark mode ${!darkMode ? 'enabled' : 'disabled'}`, 'success')
+    }
   }
 
   const showMessage = (text: string, type: 'success' | 'error') => {
@@ -81,10 +83,11 @@ export default function SettingsPage() {
     setIsChangingPassword(false)
   }
 
-  if (loading) {
+  // Show loading while components mount
+  if (loading || !mounted) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-xl dark:text-white">Loading...</div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-xl">Loading...</div>
       </div>
     )
   }
@@ -229,9 +232,10 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={handleDarkModeToggle}
+                    disabled={!mounted}
                     className={`${
                       darkMode ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
-                    } relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+                    } relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50`}
                   >
                     <span
                       className={`${

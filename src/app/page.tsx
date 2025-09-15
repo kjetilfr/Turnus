@@ -6,12 +6,13 @@ import { useDarkMode } from '@/lib/dark-mode-context'
 
 export default function HomePage() {
   const { user, loading } = useAuth()
-  const { darkMode } = useDarkMode()
+  const { mounted } = useDarkMode()
 
-  if (loading) {
+  // Show loading while components mount
+  if (loading || !mounted) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-xl dark:text-white">Loading...</div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-xl">Loading...</div>
       </div>
     )
   }
