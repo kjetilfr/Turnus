@@ -17,6 +17,7 @@ export default function HomePage() {
   const [creatingPlan, setCreatingPlan] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const supabase = createClient()
+  const [newPlanDuration, setNewPlanDuration] = useState(1)
 
   useEffect(() => {
     if (user) {
@@ -40,37 +41,39 @@ export default function HomePage() {
     }
   }
 
-  const createPlan = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!user || !newPlanName.trim()) return
+const createPlan = async (e: React.FormEvent) => {
+  e.preventDefault()
+  if (!user || !newPlanName.trim()) return
 
-    setCreatingPlan(true)
-    try {
-      const { data, error } = await supabase
-        .from('plans')
-        .insert([
-          {
-            name: newPlanName.trim(),
-            description: newPlanDescription.trim() || null,
-            user_id: user.id,
-          },
-        ])
-        .select()
-        .single()
+  setCreatingPlan(true)
+  try {
+    const { data, error } = await supabase
+      .from('plans')
+      .insert([
+        {
+          name: newPlanName.trim(),
+          description: newPlanDescription.trim() || null,
+          duration_weeks: newPlanDuration, // Add this line
+          user_id: user.id,
+        },
+      ])
+      .select()
+      .single()
 
-      if (error) throw error
+    if (error) throw error
 
-      setPlans([data, ...plans])
-      setNewPlanName('')
-      setNewPlanDescription('')
-      setShowCreateForm(false)
-    } catch (error) {
-      console.error('Error creating plan:', error)
-      alert('Failed to create plan')
-    } finally {
-      setCreatingPlan(false)
-    }
+    setPlans([data, ...plans])
+    setNewPlanName('')
+    setNewPlanDescription('')
+    setNewPlanDuration(1) // Add this line
+    setShowCreateForm(false)
+  } catch (error) {
+    console.error('Error creating plan:', error)
+    alert('Failed to create plan')
+  } finally {
+    setCreatingPlan(false)
   }
+}
 
   const deletePlan = async (planId: string) => {
     if (!confirm('Are you sure you want to delete this plan? This will also delete all shifts and rotations.')) {
@@ -309,6 +312,26 @@ export default function HomePage() {
                       placeholder="Brief description of this schedule plan..."
                     />
                   </div>
+                  <div>
+                  <label htmlFor="plan-duration" className="block text-sm font-medium text-gray-900 dark:text-white">
+                    Duration (weeks)
+                  </label>
+                  <select
+                    id="plan-duration"
+                    value={newPlanDuration}
+                    onChange={(e) => setNewPlanDuration(parseInt(e.target.value))}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200"
+                  >
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((week) => (
+                      <option key={week} value={week}>
+                        {week} week{week !== 1 ? 's' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    How many weeks this schedule plan will run for
+                  </p>
+                </div>
                 </div>
                 <div className="mt-6 flex items-center justify-end space-x-3">
                   <button
