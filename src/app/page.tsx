@@ -28,7 +28,7 @@ export default function Home() {
             Welcome back!
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            You're signed in as {user.email}
+            You&apos;re signed in as {user.email}
           </p>
         </div>
 
