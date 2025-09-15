@@ -2,21 +2,11 @@
 
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth-context'
-import { useEffect, useState } from 'react'
+import { useDarkMode } from '@/lib/dark-mode-context'
 
 export default function HomePage() {
   const { user, loading } = useAuth()
-  const [darkMode, setDarkMode] = useState(false)
-
-  useEffect(() => {
-    // Check for saved dark mode preference
-    const savedDarkMode = localStorage.getItem('darkMode') === 'true'
-    setDarkMode(savedDarkMode)
-    
-    if (savedDarkMode) {
-      document.documentElement.classList.add('dark')
-    }
-  }, [])
+  const { darkMode } = useDarkMode()
 
   if (loading) {
     return (

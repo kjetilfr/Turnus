@@ -15,13 +15,19 @@ export default function RegisterForm() {
     setLoading(true)
     setMessage('')
 
-    // Get the correct redirect URL based on environment
+    // Get the correct redirect URL
     const getRedirectUrl = () => {
+      // First priority: Environment variable
+      if (process.env.NEXT_PUBLIC_SITE_URL) {
+        return `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
+      }
+      
+      // Second priority: Current origin (for development)
       if (typeof window !== 'undefined') {
-        // Use the current origin (works for both localhost and production)
         return `${window.location.origin}/auth/callback`
       }
-      // Fallback for server-side rendering
+      
+      // Fallback: Production URL
       return 'https://turnus-eight.vercel.app/auth/callback'
     }
 
@@ -53,20 +59,6 @@ export default function RegisterForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-        />
-      </div>
-      <div>
-        <label htmlFor="password" className="block text-sm font-medium text-black">
-          Password
-        </label>
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={6}
           className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
         />
       </div>

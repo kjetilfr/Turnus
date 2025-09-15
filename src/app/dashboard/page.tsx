@@ -1,17 +1,18 @@
 'use client'
 
 import { useAuth } from '@/lib/auth-context'
+import { useDarkMode } from '@/lib/dark-mode-context'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
 export default function SettingsPage() {
   const { user, loading, signOut } = useAuth()
+  const { darkMode, toggleDarkMode } = useDarkMode()
   const router = useRouter()
   const supabase = createClient()
   
   // Settings state
-  const [darkMode, setDarkMode] = useState(false)
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -25,17 +26,6 @@ export default function SettingsPage() {
     if (!loading && !user) {
       router.push('/login')
     }
-    
-    // Load dark mode preference from localStorage
-    const savedDarkMode = localStorage.getItem('darkMode') === 'true'
-    setDarkMode(savedDarkMode)
-    
-    // Apply dark mode on page load
-    if (savedDarkMode) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
   }, [user, loading, router])
 
   const handleSignOut = async () => {
@@ -43,19 +33,9 @@ export default function SettingsPage() {
     router.push('/')
   }
 
-  const toggleDarkMode = () => {
-    const newDarkMode = !darkMode
-    setDarkMode(newDarkMode)
-    localStorage.setItem('darkMode', newDarkMode.toString())
-    
-    // Apply dark mode to document
-    if (newDarkMode) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-    
-    showMessage('Dark mode ' + (newDarkMode ? 'enabled' : 'disabled'), 'success')
+  const handleDarkModeToggle = () => {
+    toggleDarkMode()
+    showMessage(`Dark mode ${!darkMode ? 'enabled' : 'disabled'}`, 'success')
   }
 
   const showMessage = (text: string, type: 'success' | 'error') => {
@@ -248,7 +228,7 @@ export default function SettingsPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={toggleDarkMode}
+                    onClick={handleDarkModeToggle}
                     className={`${
                       darkMode ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
                     } relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
