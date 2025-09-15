@@ -34,7 +34,7 @@ export default function RegisterForm() {
   return (
     <form onSubmit={handleRegister} className="space-y-4 max-w-md mx-auto">
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="email" className="block text-sm font-medium text-black">
           Email
         </label>
         <input
@@ -47,7 +47,7 @@ export default function RegisterForm() {
         />
       </div>
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="password" className="block text-sm font-medium text-black">
           Password
         </label>
         <input

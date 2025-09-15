@@ -1,7 +1,33 @@
+'use client'
+
 import LoginForm from '@/components/auth/LoginForm'
 import Link from 'next/link'
+import { useAuth } from '@/lib/auth-context'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 
 export default function LoginPage() {
+  const { user, loading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.push('/dashboard')
+    }
+  }, [user, loading, router])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-xl">Loading...</div>
+      </div>
+    )
+  }
+
+  if (user) {
+    return null // Will redirect to dashboard
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -27,7 +53,7 @@ export default function LoginPage() {
                 href="/register"
                 className="font-medium text-blue-600 hover:text-blue-500"
               >
-                Don&apos;t have an account? Sign up
+                Don't have an account? Sign up
               </Link>
             </div>
           </div>

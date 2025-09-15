@@ -34,7 +34,7 @@ export default function LoginForm() {
   return (
     <form onSubmit={handleLogin} className="space-y-4 max-w-md mx-auto">
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="email" className="block text-sm font-medium text-black">
           Email
         </label>
         <input
@@ -47,7 +47,7 @@ export default function LoginForm() {
         />
       </div>
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="password" className="block text-sm font-medium text-black">
           Password
         </label>
         <input
@@ -68,7 +68,7 @@ export default function LoginForm() {
             onChange={(e) => setRememberMe(e.target.checked)}
             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
         />
-        <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+        <label htmlFor="remember-me" className="ml-2 block text-sm text-black">
             Keep me signed in
         </label>
         </div>
