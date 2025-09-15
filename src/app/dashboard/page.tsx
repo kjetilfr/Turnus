@@ -32,7 +32,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-80 flex items-center justify-center">
         <div className="text-xl">Loading...</div>
       </div>
     )
@@ -43,9 +43,9 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-80">
       <nav className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl text-black mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <h1 className="text-xl font-semibold">Dashboard</h1>
@@ -66,7 +66,7 @@ export default function Dashboard() {
         <div className="px-4 py-6 sm:px-0">
           <div className="border-4 border-dashed border-gray-200 rounded-lg p-6">
             <h2 className="text-2xl font-bold mb-4">Welcome to your Dashboard!</h2>
-            <div className="bg-white shadow rounded-lg p-6">
+            <div className="bg-black shadow rounded-lg p-6">
               <h3 className="text-lg font-medium mb-4">User Information</h3>
               <div className="space-y-2">
                 <p><strong>Email:</strong> {user.email}</p>
@@ -76,7 +76,7 @@ export default function Dashboard() {
               </div>
             </div>
             
-            <div className="mt-6 bg-white shadow rounded-lg p-6">
+            <div className="mt-6 bg-black shadow rounded-lg p-6">
               <h3 className="text-lg font-medium mb-4">Dashboard Stats</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-blue-50 p-4 rounded-lg">
