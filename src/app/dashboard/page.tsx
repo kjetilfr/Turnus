@@ -140,27 +140,27 @@ export default function SettingsPage() {
           <div className="space-y-6">
             {/* Account Information */}
             <div className="bg-white dark:bg-gray-800 shadow rounded-lg transition-colors duration-300 border border-gray-200 dark:border-gray-700">
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-lg font-medium text-gray-900 dark:text-white">Account Information</h2>
-              </div>
-              <div className="px-6 py-4">
+            </div>
+            <div className="px-6 py-4">
                 <div className="space-y-4">
-                  <div>
+                <div>
                     <label className="block text-sm font-medium text-gray-900 dark:text-white">Email</label>
                     <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{user.email}</p>
-                  </div>
-                  <div>
+                </div>
+                <div>
                     <label className="block text-sm font-medium text-gray-900 dark:text-white">User ID</label>
                     <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 font-mono break-all">{user.id}</p>
-                  </div>
-                  <div>
+                </div>
+                <div>
                     <label className="block text-sm font-medium text-gray-900 dark:text-white">Account Created</label>
                     <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                      {new Date(user.created_at).toLocaleDateString()}
+                    {new Date(user.created_at).toLocaleDateString()}
                     </p>
-                  </div>
                 </div>
-              </div>
+                </div>
+            </div>
             </div>
 
             {/* Change Password */}
