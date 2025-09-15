@@ -15,11 +15,21 @@ export default function RegisterForm() {
     setLoading(true)
     setMessage('')
 
+    // Get the correct redirect URL based on environment
+    const getRedirectUrl = () => {
+      if (typeof window !== 'undefined') {
+        // Use the current origin (works for both localhost and production)
+        return `${window.location.origin}/auth/callback`
+      }
+      // Fallback for server-side rendering
+      return 'https://turnus-eight.vercel.app/auth/callback'
+    }
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${location.origin}/auth/callback`,
+        emailRedirectTo: getRedirectUrl(),
       },
     })
 
@@ -43,7 +53,7 @@ export default function RegisterForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
         />
       </div>
       <div>
@@ -57,7 +67,7 @@ export default function RegisterForm() {
           onChange={(e) => setPassword(e.target.value)}
           required
           minLength={6}
-          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-black"
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
         />
       </div>
       <button

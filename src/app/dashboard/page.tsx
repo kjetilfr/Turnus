@@ -29,6 +29,13 @@ export default function SettingsPage() {
     // Load dark mode preference from localStorage
     const savedDarkMode = localStorage.getItem('darkMode') === 'true'
     setDarkMode(savedDarkMode)
+    
+    // Apply dark mode on page load
+    if (savedDarkMode) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
   }, [user, loading, router])
 
   const handleSignOut = async () => {
@@ -96,8 +103,8 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-xl">Loading...</div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-xl dark:text-white">Loading...</div>
       </div>
     )
   }
@@ -105,26 +112,26 @@ export default function SettingsPage() {
   if (!user) return null
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+      <nav className="bg-white dark:bg-gray-800 shadow transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => router.push('/')}
-                className="text-gray-600 hover:text-gray-900"
+                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors duration-200"
               >
                 ← Back to Home
               </button>
-              <h1 className="text-xl font-semibold">Settings</h1>
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Settings</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-gray-600 dark:text-gray-300">
                 {user.email?.split('@')[0]}
               </span>
               <button
                 onClick={handleSignOut}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
               >
                 Sign Out
               </button>
@@ -137,10 +144,10 @@ export default function SettingsPage() {
         <div className="px-4 py-6 sm:px-0">
           {/* Message Display */}
           {message && (
-            <div className={`mb-6 p-4 rounded-md ${
+            <div className={`mb-6 p-4 rounded-md transition-colors duration-200 ${
               messageType === 'success' 
-                ? 'bg-green-50 border border-green-200 text-green-700' 
-                : 'bg-red-50 border border-red-200 text-red-700'
+                ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300' 
+                : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
             }`}>
               {message}
             </div>
@@ -148,23 +155,23 @@ export default function SettingsPage() {
 
           <div className="space-y-6">
             {/* Account Information */}
-            <div className="bg-white shadow rounded-lg">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Account Information</h2>
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg transition-colors duration-200">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Account Information</h2>
               </div>
               <div className="px-6 py-4">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-black">Email</label>
-                    <p className="mt-1 text-sm text-gray-600">{user.email}</p>
+                    <label className="block text-sm font-medium text-black dark:text-white">Email</label>
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{user.email}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-black">User ID</label>
-                    <p className="mt-1 text-sm text-gray-600 font-mono">{user.id}</p>
+                    <label className="block text-sm font-medium text-black dark:text-white">User ID</label>
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 font-mono">{user.id}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-black">Account Created</label>
-                    <p className="mt-1 text-sm text-gray-600">
+                    <label className="block text-sm font-medium text-black dark:text-white">Account Created</label>
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
                       {new Date(user.created_at).toLocaleDateString()}
                     </p>
                   </div>
@@ -173,14 +180,14 @@ export default function SettingsPage() {
             </div>
 
             {/* Change Password */}
-            <div className="bg-white shadow rounded-lg">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Change Password</h2>
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg transition-colors duration-200">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Change Password</h2>
               </div>
               <div className="px-6 py-4">
                 <form onSubmit={handlePasswordChange} className="space-y-4">
                   <div>
-                    <label htmlFor="new-password" className="block text-sm font-medium text-black">
+                    <label htmlFor="new-password" className="block text-sm font-medium text-black dark:text-white">
                       New Password
                     </label>
                     <input
@@ -191,13 +198,13 @@ export default function SettingsPage() {
                         ...prev,
                         newPassword: e.target.value
                       }))}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200"
                       minLength={6}
                       required
                     />
                   </div>
                   <div>
-                    <label htmlFor="confirm-password" className="block text-sm font-medium text-black">
+                    <label htmlFor="confirm-password" className="block text-sm font-medium text-black dark:text-white">
                       Confirm New Password
                     </label>
                     <input
@@ -208,7 +215,7 @@ export default function SettingsPage() {
                         ...prev,
                         confirmPassword: e.target.value
                       }))}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200"
                       minLength={6}
                       required
                     />
@@ -217,7 +224,7 @@ export default function SettingsPage() {
                     <button
                       type="submit"
                       disabled={isChangingPassword}
-                      className="w-full sm:w-auto px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                      className="w-full sm:w-auto px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors duration-200"
                     >
                       {isChangingPassword ? 'Updating...' : 'Update Password'}
                     </button>
@@ -227,15 +234,15 @@ export default function SettingsPage() {
             </div>
 
             {/* Dark Mode Setting */}
-            <div className="bg-white shadow rounded-lg">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Appearance</h2>
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg transition-colors duration-200">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Appearance</h2>
               </div>
               <div className="px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-medium text-black">Dark Mode</h3>
-                    <p className="text-sm text-gray-600">
+                    <h3 className="text-sm font-medium text-black dark:text-white">Dark Mode</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
                       Switch between light and dark themes
                     </p>
                   </div>
@@ -243,7 +250,7 @@ export default function SettingsPage() {
                     type="button"
                     onClick={toggleDarkMode}
                     className={`${
-                      darkMode ? 'bg-blue-600' : 'bg-gray-200'
+                      darkMode ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
                     } relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
                   >
                     <span
@@ -257,21 +264,21 @@ export default function SettingsPage() {
             </div>
 
             {/* Danger Zone */}
-            <div className="bg-white shadow rounded-lg border border-red-200">
-              <div className="px-6 py-4 border-b border-red-200 bg-red-50">
-                <h2 className="text-lg font-medium text-red-900">Danger Zone</h2>
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg border border-red-200 dark:border-red-800 transition-colors duration-200">
+              <div className="px-6 py-4 border-b border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
+                <h2 className="text-lg font-medium text-red-900 dark:text-red-300">Danger Zone</h2>
               </div>
               <div className="px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-medium text-black">Sign Out</h3>
-                    <p className="text-sm text-gray-600">
+                    <h3 className="text-sm font-medium text-black dark:text-white">Sign Out</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
                       Sign out of your account on this device
                     </p>
                   </div>
                   <button
                     onClick={handleSignOut}
-                    className="px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    className="px-4 py-2 border border-red-300 dark:border-red-700 rounded-md shadow-sm text-sm font-medium text-red-700 dark:text-red-300 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
                   >
                     Sign Out
                   </button>
