@@ -22,7 +22,6 @@ export function DarkModeProvider({ children }: { children: ReactNode }) {
       } else {
         document.documentElement.classList.remove('dark')
       }
-      console.log('Applied dark mode:', isDark, 'Classes:', document.documentElement.classList.toString())
     }
   }
 
@@ -31,7 +30,6 @@ export function DarkModeProvider({ children }: { children: ReactNode }) {
     
     // Check localStorage after component mounts
     const savedDarkMode = localStorage.getItem('darkMode')
-    console.log('Saved dark mode from localStorage:', savedDarkMode)
     
     const shouldUseDarkMode = savedDarkMode === 'true'
     
@@ -47,14 +45,12 @@ export function DarkModeProvider({ children }: { children: ReactNode }) {
   }, [darkMode, mounted])
 
   const toggleDarkMode = () => {
-    console.log('Toggling dark mode. Current:', darkMode, 'New:', !darkMode)
     const newDarkMode = !darkMode
     
     setDarkMode(newDarkMode)
     localStorage.setItem('darkMode', newDarkMode.toString())
     applyDarkMode(newDarkMode)
     
-    console.log('Dark mode toggled to:', newDarkMode)
   }
 
   return (

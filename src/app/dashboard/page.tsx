@@ -229,14 +229,6 @@ export default function SettingsPage() {
                     <p className="text-sm text-gray-600 dark:text-gray-300">
                       Switch between light and dark themes
                     </p>
-                    <div className="mt-2 text-xs space-y-1">
-                      <p className="text-gray-500 dark:text-gray-400">
-                        Status: <span className="font-medium">{darkMode ? 'Dark Mode' : 'Light Mode'}</span>
-                      </p>
-                      <p className="text-gray-500 dark:text-gray-400">
-                        Mounted: <span className="font-medium">{mounted ? 'Yes' : 'No'}</span>
-                      </p>
-                    </div>
                   </div>
                   <div className="flex-shrink-0 ml-4">
                     <button
@@ -255,12 +247,6 @@ export default function SettingsPage() {
                       />
                     </button>
                   </div>
-                </div>
-                <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-md transition-colors duration-200">
-                  <p className="text-xs text-gray-600 dark:text-gray-300">
-                    💡 <strong>Test:</strong> Try clicking the toggle above. The page background should change from light gray to dark gray, 
-                    and text should switch from dark to light. Check the browser console for debugging info.
-                  </p>
                 </div>
               </div>
             </div>
