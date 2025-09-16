@@ -6,27 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import type { Plan, Shift, Rotation } from '@/types/scheduler'
 import Link from 'next/link'
-
-const DAYS_OF_WEEK = [
-  { id: 0, name: 'Sunday', short: 'Sun' },
-  { id: 1, name: 'Monday', short: 'Mon' },
-  { id: 2, name: 'Tuesday', short: 'Tue' },
-  { id: 3, name: 'Wednesday', short: 'Wed' },
-  { id: 4, name: 'Thursday', short: 'Thu' },
-  { id: 5, name: 'Friday', short: 'Fri' },
-  { id: 6, name: 'Saturday', short: 'Sat' },
-]
-
-const SHIFT_COLORS = [
-  '#3B82F6', // blue
-  '#10B981', // green
-  '#F59E0B', // yellow
-  '#EF4444', // red
-  '#8B5CF6', // purple
-  '#06B6D4', // cyan
-  '#F97316', // orange
-  '#84CC16', // lime
-]
+import { DAYS_OF_WEEK, SHIFT_COLORS } from '@/lib/constants'
 
 export default function PlanPage() {
   const { user, loading: authLoading } = useAuth()
@@ -606,11 +586,7 @@ export default function PlanPage() {
                                 return (
                                   <div
                                     key={`week-${weekIndex}-day-${day.id}`}
-                                    className={`text-center p-3 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer transition-all duration-200 ${
-                                      isSunday 
-                                        ? 'bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30' 
-                                        : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
-                                    }`}
+                                    className={`text-center p-3 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer transition-all duration-200 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600`}
                                     onClick={() => {
                                       const currentShiftId = dayRotation?.shift_id || ''
                                       const shiftIndex = shifts.findIndex(s => s.id === currentShiftId)

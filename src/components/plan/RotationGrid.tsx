@@ -2,16 +2,7 @@
 'use client'
 
 import type { Plan, Shift, Rotation } from '@/types/scheduler'
-
-const DAYS_OF_WEEK = [
-  { id: 1, name: 'Monday', short: 'Mon' },
-  { id: 2, name: 'Tuesday', short: 'Tue' },
-  { id: 3, name: 'Wednesday', short: 'Wed' },
-  { id: 4, name: 'Thursday', short: 'Thu' },
-  { id: 5, name: 'Friday', short: 'Fri' },
-  { id: 6, name: 'Saturday', short: 'Sat' },
-  { id: 7, name: 'Sunday', short: 'Sun' },
-]
+import { DAYS_OF_WEEK } from '@/lib/constants'
 
 interface RotationGridProps {
   plan: Plan
@@ -71,59 +62,55 @@ export default function RotationGrid({
                   
                   return (
                     <div
-                      key={`week-${weekIndex}-day-${day.id}`}
-                      className={`text-center p-3 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer transition-all duration-200 ${
-                        isSunday 
-                          ? 'bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30' 
-                          : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
-                      }`}
-                      onClick={() => handleDayClick(day.id)}
-                    >
-                      <div className={`text-xs font-medium mb-2 ${
-                        isSunday 
-                          ? 'text-red-700 dark:text-red-300' 
-                          : 'text-gray-900 dark:text-white'
-                      }`}>
-                        {day.short}
-                      </div>
-                      {assignedShift ? (
-                        <div className="space-y-1">
-                          <div
-                            className="w-4 h-4 rounded-full mx-auto"
-                            style={{ backgroundColor: assignedShift.color }}
-                          />
-                          <div className={`text-xs font-medium ${
+                        key={`week-${weekIndex}-day-${day.id}`}
+                        className={`text-center p-3 rounded-lg border border-gray-200 dark:border-gray-600 cursor-pointer transition-all duration-200 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600`}
+                        onClick={() => handleDayClick(day.id)}
+                        >
+                        <div className={`text-xs font-medium mb-2 ${
                             isSunday 
-                              ? 'text-red-800 dark:text-red-200' 
-                              : 'text-gray-900 dark:text-white'
-                          }`}>
-                            {assignedShift.name}
-                          </div>
-                          <div className={`text-xs ${
-                            isSunday 
-                              ? 'text-red-600 dark:text-red-400' 
-                              : 'text-gray-600 dark:text-gray-400'
-                          }`}>
-                            {formatTime(assignedShift.start_time)}
-                          </div>
-                          <div className={`text-xs ${
-                            isSunday 
-                              ? 'text-red-600 dark:text-red-400' 
-                              : 'text-gray-600 dark:text-gray-400'
-                          }`}>
-                            {formatTime(assignedShift.end_time)}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className={`text-xs ${
-                          isSunday 
-                            ? 'text-red-500 dark:text-red-400' 
-                            : 'text-gray-400 dark:text-gray-500'
+                            ? 'text-red-600 dark:text-red-400' 
+                            : 'text-gray-900 dark:text-white'
                         }`}>
-                          No shift
+                            {day.short}
                         </div>
-                      )}
-                    </div>
+                        {assignedShift ? (
+                            <div className="space-y-1">
+                            <div
+                                className="w-4 h-4 rounded-full mx-auto"
+                                style={{ backgroundColor: assignedShift.color }}
+                            />
+                            <div className={`text-xs font-medium ${
+                                isSunday 
+                                ? 'text-red-700 dark:text-red-300' 
+                                : 'text-gray-900 dark:text-white'
+                            }`}>
+                                {assignedShift.name}
+                            </div>
+                            <div className={`text-xs ${
+                                isSunday 
+                                ? 'text-red-600 dark:text-red-400' 
+                                : 'text-gray-600 dark:text-gray-400'
+                            }`}>
+                                {formatTime(assignedShift.start_time)}
+                            </div>
+                            <div className={`text-xs ${
+                                isSunday 
+                                ? 'text-red-600 dark:text-red-400' 
+                                : 'text-gray-600 dark:text-gray-400'
+                            }`}>
+                                {formatTime(assignedShift.end_time)}
+                            </div>
+                            </div>
+                        ) : (
+                            <div className={`text-xs ${
+                            isSunday 
+                                ? 'text-red-500 dark:text-red-400' 
+                                : 'text-gray-400 dark:text-gray-500'
+                            }`}>
+                            No shift
+                            </div>
+                        )}
+                        </div>
                   )
                 })}
               </div>
