@@ -1,3 +1,4 @@
+// src/types/scheduler.ts
 export interface Plan {
   id: string
   name: string
@@ -18,9 +19,11 @@ export interface Shift {
   created_at: string
 }
 
+// Updated Rotation interface to support individual day assignments
 export interface Rotation {
   id: string
   plan_id: string
+  week_index: number // 0 = first week, 1 = second week, etc.
   day_of_week: number // 0 = Sunday, 1 = Monday, etc.
   shift_id: string | null
   created_at: string
@@ -29,4 +32,11 @@ export interface Rotation {
 
 export interface WeeklyRotation {
   [key: number]: Shift | null // day_of_week -> shift
+}
+
+// Helper type for organizing rotations by week and day
+export interface WeeklySchedule {
+  [weekIndex: number]: {
+    [dayOfWeek: number]: Rotation | null
+  }
 }
