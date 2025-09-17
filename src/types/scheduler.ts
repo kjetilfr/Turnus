@@ -19,7 +19,7 @@ export interface Shift {
   created_at: string
 }
 
-// Updated Rotation interface to support individual day assignments
+// Updated Rotation interface to support individual week-day assignments
 export interface Rotation {
   id: string
   plan_id: string
@@ -40,3 +40,12 @@ export interface WeeklySchedule {
     [dayOfWeek: number]: Rotation | null
   }
 }
+
+// Default shift templates
+export const DEFAULT_SHIFTS = [
+  { name: 'F1', start_time: '00:00', end_time: '00:00', color: '#F59E0B' },
+  { name: 'F2', start_time: '00:00', end_time: '00:00', color: '#F59E0B' },
+  { name: 'F3', start_time: '00:00', end_time: '00:00', color: '#F59E0B' },
+  { name: 'F4', start_time: '00:00', end_time: '00:00', color: '#F59E0B' },
+  { name: 'F5', start_time: '00:00', end_time: '00:00', color: '#F59E0B' },
+]

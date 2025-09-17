@@ -6,6 +6,7 @@ import { useDarkMode } from '@/lib/dark-mode-context'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import type { Plan } from '@/types/scheduler'
+import { DEFAULT_SHIFTS } from '@/types/scheduler'
 
 export default function HomePage() {
   const { user, loading } = useAuth()
@@ -41,39 +42,55 @@ export default function HomePage() {
     }
   }
 
-const createPlan = async (e: React.FormEvent) => {
-  e.preventDefault()
-  if (!user || !newPlanName.trim()) return
+  const createPlan = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user || !newPlanName.trim()) return
 
-  setCreatingPlan(true)
-  try {
-    const { data, error } = await supabase
-      .from('plans')
-      .insert([
-        {
-          name: newPlanName.trim(),
-          description: newPlanDescription.trim() || null,
-          duration_weeks: newPlanDuration, // Add this line
-          user_id: user.id,
-        },
-      ])
-      .select()
-      .single()
+    setCreatingPlan(true)
+    try {
+      // Create the plan
+      const { data: planData, error: planError } = await supabase
+        .from('plans')
+        .insert([
+          {
+            name: newPlanName.trim(),
+            description: newPlanDescription.trim() || null,
+            duration_weeks: newPlanDuration,
+            user_id: user.id,
+          },
+        ])
+        .select()
+        .single()
 
-    if (error) throw error
+      if (planError) throw planError
 
-    setPlans([data, ...plans])
-    setNewPlanName('')
-    setNewPlanDescription('')
-    setNewPlanDuration(1) // Add this line
-    setShowCreateForm(false)
-  } catch (error) {
-    console.error('Error creating plan:', error)
-    alert('Failed to create plan')
-  } finally {
-    setCreatingPlan(false)
+      // Create default F1-F5 shifts for the new plan
+      const defaultShiftsData = DEFAULT_SHIFTS.map(shift => ({
+        ...shift,
+        plan_id: planData.id,
+      }))
+
+      const { error: shiftsError } = await supabase
+        .from('shifts')
+        .insert(defaultShiftsData)
+
+      if (shiftsError) {
+        console.error('Error creating default shifts:', shiftsError)
+        // Plan was created successfully, but shifts failed - continue anyway
+      }
+
+      setPlans([planData, ...plans])
+      setNewPlanName('')
+      setNewPlanDescription('')
+      setNewPlanDuration(1)
+      setShowCreateForm(false)
+    } catch (error) {
+      console.error('Error creating plan:', error)
+      alert('Failed to create plan')
+    } finally {
+      setCreatingPlan(false)
+    }
   }
-}
 
   const deletePlan = async (planId: string) => {
     if (!confirm('Are you sure you want to delete this plan? This will also delete all shifts and rotations.')) {
@@ -193,9 +210,9 @@ const createPlan = async (e: React.FormEvent) => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
-                    <p className="ml-16 text-lg leading-6 font-medium text-gray-900 dark:text-white transition-colors duration-300">Flexible Timing</p>
+                    <p className="ml-16 text-lg leading-6 font-medium text-gray-900 dark:text-white transition-colors duration-300">Drag & Drop Interface</p>
                     <p className="mt-2 ml-16 text-base text-gray-500 dark:text-gray-300 transition-colors duration-300">
-                      Set precise start and end times for each shift with automatic calculations.
+                      Easily assign shifts with an intuitive drag and drop interface for any day and week.
                     </p>
                   </div>
 
@@ -205,9 +222,9 @@ const createPlan = async (e: React.FormEvent) => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                       </svg>
                     </div>
-                    <p className="ml-16 text-lg leading-6 font-medium text-gray-900 dark:text-white transition-colors duration-300">Weekly Rotations</p>
+                    <p className="ml-16 text-lg leading-6 font-medium text-gray-900 dark:text-white transition-colors duration-300">Multi-Week Planning</p>
                     <p className="mt-2 ml-16 text-base text-gray-500 dark:text-gray-300 transition-colors duration-300">
-                      Assign shifts to each day of the week with visual rotation planning.
+                      Plan schedules up to 12 weeks with individual day assignments for maximum flexibility.
                     </p>
                   </div>
                 </div>
@@ -313,25 +330,25 @@ const createPlan = async (e: React.FormEvent) => {
                     />
                   </div>
                   <div>
-                  <label htmlFor="plan-duration" className="block text-sm font-medium text-gray-900 dark:text-white">
-                    Duration (weeks)
-                  </label>
-                  <select
-                    id="plan-duration"
-                    value={newPlanDuration}
-                    onChange={(e) => setNewPlanDuration(parseInt(e.target.value))}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200"
-                  >
-                    {Array.from({ length: 12 }, (_, i) => i + 1).map((week) => (
-                      <option key={week} value={week}>
-                        {week} week{week !== 1 ? 's' : ''}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    How many weeks this schedule plan will run for
-                  </p>
-                </div>
+                    <label htmlFor="plan-duration" className="block text-sm font-medium text-gray-900 dark:text-white">
+                      Duration (weeks)
+                    </label>
+                    <select
+                      id="plan-duration"
+                      value={newPlanDuration}
+                      onChange={(e) => setNewPlanDuration(parseInt(e.target.value))}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200"
+                    >
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((week) => (
+                        <option key={week} value={week}>
+                          {week} week{week !== 1 ? 's' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      How many weeks this schedule plan will run for. F1-F5 shifts will be created automatically.
+                    </p>
+                  </div>
                 </div>
                 <div className="mt-6 flex items-center justify-end space-x-3">
                   <button
@@ -364,7 +381,7 @@ const createPlan = async (e: React.FormEvent) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No plans yet</h3>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by creating your first schedule plan.</p>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by creating your first schedule plan with default F1-F5 shifts.</p>
               <div className="mt-6">
                 <button
                   onClick={() => setShowCreateForm(true)}

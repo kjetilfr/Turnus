@@ -7,13 +7,12 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import type { Plan, Shift, Rotation } from '@/types/scheduler'
 
-// Import the new components
+// Import the updated components
 import PlanNavigation from '@/components/plan/PlanNavigation'
 import PlanTabs from '@/components/plan/PlanTabs'
 import ShiftForm, { type ShiftFormData } from '@/components/plan/ShiftForm'
 import ShiftList from '@/components/plan/ShiftList'
 import RotationGrid from '@/components/plan/RotationGrid'
-import QuickAssignment from '@/components/plan/QuickAssignment'
 import ScheduleStatistics from '@/components/plan/ScheduleStatistics'
 
 export default function PlanPage() {
@@ -169,12 +168,14 @@ export default function PlanPage() {
     }
   }
 
-  // Rotation handlers
-  const handleRotationUpdate = async (dayOfWeek: number, shiftId: string | null) => {
+  // Updated rotation handler for week-specific assignments
+  const handleRotationUpdate = async (weekIndex: number, dayOfWeek: number, shiftId: string | null) => {
     if (!plan) return
 
     try {
-      const existingRotation = rotations.find(r => r.day_of_week === dayOfWeek)
+      const existingRotation = rotations.find(r => 
+        r.week_index === weekIndex && r.day_of_week === dayOfWeek
+      )
 
       if (existingRotation) {
         // Update existing rotation
@@ -193,6 +194,7 @@ export default function PlanPage() {
           .from('rotations')
           .insert([{
             plan_id: plan.id,
+            week_index: weekIndex,
             day_of_week: dayOfWeek,
             shift_id: shiftId,
           }])
@@ -328,16 +330,9 @@ export default function PlanPage() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {/* Schedule Grid */}
+                  {/* Updated Schedule Grid with drag and drop */}
                   <RotationGrid
                     plan={plan}
-                    shifts={shifts}
-                    rotations={rotations}
-                    onRotationUpdate={handleRotationUpdate}
-                  />
-
-                  {/* Quick Assignment */}
-                  <QuickAssignment
                     shifts={shifts}
                     rotations={rotations}
                     onRotationUpdate={handleRotationUpdate}
