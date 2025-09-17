@@ -17,21 +17,43 @@ function isFShift(shift: Shift): boolean {
 
 export default function ShiftList({ shifts, onEdit, onDelete, onCreateNew }: ShiftListProps) {
   const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(':')
-    return `${hours.padStart(2, '0')}:${minutes}`
+    // Handle both "HH:MM" and "HH:MM:SS" formats
+    const parts = time.split(':')
+    const hours = parts[0] || '00'
+    const minutes = parts[1] || '00'
+    return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`
   }
 
   const calculateShiftDuration = (startTime: string, endTime: string) => {
-    const start = new Date(`2000-01-01T${startTime}:00`)
-    let end = new Date(`2000-01-01T${endTime}:00`)
-    
-    if (end <= start) {
-      end = new Date(`2000-01-02T${endTime}:00`)
+    try {
+      // Parse time strings - handle both "HH:MM" and "HH:MM:SS" formats
+      const parseTime = (timeStr: string) => {
+        const parts = timeStr.split(':')
+        const hours = parseInt(parts[0]) || 0
+        const minutes = parseInt(parts[1]) || 0
+        return { hours, minutes }
+      }
+
+      const start = parseTime(startTime)
+      const end = parseTime(endTime)
+
+      // Create date objects for calculation
+      const startDate = new Date(2000, 0, 1, start.hours, start.minutes)
+      let endDate = new Date(2000, 0, 1, end.hours, end.minutes)
+      
+      // Handle overnight shifts (end time is before start time)
+      if (endDate <= startDate) {
+        endDate = new Date(2000, 0, 2, end.hours, end.minutes) // Next day
+      }
+      
+      const diffMs = endDate.getTime() - startDate.getTime()
+      const diffHours = diffMs / (1000 * 60 * 60)
+      
+      return isNaN(diffHours) ? 0 : diffHours
+    } catch (error) {
+      console.error('Error calculating shift duration:', error, { startTime, endTime })
+      return 0
     }
-    
-    const diffMs = end.getTime() - start.getTime()
-    const diffHours = diffMs / (1000 * 60 * 60)
-    return diffHours
   }
 
   // Filter out F shifts - they shouldn't be editable
@@ -132,49 +154,53 @@ export default function ShiftList({ shifts, onEdit, onDelete, onCreateNew }: Shi
             <h3 className="text-md font-medium text-gray-900 dark:text-white">Custom Shifts</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {editableShifts.map((shift) => (
-              <div key={shift.id} className="bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700 transition-colors duration-300 hover:shadow-md">
-                <div className="px-4 py-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      <div
-                        className="w-4 h-4 rounded-full"
-                        style={{ backgroundColor: shift.color }}
-                      />
-                      <h4 className="text-lg font-medium text-gray-900 dark:text-white">{shift.name}</h4>
+            {editableShifts.map((shift) => {
+              const duration = calculateShiftDuration(shift.start_time, shift.end_time)
+              
+              return (
+                <div key={shift.id} className="bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700 transition-colors duration-300 hover:shadow-md">
+                  <div className="px-4 py-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: shift.color }}
+                        />
+                        <h4 className="text-lg font-medium text-gray-900 dark:text-white">{shift.name}</h4>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={() => onEdit(shift)}
+                          className="text-gray-400 hover:text-blue-600 transition-colors duration-200"
+                          title="Edit shift"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => onDelete(shift.id)}
+                          className="text-gray-400 hover:text-red-600 transition-colors duration-200"
+                          title="Delete shift"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-1">
-                      <button
-                        onClick={() => onEdit(shift)}
-                        className="text-gray-400 hover:text-blue-600 transition-colors duration-200"
-                        title="Edit shift"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => onDelete(shift.id)}
-                        className="text-gray-400 hover:text-red-600 transition-colors duration-200"
-                        title="Delete shift"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                    <div className="text-sm text-gray-600 dark:text-gray-300">
+                      <p className="font-medium">
+                        {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                      </p>
+                      <p className="text-xs mt-1">
+                        {duration > 0 ? `${duration.toFixed(1)} hours` : 'Invalid time range'}
+                      </p>
                     </div>
-                  </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-300">
-                    <p className="font-medium">
-                      {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
-                    </p>
-                    <p className="text-xs mt-1">
-                      {calculateShiftDuration(shift.start_time, shift.end_time).toFixed(1)} hours
-                    </p>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
