@@ -1,3 +1,4 @@
+// src/app/plan/[id]/page.tsx - Updated handleEditShift function
 'use client'
 
 import { useAuth } from '@/lib/auth-context'
@@ -15,6 +16,11 @@ import ShiftList from '@/components/plan/ShiftList'
 import RotationGrid from '@/components/plan/RotationGrid'
 import ScheduleStatistics from '@/components/plan/ScheduleStatistics'
 import TestModal from '@/components/plan/TestModal'
+
+// Helper function to check if a shift is an F shift (F1-F5)
+function isFShift(shift: Shift): boolean {
+  return /^f[1-5]$/i.test(shift.name.trim())
+}
 
 export default function PlanPage() {
   const { user, loading: authLoading } = useAuth()
@@ -93,6 +99,12 @@ export default function PlanPage() {
   }
 
   const handleEditShift = (shift: Shift) => {
+    // Check if it's an F shift and prevent editing with a message
+    if (isFShift(shift)) {
+      alert('F Shifts (F1-F5) are system-managed and cannot be edited. Only colors can be changed through the interface.')
+      return
+    }
+    
     setEditingShift(shift)
     setShowShiftForm(true)
   }
@@ -104,6 +116,12 @@ export default function PlanPage() {
 
   const handleSaveShift = async (formData: ShiftFormData) => {
     if (!plan) return
+
+    // Prevent saving F shifts
+    if (editingShift && isFShift(editingShift)) {
+      alert('F Shifts cannot be modified')
+      return
+    }
 
     setSavingShift(true)
     try {
@@ -148,6 +166,13 @@ export default function PlanPage() {
   }
 
   const handleDeleteShift = async (shiftId: string) => {
+    // Find the shift to check if it's an F shift
+    const shift = shifts.find(s => s.id === shiftId)
+    if (shift && isFShift(shift)) {
+      alert('F Shifts (F1-F5) are system-managed and cannot be deleted.')
+      return
+    }
+
     if (!confirm('Are you sure you want to delete this shift? This will also remove it from any rotations.')) {
       return
     }

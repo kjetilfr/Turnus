@@ -1,3 +1,4 @@
+// src/components/plan/QuickAssignment.tsx
 'use client'
 
 import { DAYS_OF_WEEK } from '@/lib/constants'
@@ -9,6 +10,11 @@ interface QuickAssignmentProps {
   onRotationUpdate: (dayOfWeek: number, shiftId: string | null) => Promise<void>
 }
 
+// Helper function to check if a shift is an F shift (F1-F5)
+function isFShift(shift: Shift): boolean {
+  return /^f[1-5]$/i.test(shift.name.trim())
+}
+
 export default function QuickAssignment({ 
   shifts, 
   rotations, 
@@ -16,10 +22,7 @@ export default function QuickAssignment({
 }: QuickAssignmentProps) {
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(':')
-    const hour = parseInt(hours)
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
-    return `${displayHour}:${minutes} ${ampm}`
+    return `${hours.padStart(2, '0')}:${minutes}`
   }
 
   const getRotationForDay = (dayOfWeek: number) => {
@@ -40,6 +43,7 @@ export default function QuickAssignment({
             const dayRotation = getRotationForDay(day.id)
             const assignedShift = dayRotation?.shift
             const isSunday = day.id === 0
+            const isAssignedFShift = assignedShift && isFShift(assignedShift)
             
             return (
               <div key={day.id} className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-700 last:border-b-0">
@@ -52,17 +56,24 @@ export default function QuickAssignment({
                     {day.name}
                   </span>
                   {assignedShift && (
-                    <div className="flex items-center space-x-2">
+                    <div className={`flex items-center space-x-2 ${isAssignedFShift ? 'opacity-75' : ''}`}>
                       <div
-                        className="w-3 h-3 rounded-full"
+                        className={`w-3 h-3 rounded-full ${isAssignedFShift ? 'opacity-60' : ''}`}
                         style={{ backgroundColor: assignedShift.color }}
                       />
-                      <span className="text-sm text-gray-600 dark:text-gray-300">
+                      <span className={`text-sm text-gray-600 dark:text-gray-300 ${isAssignedFShift ? 'opacity-75' : ''}`}>
                         {assignedShift.name}
                       </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        ({formatTime(assignedShift.start_time)} - {formatTime(assignedShift.end_time)})
-                      </span>
+                      {!isAssignedFShift && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          ({formatTime(assignedShift.start_time)} - {formatTime(assignedShift.end_time)})
+                        </span>
+                      )}
+                      {isAssignedFShift && (
+                        <span className="text-xs text-blue-600 dark:text-blue-400 opacity-75">
+                          (times not used)
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -73,11 +84,14 @@ export default function QuickAssignment({
                     className="block w-48 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
                   >
                     <option value="">No shift</option>
-                    {shifts.map((shift) => (
-                      <option key={shift.id} value={shift.id}>
-                        {shift.name} ({formatTime(shift.start_time)} - {formatTime(shift.end_time)})
-                      </option>
-                    ))}
+                    {shifts.map((shift) => {
+                      const isShiftFShift = isFShift(shift)
+                      return (
+                        <option key={shift.id} value={shift.id}>
+                          {shift.name} {!isShiftFShift ? `(${formatTime(shift.start_time)} - ${formatTime(shift.end_time)})` : '(F shift)'}
+                        </option>
+                      )
+                    })}
                   </select>
                 </div>
               </div>

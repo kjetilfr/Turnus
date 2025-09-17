@@ -18,10 +18,7 @@ function isFShift(shift: Shift): boolean {
 export default function ShiftList({ shifts, onEdit, onDelete, onCreateNew }: ShiftListProps) {
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(':')
-    const hour = parseInt(hours)
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
-    return `${displayHour}:${minutes} ${ampm}`
+    return `${hours.padStart(2, '0')}:${minutes}`
   }
 
   const calculateShiftDuration = (startTime: string, endTime: string) => {
@@ -81,18 +78,18 @@ export default function ShiftList({ shifts, onEdit, onDelete, onCreateNew }: Shi
             {fShifts
               .sort((a, b) => a.name.localeCompare(b.name)) // F1, F2, F3, F4, F5
               .map((shift) => (
-              <div key={shift.id} className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors duration-300">
+              <div key={shift.id} className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors duration-300 opacity-75">
                 <div className="px-3 py-2">
                   <div className="flex items-center justify-center mb-1">
                     <div
-                      className="w-3 h-3 rounded-full mr-2"
+                      className="w-3 h-3 rounded-full mr-2 opacity-60"
                       style={{ backgroundColor: shift.color }}
                     />
                     <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-200">{shift.name}</h4>
                   </div>
                   <div className="text-center">
                     <p className="text-xs text-blue-600 dark:text-blue-400">
-                      Times managed by system
+                      Times not used
                     </p>
                   </div>
                 </div>
