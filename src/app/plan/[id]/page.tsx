@@ -14,6 +14,7 @@ import ShiftForm, { type ShiftFormData } from '@/components/plan/ShiftForm'
 import ShiftList from '@/components/plan/ShiftList'
 import RotationGrid from '@/components/plan/RotationGrid'
 import ScheduleStatistics from '@/components/plan/ScheduleStatistics'
+import TestModal from '@/components/plan/TestModal'
 
 export default function PlanPage() {
   const { user, loading: authLoading } = useAuth()
@@ -31,6 +32,7 @@ export default function PlanPage() {
   const [showShiftForm, setShowShiftForm] = useState(false)
   const [editingShift, setEditingShift] = useState<Shift | null>(null)
   const [savingShift, setSavingShift] = useState(false)
+  const [showTestModal, setShowTestModal] = useState(false)
 
   // Effects
   useEffect(() => {
@@ -303,11 +305,23 @@ export default function PlanPage() {
                     Plan duration: {plan.duration_weeks} week{plan.duration_weeks !== 1 ? 's' : ''}
                   </p>
                 </div>
-                {shifts.length === 0 && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Create shifts first to set up rotations
-                  </p>
-                )}
+                <div className="flex items-center space-x-3">
+                  {shifts.length === 0 ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Create shifts first to set up rotations
+                    </p>
+                  ) : (
+                    <button
+                      onClick={() => setShowTestModal(true)}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200"
+                    >
+                      <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Test
+                    </button>
+                  )}
+                </div>
               </div>
 
               {shifts.length === 0 ? (
@@ -349,6 +363,15 @@ export default function PlanPage() {
           )}
         </div>
       </main>
+
+      {/* Test Modal */}
+      <TestModal
+        isOpen={showTestModal}
+        onClose={() => setShowTestModal(false)}
+        plan={plan}
+        shifts={shifts}
+        rotations={rotations}
+      />
     </div>
   )
 }

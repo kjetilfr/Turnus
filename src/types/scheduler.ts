@@ -4,6 +4,7 @@ export interface Plan {
   name: string
   description?: string
   duration_weeks: number
+  f1_time_off?: number // Add this field for F1 minimum time off hours
   user_id: string
   created_at: string
   updated_at: string
