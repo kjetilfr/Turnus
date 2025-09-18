@@ -28,10 +28,7 @@ export default function RotationGrid({
 
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(':')
-    const hour = parseInt(hours)
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
-    return `${displayHour}:${minutes} ${ampm}`
+    return `${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}`
   }
 
   const getRotationForWeekDay = (weekIndex: number, dayOfWeek: number) => {
@@ -78,9 +75,8 @@ export default function RotationGrid({
         if (!draggedFrom) {
           await onRotationUpdate(weekIndex, dayOfWeek, draggedShift.id)
         } else {
-          // If dragging from another day, handle the swap/move
+          // If dragging from another day, always move (not copy)
           const currentRotation = getRotationForWeekDay(weekIndex, dayOfWeek)
-          const fromRotation = getRotationForWeekDay(draggedFrom.weekIndex, draggedFrom.dayOfWeek)
           
           // If dropping on same cell, do nothing
           if (draggedFrom.weekIndex === weekIndex && draggedFrom.dayOfWeek === dayOfWeek) {
@@ -249,20 +245,20 @@ export default function RotationGrid({
                         </div>
                         {assignedShift ? (
                           <div 
-                            className={`space-y-1 cursor-move ${isBeingDragged ? 'opacity-50' : ''} ${isAssignedFShift ? 'opacity-75' : ''}`}
+                            className={`space-y-1 cursor-move ${isBeingDragged ? 'opacity-50' : ''}`}
                             draggable
                             onDragStart={(e) => handleDragStart(e, assignedShift, weekIndex, day.id)}
                             onDragEnd={handleDragEnd}
                           >
                             <div
-                              className={`w-4 h-4 rounded-full mx-auto ${isAssignedFShift ? 'opacity-60' : ''}`}
+                              className="w-4 h-4 rounded-full mx-auto"
                               style={{ backgroundColor: assignedShift.color }}
                             />
                             <div className={`text-xs font-medium ${
                               isSunday 
                                 ? 'text-red-800 dark:text-red-200' 
                                 : 'text-gray-900 dark:text-white'
-                            } ${isAssignedFShift ? 'opacity-75' : ''}`}>
+                            }`}>
                               {assignedShift.name}
                             </div>
                             {!isAssignedFShift ? (
@@ -287,7 +283,7 @@ export default function RotationGrid({
                                 isSunday 
                                   ? 'text-red-500 dark:text-red-400' 
                                   : 'text-blue-600 dark:text-blue-400'
-                              } opacity-75`}>
+                              }`}>
                                 F shift
                               </div>
                             )}
