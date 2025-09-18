@@ -163,24 +163,19 @@ export default function RotationGrid({
                   onDragEnd={handleDragEnd}
                   className={`flex items-center space-x-2 px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 cursor-move hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200 ${
                     draggedShift?.id === shift.id ? 'opacity-50' : ''
-                  } ${isShiftFShift ? 'opacity-75' : ''}`}
-                  title={isShiftFShift ? 'F Shift - times not used in calculations' : `${formatTime(shift.start_time)} - ${formatTime(shift.end_time)}`}
+                  }`}
+                  title={isShiftFShift ? 'F Shift - placement only matters' : `${formatTime(shift.start_time)} - ${formatTime(shift.end_time)}`}
                 >
                   <div
-                    className={`w-3 h-3 rounded-full ${isShiftFShift ? 'opacity-60' : ''}`}
+                    className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: shift.color }}
                   />
-                  <span className={`text-sm font-medium text-gray-900 dark:text-white ${isShiftFShift ? 'opacity-75' : ''}`}>
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
                     {shift.name}
                   </span>
                   {!isShiftFShift && (
                     <span className="text-xs text-gray-500 dark:text-gray-400">
                       {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
-                    </span>
-                  )}
-                  {isShiftFShift && (
-                    <span className="text-xs text-blue-600 dark:text-blue-400 opacity-75">
-                      (F shift)
                     </span>
                   )}
                 </div>

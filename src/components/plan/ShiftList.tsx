@@ -109,11 +109,6 @@ export default function ShiftList({ shifts, onEdit, onDelete, onCreateNew }: Shi
                     />
                     <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-200">{shift.name}</h4>
                   </div>
-                  <div className="text-center">
-                    <p className="text-xs text-blue-600 dark:text-blue-400">
-                      Times not used
-                    </p>
-                  </div>
                 </div>
               </div>
             ))}
