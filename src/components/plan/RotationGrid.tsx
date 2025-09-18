@@ -329,10 +329,10 @@ export default function RotationGrid({
           How to use the Schedule Grid:
         </h4>
         <ul className="text-xs text-blue-800 dark:text-blue-300 space-y-1">
-          <li>• <strong>Drag from palette:</strong> Drag any shift from "Available Shifts" to assign it to a day</li>
+          <li>• <strong>Drag from palette:</strong> Drag any shift from &quot;Available Shifts&quot; to assign it to a day</li>
           <li>• <strong>Move shifts:</strong> Drag shifts between days to move or swap them</li>
           <li>• <strong>Remove shifts:</strong> Double-click on an assigned shift or press Delete/Backspace</li>
-          <li>• <strong>F Shifts:</strong> F1-F5 shifts don't use specific times - only placement matters</li>
+          <li>• <strong>F Shifts:</strong> F1-F5 shifts don&apos;t use specific times - only placement matters</li>
           <li>• <strong>Sundays:</strong> Shown in red text - typically F3 shifts should go here</li>
         </ul>
       </div>
