@@ -1,4 +1,4 @@
-// src/app/plan/[id]/page.tsx - Updated handleEditShift function
+// src/app/plan/[id]/page.tsx - Updated with Tests Tab
 'use client'
 
 import { useAuth } from '@/lib/auth-context'
@@ -15,7 +15,7 @@ import ShiftForm, { type ShiftFormData } from '@/components/plan/ShiftForm'
 import ShiftList from '@/components/plan/ShiftList'
 import RotationGrid from '@/components/plan/RotationGrid'
 import ScheduleStatistics from '@/components/plan/ScheduleStatistics'
-import TestModal from '@/components/plan/TestModal'
+import TestsTab from '@/components/plan/TestsTab'
 
 // Helper function to check if a shift is an F shift (F1-F5)
 function isFShift(shift: Shift): boolean {
@@ -29,16 +29,15 @@ export default function PlanPage() {
   const planId = params.id as string
   const supabase = createClient()
 
-  // State
+  // State - Updated to include tests tab
   const [plan, setPlan] = useState<Plan | null>(null)
   const [shifts, setShifts] = useState<Shift[]>([])
   const [rotations, setRotations] = useState<Rotation[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'shifts' | 'rotation'>('shifts')
+  const [activeTab, setActiveTab] = useState<'shifts' | 'rotation' | 'tests'>('shifts')
   const [showShiftForm, setShowShiftForm] = useState(false)
   const [editingShift, setEditingShift] = useState<Shift | null>(null)
   const [savingShift, setSavingShift] = useState(false)
-  const [showTestModal, setShowTestModal] = useState(false)
 
   // Effects
   useEffect(() => {
@@ -195,7 +194,7 @@ export default function PlanPage() {
     }
   }
 
-// Updated rotation handler for week-specific assignments
+  // Updated rotation handler for week-specific assignments
   const handleRotationUpdate = async (weekIndex: number, dayOfWeek: number, shiftId: string | null) => {
     if (!plan) return
 
@@ -296,142 +295,4 @@ export default function PlanPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
       <PlanNavigation plan={plan} userEmail={user?.email} />
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{plan.name}</h1>
-            {plan.description && (
-              <p className="text-gray-600 dark:text-gray-300 mt-1">{plan.description}</p>
-            )}
-          </div>
-
-          {/* Tab Navigation */}
-          <PlanTabs 
-            activeTab={activeTab}
-            shiftsCount={shifts.length}
-            onTabChange={setActiveTab}
-          />
-
-          {/* Shifts Tab */}
-          {activeTab === 'shifts' && (
-            <div className="space-y-6">
-              {/* Add Shift Button */}
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Shift Types
-                </h2>
-                <button
-                  onClick={handleCreateShift}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-                >
-                  <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Add Shift
-                </button>
-              </div>
-
-              {/* Shift Form */}
-              {showShiftForm && (
-                <ShiftForm
-                  shifts={shifts}
-                  editingShift={editingShift}
-                  onSave={handleSaveShift}
-                  onCancel={handleCancelShiftForm}
-                  saving={savingShift}
-                />
-              )}
-
-              {/* Shifts List */}
-              <ShiftList
-                shifts={shifts}
-                onEdit={handleEditShift}
-                onDelete={handleDeleteShift}
-                onCreateNew={handleCreateShift}
-              />
-            </div>
-          )}
-
-          {/* Rotation Tab */}
-          {activeTab === 'rotation' && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    {plan.duration_weeks > 1 ? `${plan.duration_weeks}-Week Rotation` : 'Weekly Rotation'}
-                  </h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Plan duration: {plan.duration_weeks} week{plan.duration_weeks !== 1 ? 's' : ''}
-                  </p>
-                </div>
-                <div className="flex items-center space-x-3">
-                  {shifts.length === 0 ? (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Create shifts first to set up rotations
-                    </p>
-                  ) : (
-                    <button
-                      onClick={() => setShowTestModal(true)}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200"
-                    >
-                      <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Test
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {shifts.length === 0 ? (
-                <div className="text-center py-12">
-                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No shifts available</h3>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    You need to create shifts before setting up rotations.
-                  </p>
-                  <div className="mt-6">
-                    <button
-                      onClick={() => setActiveTab('shifts')}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
-                    >
-                      Go to Shifts
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Updated Schedule Grid with drag and drop */}
-                  <RotationGrid
-                    plan={plan}
-                    shifts={shifts}
-                    rotations={rotations}
-                    onRotationUpdate={handleRotationUpdate}
-                  />
-
-                  {/* Statistics */}
-                  <ScheduleStatistics
-                    plan={plan}
-                    rotations={rotations}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </main>
-
-      {/* Test Modal */}
-      <TestModal
-        isOpen={showTestModal}
-        onClose={() => setShowTestModal(false)}
-        plan={plan}
-        shifts={shifts}
-        rotations={rotations}
-      />
-    </div>
-  )
-}
+      <main className="max-w-7xl mx-auto py-6 sm
