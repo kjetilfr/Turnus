@@ -1,4 +1,4 @@
-// src/components/home/CreatePlanForm.tsx
+// src/components/home/CreatePlanForm.tsx - Updated version
 'use client'
 
 import InfoTooltip from '@/components/ui/InfoTooltip'
@@ -11,8 +11,8 @@ interface CreatePlanFormProps {
   setNewPlanDescription: (description: string) => void
   newPlanDuration: number
   setNewPlanDuration: (duration: number) => void
-  newPlanType: 'main' | 'helping' // NEW
-  setNewPlanType: (type: 'main' | 'helping') => void // NEW
+  newPlanType: 'main' | 'helping'
+  setNewPlanType: (type: 'main' | 'helping') => void
   onSubmit: (e: React.FormEvent) => void
   onCancel: () => void
   creating: boolean
@@ -25,8 +25,8 @@ export default function CreatePlanForm({
   setNewPlanDescription,
   newPlanDuration,
   setNewPlanDuration,
-  newPlanType, // NEW
-  setNewPlanType, // NEW
+  newPlanType,
+  setNewPlanType,
   onSubmit,
   onCancel,
   creating
@@ -158,28 +158,30 @@ export default function CreatePlanForm({
               ))}
             </select>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              How many weeks this {newPlanType} plan will run for. 
-              {newPlanType === 'main' ? ' F1-F5 shifts will be created automatically.' : ' Custom shifts for helping duties.'}
+              How many weeks this {newPlanType} plan will run for. F1-F5 shifts will be created for all plan types.
             </p>
           </div>
 
-          {newPlanType === 'helping' && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-              <div className="flex items-start">
-                <svg className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div>
-                  <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
-                    Helping Plan
-                  </p>
-                  <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                    F1-F5 shifts won't be created automatically. You can create custom shifts to help colleagues or cover extra duties.
-                  </p>
-                </div>
+          {/* Updated info box to reflect that F shifts are created for both plan types */}
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="flex items-start">
+              <svg className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
+                  F Shifts Included
+                </p>
+                <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                  F1-F5 shifts will be automatically created for both main and helping plans. 
+                  {newPlanType === 'main' 
+                    ? ' These are for your primary schedule rotations.' 
+                    : ' You can use these to help colleagues with their F shifts or for additional coverage.'
+                  }
+                </p>
               </div>
             </div>
-          )}
+          </div>
         </div>
         
         <div className="mt-6 flex items-center justify-end space-x-3">

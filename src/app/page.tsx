@@ -29,7 +29,6 @@ export default function HomePage() {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const supabase = createClient()
   const [newPlanDuration, setNewPlanDuration] = useState(1)
-  const [newPlanF1TimeOff, setNewPlanF1TimeOff] = useState(35)
 
   useEffect(() => {
     if (user) {
@@ -53,61 +52,57 @@ export default function HomePage() {
     }
   }
 
-  const createPlan = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!user || !newPlanName.trim()) return
+const createPlan = async (e: React.FormEvent) => {
+  e.preventDefault()
+  if (!user || !newPlanName.trim()) return
 
-    setCreatingPlan(true)
-    try {
-      // Create the plan
-      const { data: planData, error: planError } = await supabase
-        .from('plans')
-        .insert([
-          {
-            name: newPlanName.trim(),
-            description: newPlanDescription.trim() || null,
-            duration_weeks: newPlanDuration,
-            f1_time_off: newPlanType === 'main' ? newPlanF1TimeOff : null, // Only for main plans
-            plan_type: newPlanType, // NEW: Add plan type
-            user_id: user.id,
-          },
-        ])
-        .select()
-        .single()
+  setCreatingPlan(true)
+  try {
+    // Create the plan
+    const { data: planData, error: planError } = await supabase
+      .from('plans')
+      .insert([
+        {
+          name: newPlanName.trim(),
+          description: newPlanDescription.trim() || null,
+          duration_weeks: newPlanDuration,
+          plan_type: newPlanType,
+          user_id: user.id,
+        },
+      ])
+      .select()
+      .single()
 
-      if (planError) throw planError
+    if (planError) throw planError
 
-      // Only create default F1-F5 shifts for MAIN plans
-      if (newPlanType === 'main') {
-        const defaultShiftsData = DEFAULT_SHIFTS.map(shift => ({
-          ...shift,
-          plan_id: planData.id,
-        }))
+    // Create default F1-F5 shifts for ALL plan types (both main and helping)
+    const defaultShiftsData = DEFAULT_SHIFTS.map(shift => ({
+      ...shift,
+      plan_id: planData.id,
+    }))
 
-        const { error: shiftsError } = await supabase
-          .from('shifts')
-          .insert(defaultShiftsData)
+    const { error: shiftsError } = await supabase
+      .from('shifts')
+      .insert(defaultShiftsData)
 
-        if (shiftsError) {
-          console.error('Error creating default shifts:', shiftsError)
-          // Plan was created successfully, but shifts failed - continue anyway
-        }
-      }
-
-      setPlans([planData, ...plans])
-      setNewPlanName('')
-      setNewPlanDescription('')
-      setNewPlanType('main')
-      setNewPlanDuration(1)
-      setNewPlanF1TimeOff(35)
-      setShowCreateForm(false)
-    } catch (error) {
-      console.error('Error creating plan:', error)
-      alert('Failed to create plan')
-    } finally {
-      setCreatingPlan(false)
+    if (shiftsError) {
+      console.error('Error creating default shifts:', shiftsError)
+      // Plan was created successfully, but shifts failed - continue anyway
     }
+
+    setPlans([planData, ...plans])
+    setNewPlanName('')
+    setNewPlanDescription('')
+    setNewPlanType('main')
+    setNewPlanDuration(1)
+    setShowCreateForm(false)
+  } catch (error) {
+    console.error('Error creating plan:', error)
+    alert('Failed to create plan')
+  } finally {
+    setCreatingPlan(false)
   }
+}
 
   const deletePlan = async (planId: string) => {
     if (!confirm('Are you sure you want to delete this plan? This will also delete all shifts and rotations.')) {
