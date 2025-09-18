@@ -182,8 +182,6 @@ export default function HomePage() {
               setNewPlanDescription={setNewPlanDescription}
               newPlanDuration={newPlanDuration}
               setNewPlanDuration={setNewPlanDuration}
-              newPlanF1TimeOff={newPlanF1TimeOff}
-              setNewPlanF1TimeOff={setNewPlanF1TimeOff}
               newPlanType={newPlanType} // NEW
               setNewPlanType={setNewPlanType} // NEW
               onSubmit={createPlan}

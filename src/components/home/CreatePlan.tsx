@@ -9,8 +9,6 @@ interface CreatePlanFormProps {
   setNewPlanDescription: (description: string) => void
   newPlanDuration: number
   setNewPlanDuration: (duration: number) => void
-  newPlanF1TimeOff: number
-  setNewPlanF1TimeOff: (timeOff: number) => void
   onSubmit: (e: React.FormEvent) => void
   onCancel: () => void
   creating: boolean
@@ -23,8 +21,6 @@ export default function CreatePlanForm({
   setNewPlanDescription,
   newPlanDuration,
   setNewPlanDuration,
-  newPlanF1TimeOff,
-  setNewPlanF1TimeOff,
   onSubmit,
   onCancel,
   creating
@@ -91,26 +87,6 @@ export default function CreatePlanForm({
             </select>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               How many weeks this schedule plan will run for. F1-F5 shifts will be created automatically.
-            </p>
-          </div>
-          <div>
-            <div className="flex items-center">
-              <label htmlFor="f1-time-off" className="block text-sm font-medium text-gray-900 dark:text-white">
-                F1 Time Off (hours)
-              </label>
-              <InfoTooltip text="Can be down to 28 hours but no less. Default is 35 hours but check with your boss or union rep." />
-            </div>
-            <input
-              type="number"
-              id="f1-time-off"
-              min="28"
-              max="48"
-              value={newPlanF1TimeOff}
-              onChange={(e) => setNewPlanF1TimeOff(parseInt(e.target.value) || 35)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200"
-            />
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Minimum time off hours between F1 shifts. Used for schedule validation.
             </p>
           </div>
         </div>

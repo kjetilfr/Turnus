@@ -139,7 +139,7 @@ function testF1TimeOff(
     })
 
   const violations: string[] = []
-  const minTimeOff = plan.f1_time_off || 35
+  const minTimeOff = 35
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
   console.log('🔍 F1 Debug Information:')
