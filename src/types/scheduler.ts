@@ -5,6 +5,7 @@ export interface Plan {
   description?: string
   duration_weeks: number
   f1_time_off?: number // Add this field for F1 minimum time off hours
+  plan_type: 'main' | 'helping' // NEW: Plan type field
   user_id: string
   created_at: string
   updated_at: string
@@ -50,3 +51,14 @@ export const DEFAULT_SHIFTS = [
   { name: 'F4', start_time: '00:00', end_time: '00:00', color: '#F59E0B' },
   { name: 'F5', start_time: '00:00', end_time: '00:00', color: '#F59E0B' },
 ]
+
+// Plan type display helpers
+export const PLAN_TYPE_LABELS = {
+  main: 'Main Plan',
+  helping: 'Helping Plan'
+}
+
+export const PLAN_TYPE_DESCRIPTIONS = {
+  main: 'Your primary schedule with full shift rotations',
+  helping: 'Additional shifts to help colleagues or cover extra duties'
+}

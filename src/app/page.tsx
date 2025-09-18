@@ -1,3 +1,4 @@
+// src/app/page.tsx
 'use client'
 
 import { useAuth } from '@/lib/auth-context'
@@ -23,6 +24,7 @@ export default function HomePage() {
   const [loadingPlans, setLoadingPlans] = useState(true)
   const [newPlanName, setNewPlanName] = useState('')
   const [newPlanDescription, setNewPlanDescription] = useState('')
+  const [newPlanType, setNewPlanType] = useState<'main' | 'helping'>('main') // NEW
   const [creatingPlan, setCreatingPlan] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const supabase = createClient()
@@ -65,7 +67,8 @@ export default function HomePage() {
             name: newPlanName.trim(),
             description: newPlanDescription.trim() || null,
             duration_weeks: newPlanDuration,
-            f1_time_off: newPlanF1TimeOff,
+            f1_time_off: newPlanType === 'main' ? newPlanF1TimeOff : null, // Only for main plans
+            plan_type: newPlanType, // NEW: Add plan type
             user_id: user.id,
           },
         ])
@@ -74,24 +77,27 @@ export default function HomePage() {
 
       if (planError) throw planError
 
-      // Create default F1-F5 shifts for the new plan
-      const defaultShiftsData = DEFAULT_SHIFTS.map(shift => ({
-        ...shift,
-        plan_id: planData.id,
-      }))
+      // Only create default F1-F5 shifts for MAIN plans
+      if (newPlanType === 'main') {
+        const defaultShiftsData = DEFAULT_SHIFTS.map(shift => ({
+          ...shift,
+          plan_id: planData.id,
+        }))
 
-      const { error: shiftsError } = await supabase
-        .from('shifts')
-        .insert(defaultShiftsData)
+        const { error: shiftsError } = await supabase
+          .from('shifts')
+          .insert(defaultShiftsData)
 
-      if (shiftsError) {
-        console.error('Error creating default shifts:', shiftsError)
-        // Plan was created successfully, but shifts failed - continue anyway
+        if (shiftsError) {
+          console.error('Error creating default shifts:', shiftsError)
+          // Plan was created successfully, but shifts failed - continue anyway
+        }
       }
 
       setPlans([planData, ...plans])
       setNewPlanName('')
       setNewPlanDescription('')
+      setNewPlanType('main')
       setNewPlanDuration(1)
       setNewPlanF1TimeOff(35)
       setShowCreateForm(false)
@@ -178,6 +184,8 @@ export default function HomePage() {
               setNewPlanDuration={setNewPlanDuration}
               newPlanF1TimeOff={newPlanF1TimeOff}
               setNewPlanF1TimeOff={setNewPlanF1TimeOff}
+              newPlanType={newPlanType} // NEW
+              setNewPlanType={setNewPlanType} // NEW
               onSubmit={createPlan}
               onCancel={() => setShowCreateForm(false)}
               creating={creatingPlan}
