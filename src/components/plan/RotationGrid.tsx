@@ -39,6 +39,8 @@ export default function RotationGrid({
     setDraggedShift(shift)
     if (fromWeek !== undefined && fromDay !== undefined) {
       setDraggedFrom({ weekIndex: fromWeek, dayOfWeek: fromDay })
+    } else {
+      setDraggedFrom(null) // Dragging from palette
     }
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', '') // Required for Firefox
@@ -69,40 +71,49 @@ export default function RotationGrid({
     e.preventDefault()
     setDragOverCell(null)
     
-    if (draggedShift) {
-      try {
-        // If dragging from the shift palette, just assign the shift
-        if (!draggedFrom) {
-          await onRotationUpdate(weekIndex, dayOfWeek, draggedShift.id)
-        } else {
-          // If dragging from another day, always move (not copy)
-          const currentRotation = getRotationForWeekDay(weekIndex, dayOfWeek)
-          
-          // If dropping on same cell, do nothing
-          if (draggedFrom.weekIndex === weekIndex && draggedFrom.dayOfWeek === dayOfWeek) {
-            return
-          }
-          
-          // If there's already a shift at destination, swap them
-          if (currentRotation?.shift) {
-            // Swap: move destination shift to source location
-            await onRotationUpdate(draggedFrom.weekIndex, draggedFrom.dayOfWeek, currentRotation.shift.id)
-          } else {
-            // Just move: clear the source location
-            await onRotationUpdate(draggedFrom.weekIndex, draggedFrom.dayOfWeek, null)
-          }
-          
-          // Move the dragged shift to destination
-          await onRotationUpdate(weekIndex, dayOfWeek, draggedShift.id)
-        }
-      } catch (error) {
-        console.error('Error handling drop:', error)
-        // You might want to show a toast notification here
-      }
+    if (!draggedShift) {
+      setDraggedFrom(null)
+      return
     }
-    
-    setDraggedShift(null)
-    setDraggedFrom(null)
+
+    try {
+      // If dragging from the shift palette (not from another cell)
+      if (!draggedFrom) {
+        console.log(`Assigning shift ${draggedShift.name} to Week ${weekIndex + 1}, Day ${dayOfWeek}`)
+        await onRotationUpdate(weekIndex, dayOfWeek, draggedShift.id)
+      } else {
+        // If dragging from another cell, handle move/swap
+        const currentRotation = getRotationForWeekDay(weekIndex, dayOfWeek)
+        
+        // If dropping on same cell, do nothing
+        if (draggedFrom.weekIndex === weekIndex && draggedFrom.dayOfWeek === dayOfWeek) {
+          console.log('Dropped on same cell, no action needed')
+          return
+        }
+        
+        console.log(`Moving shift ${draggedShift.name} from Week ${draggedFrom.weekIndex + 1}, Day ${draggedFrom.dayOfWeek} to Week ${weekIndex + 1}, Day ${dayOfWeek}`)
+        
+        // If there's already a shift at destination, swap them
+        if (currentRotation?.shift) {
+          console.log(`Swapping with existing shift ${currentRotation.shift.name}`)
+          // First move the destination shift to source location
+          await onRotationUpdate(draggedFrom.weekIndex, draggedFrom.dayOfWeek, currentRotation.shift.id)
+        } else {
+          console.log('Moving to empty cell, clearing source')
+          // Just clear the source location
+          await onRotationUpdate(draggedFrom.weekIndex, draggedFrom.dayOfWeek, null)
+        }
+        
+        // Then move the dragged shift to destination
+        await onRotationUpdate(weekIndex, dayOfWeek, draggedShift.id)
+      }
+    } catch (error) {
+      console.error('Error handling drop:', error)
+      alert('Failed to update rotation. Please try again.')
+    } finally {
+      setDraggedShift(null)
+      setDraggedFrom(null)
+    }
   }
 
   const handleDragEnd = () => {
@@ -115,9 +126,11 @@ export default function RotationGrid({
     const rotation = getRotationForWeekDay(weekIndex, dayOfWeek)
     if (rotation?.shift_id) {
       try {
+        console.log(`Removing shift from Week ${weekIndex + 1}, Day ${dayOfWeek}`)
         await onRotationUpdate(weekIndex, dayOfWeek, null)
       } catch (error) {
         console.error('Error removing shift:', error)
+        alert('Failed to remove shift. Please try again.')
       }
     }
   }
@@ -129,9 +142,11 @@ export default function RotationGrid({
       const rotation = getRotationForWeekDay(weekIndex, dayOfWeek)
       if (rotation?.shift_id) {
         try {
+          console.log(`Removing shift from Week ${weekIndex + 1}, Day ${dayOfWeek} via keyboard`)
           await onRotationUpdate(weekIndex, dayOfWeek, null)
         } catch (error) {
           console.error('Error removing shift:', error)
+          alert('Failed to remove shift. Please try again.')
         }
       }
     }
@@ -151,6 +166,8 @@ export default function RotationGrid({
           <div className="flex flex-wrap gap-3">
             {shifts.map((shift) => {
               const isShiftFShift = isFShift(shift)
+              const isDragging = draggedShift?.id === shift.id && !draggedFrom
+              
               return (
                 <div
                   key={shift.id}
@@ -158,7 +175,7 @@ export default function RotationGrid({
                   onDragStart={(e) => handleDragStart(e, shift)}
                   onDragEnd={handleDragEnd}
                   className={`flex items-center space-x-2 px-3 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 cursor-move hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200 ${
-                    draggedShift?.id === shift.id ? 'opacity-50' : ''
+                    isDragging ? 'opacity-50' : ''
                   }`}
                   title={isShiftFShift ? 'F Shift - placement only matters' : `${formatTime(shift.start_time)} - ${formatTime(shift.end_time)}`}
                 >
@@ -208,7 +225,7 @@ export default function RotationGrid({
                     const isSunday = day.id === 0
                     const isAssignedFShift = assignedShift && isFShift(assignedShift)
                     const isDraggedOver = dragOverCell?.weekIndex === weekIndex && dragOverCell?.dayOfWeek === day.id
-                    const isBeingDragged = draggedFrom?.weekIndex === weekIndex && draggedFrom?.dayOfWeek === day.id
+                    const isBeingDragged = draggedFrom?.weekIndex === weekIndex && draggedFrom?.dayOfWeek === day.id && draggedShift?.id === assignedShift?.id
                     
                     return (
                       <div
@@ -284,7 +301,6 @@ export default function RotationGrid({
                                   ? 'text-red-500 dark:text-red-400' 
                                   : 'text-blue-600 dark:text-blue-400'
                               }`}>
-                                F shift
                               </div>
                             )}
                           </div>

@@ -195,9 +195,11 @@ export default function PlanPage() {
     }
   }
 
-  // Updated rotation handler for week-specific assignments
+// Updated rotation handler for week-specific assignments
   const handleRotationUpdate = async (weekIndex: number, dayOfWeek: number, shiftId: string | null) => {
     if (!plan) return
+
+    console.log(`handleRotationUpdate called: Week ${weekIndex + 1}, Day ${dayOfWeek}, ShiftId: ${shiftId || 'null'}`)
 
     try {
       const existingRotation = rotations.find(r => 
@@ -205,17 +207,27 @@ export default function PlanPage() {
       )
 
       if (existingRotation) {
+        console.log(`Updating existing rotation ${existingRotation.id}`)
         // Update existing rotation
         const { data, error } = await supabase
           .from('rotations')
           .update({ shift_id: shiftId })
           .eq('id', existingRotation.id)
-          .select(`*, shift:shifts(*)`)
+          .select(`
+            *,
+            shift:shifts(*)
+          `)
           .single()
 
-        if (error) throw error
+        if (error) {
+          console.error('Error updating rotation:', error)
+          throw error
+        }
+        
+        console.log('Rotation updated successfully:', data)
         setRotations(rotations.map(r => r.id === existingRotation.id ? data : r))
       } else if (shiftId) {
+        console.log('Creating new rotation')
         // Create new rotation
         const { data, error } = await supabase
           .from('rotations')
@@ -225,15 +237,38 @@ export default function PlanPage() {
             day_of_week: dayOfWeek,
             shift_id: shiftId,
           }])
-          .select(`*, shift:shifts(*)`)
+          .select(`
+            *,
+            shift:shifts(*)
+          `)
           .single()
 
-        if (error) throw error
+        if (error) {
+          console.error('Error creating rotation:', error)
+          throw error
+        }
+        
+        console.log('New rotation created successfully:', data)
         setRotations([...rotations, data])
+      } else {
+        console.log('No existing rotation and no shift ID provided - nothing to do')
       }
     } catch (error) {
-      console.error('Error updating rotation:', error)
-      alert('Failed to update rotation')
+      console.error('Error in handleRotationUpdate:', error)
+      
+      // Provide more specific error messages with proper error type checking
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      
+      if (errorMessage.includes('violates foreign key constraint')) {
+        alert('Error: Invalid shift or plan reference. Please refresh the page and try again.')
+      } else if (errorMessage.includes('duplicate key')) {
+        alert('Error: A rotation already exists for this time slot. Please refresh the page.')
+      } else {
+        alert(`Failed to update rotation: ${errorMessage || 'Unknown error'}`)
+      }
+      
+      // Re-fetch data to ensure consistency
+      await fetchPlanData()
     }
   }
 
