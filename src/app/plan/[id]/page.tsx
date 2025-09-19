@@ -309,6 +309,7 @@ export default function PlanPage() {
           <PlanTabs 
             activeTab={activeTab}
             shiftsCount={shifts.length}
+            plan={plan}
             onTabChange={setActiveTab}
           />
 
