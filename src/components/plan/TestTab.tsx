@@ -1,7 +1,7 @@
 // src/components/plan/TestsTab.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AVAILABLE_TESTS, runScheduleTests, type TestResult, type TestSuite } from '@/lib/schedule-tests'
 import FullCalendarView from '@/components/plan/FullCalendarView'
 import type { Plan, Shift, Rotation } from '@/types/scheduler'
@@ -20,11 +20,40 @@ export default function TestsTab({ plan, shifts, rotations }: TestsTabProps) {
   const [isRunning, setIsRunning] = useState(false)
   const [hasRun, setHasRun] = useState(false)
   
-  // For helping plans - calendar view
+  // For helping plans - calendar view with date persistence
   const [selectedStartDate, setSelectedStartDate] = useState<Date | null>(null)
   const [showCalendar, setShowCalendar] = useState(false)
+  const [isDateLoaded, setIsDateLoaded] = useState(false)
 
   const isHelpingPlan = plan.plan_type === 'helping'
+
+  // Load saved date from localStorage when component mounts
+  useEffect(() => {
+    if (isHelpingPlan && !isDateLoaded) {
+      const storageKey = `helping-plan-date-${plan.id}`
+      const savedDate = localStorage.getItem(storageKey)
+      
+      if (savedDate) {
+        try {
+          const parsedDate = new Date(savedDate)
+          // Validate that the date is valid and not in the past
+          if (!isNaN(parsedDate.getTime()) && parsedDate >= new Date(new Date().setHours(0, 0, 0, 0))) {
+            setSelectedStartDate(parsedDate)
+            setShowCalendar(true)
+          } else if (!isNaN(parsedDate.getTime())) {
+            // If date is valid but in the past, still load it but let user know
+            setSelectedStartDate(parsedDate)
+            setShowCalendar(true)
+          }
+        } catch (error) {
+          console.error('Error parsing saved date:', error)
+          // Clear invalid date from storage
+          localStorage.removeItem(storageKey)
+        }
+      }
+      setIsDateLoaded(true)
+    }
+  }, [isHelpingPlan, plan.id, isDateLoaded])
 
   const toggleTest = (testId: string) => {
     const newSelected = new Set(selectedTests)
@@ -60,12 +89,73 @@ export default function TestsTab({ plan, shifts, rotations }: TestsTabProps) {
 
   const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const dateString = e.target.value
+    const storageKey = `helping-plan-date-${plan.id}`
+    
     if (dateString) {
-      setSelectedStartDate(new Date(dateString))
+      const newDate = new Date(dateString)
+      setSelectedStartDate(newDate)
       setShowCalendar(true)
+      
+      // Save to localStorage
+      try {
+        localStorage.setItem(storageKey, newDate.toISOString())
+      } catch (error) {
+        console.error('Error saving date to localStorage:', error)
+      }
     } else {
       setSelectedStartDate(null)
       setShowCalendar(false)
+      
+      // Remove from localStorage when cleared
+      try {
+        localStorage.removeItem(storageKey)
+      } catch (error) {
+        console.error('Error removing date from localStorage:', error)
+      }
+    }
+  }
+
+  const clearDate = () => {
+    const storageKey = `helping-plan-date-${plan.id}`
+    setSelectedStartDate(null)
+    setShowCalendar(false)
+    
+    try {
+      localStorage.removeItem(storageKey)
+    } catch (error) {
+      console.error('Error removing date from localStorage:', error)
+    }
+  }
+
+  const setToToday = () => {
+    const today = new Date()
+    const storageKey = `helping-plan-date-${plan.id}`
+    
+    setSelectedStartDate(today)
+    setShowCalendar(true)
+    
+    try {
+      localStorage.setItem(storageKey, today.toISOString())
+    } catch (error) {
+      console.error('Error saving date to localStorage:', error)
+    }
+  }
+
+  const setToNextMonday = () => {
+    const today = new Date()
+    const dayOfWeek = today.getDay() // 0 = Sunday, 1 = Monday, etc.
+    const daysUntilMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek) % 7 || 7
+    const nextMonday = new Date(today)
+    nextMonday.setDate(today.getDate() + daysUntilMonday)
+    
+    const storageKey = `helping-plan-date-${plan.id}`
+    setSelectedStartDate(nextMonday)
+    setShowCalendar(true)
+    
+    try {
+      localStorage.setItem(storageKey, nextMonday.toISOString())
+    } catch (error) {
+      console.error('Error saving date to localStorage:', error)
     }
   }
 
@@ -86,6 +176,9 @@ export default function TestsTab({ plan, shifts, rotations }: TestsTabProps) {
   const passedTests = testResults.filter(r => r.passed).length
   const totalTests = testResults.length
   const hasViolations = testResults.some(r => r.violations.length > 0)
+
+  // Check if the selected date is in the past
+  const isDateInPast = selectedStartDate && selectedStartDate < new Date(new Date().setHours(0, 0, 0, 0))
 
   return (
     <div className="space-y-6">
@@ -111,26 +204,72 @@ export default function TestsTab({ plan, shifts, rotations }: TestsTabProps) {
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">Select Start Date</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 Choose when your {plan.duration_weeks}-week helping plan should start
+                {selectedStartDate && (
+                  <span className="block mt-1 font-medium text-blue-600 dark:text-blue-400">
+                    Currently set: {selectedStartDate.toLocaleDateString('nb-NO')}
+                    {isDateInPast && <span className="text-amber-600 dark:text-amber-400"> (Past date)</span>}
+                  </span>
+                )}
               </p>
             </div>
             <div className="p-6">
-              <div className="max-w-xs">
-                <label htmlFor="start-date" className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  id="start-date"
-                  value={selectedStartDate ? selectedStartDate.toISOString().split('T')[0] : ''}
-                  onChange={handleStartDateChange}
-                  className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200"
-                />
-                {selectedStartDate && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    Plan will run from {selectedStartDate.toLocaleDateString('nb-NO')} to{' '}
-                    {new Date(selectedStartDate.getTime() + (plan.duration_weeks * 7 - 1) * 24 * 60 * 60 * 1000).toLocaleDateString('nb-NO')}
-                  </p>
-                )}
+              <div className="space-y-4">
+                <div className="max-w-xs">
+                  <label htmlFor="start-date" className="block text-sm font-medium text-gray-900 dark:text-white mb-2">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    id="start-date"
+                    value={selectedStartDate ? selectedStartDate.toISOString().split('T')[0] : ''}
+                    onChange={handleStartDateChange}
+                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors duration-200"
+                  />
+                  
+                  {/* Quick Date Options */}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={setToToday}
+                      className="px-3 py-1 text-xs bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 text-blue-800 dark:text-blue-200 rounded-md transition-colors duration-200"
+                    >
+                      Today
+                    </button>
+                    <button
+                      type="button"
+                      onClick={setToNextMonday}
+                      className="px-3 py-1 text-xs bg-green-100 hover:bg-green-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-800 dark:text-green-200 rounded-md transition-colors duration-200"
+                    >
+                      Next Monday
+                    </button>
+                    {selectedStartDate && (
+                      <button
+                        type="button"
+                        onClick={clearDate}
+                        className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors duration-200"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  
+                  {selectedStartDate && (
+                    <div className="mt-3 text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                      <p>
+                        <strong>Plan Period:</strong> {selectedStartDate.toLocaleDateString('nb-NO')} to{' '}
+                        {new Date(selectedStartDate.getTime() + (plan.duration_weeks * 7 - 1) * 24 * 60 * 60 * 1000).toLocaleDateString('nb-NO')}
+                      </p>
+                      <p>
+                        <strong>Duration:</strong> {plan.duration_weeks} week{plan.duration_weeks !== 1 ? 's' : ''} ({plan.duration_weeks * 7} days)
+                      </p>
+                      {isDateInPast && (
+                        <p className="text-amber-600 dark:text-amber-400 font-medium">
+                          ⚠️ This date is in the past. Consider updating to a future date.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -350,7 +489,8 @@ export default function TestsTab({ plan, shifts, rotations }: TestsTabProps) {
             <div className="text-xs text-blue-800 dark:text-blue-300 space-y-1">
               {isHelpingPlan ? (
                 <>
-                  <p>• Select a start date to view your helping plan schedule in calendar format</p>
+                  <p>• Your selected start date is automatically saved and will be remembered next time</p>
+                  <p>• Use the quick buttons (Today, Next Monday) for common date selections</p>
                   <p>• The calendar shows your {plan.duration_weeks}-week helping plan with Norwegian date formatting</p>
                   <p>• F shift times are ignored - only placement and visual representation matter</p>
                   <p>• You can still run validation tests on your helping plan if needed</p>
