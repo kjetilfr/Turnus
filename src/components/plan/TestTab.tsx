@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { AVAILABLE_TESTS, runScheduleTests, type TestResult, type TestSuite } from '@/lib/schedule-tests'
+import { testRedDayTimesForHelpingPlan } from '@/lib/red-day-time'
 import FullCalendarView from '@/components/plan/FullCalendarView'
 import type { Plan, Shift, Rotation } from '@/types/scheduler'
 
