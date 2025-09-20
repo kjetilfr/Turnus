@@ -202,11 +202,10 @@ export default function CompactRotationGrid({
             </thead>
             <tbody>
               {Array.from({ length: plan.duration_weeks }, (_, weekIndex) => (
-                <tr key={weekIndex} className={`border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 ${weekIndex % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50/50 dark:bg-gray-750/50'}`}>
+                <tr key={weekIndex} className={`border-b border-gray-100 dark:border-gray-700 ${weekIndex % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50/50 dark:bg-gray-750/50'}`}>
                   <td className="px-1 py-0 font-bold text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-700 border-r border-gray-300 dark:border-gray-600 text-center sticky left-0">
                     <div className="py-2">
-                      <div className="text-sm">{weekIndex + 1}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">W{weekIndex + 1}</div>
+                      <div className="text-sm">W{weekIndex + 1}</div>
                     </div>
                   </td>
                   {DAYS_OF_WEEK.map((day) => {
@@ -221,7 +220,7 @@ export default function CompactRotationGrid({
                     return (
                       <td
                         key={`week-${weekIndex}-day-${day.id}`}
-                        className={`p-0 border-r border-gray-100 dark:border-gray-700 last:border-r-0 relative cursor-pointer ${
+                        className={`p-0 border-r border-gray-100 dark:border-gray-700 last:border-r-0 relative cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 ${
                           isSunday ? 'bg-red-50/30 dark:bg-red-900/10' : ''
                         } ${
                           isDraggedOver ? 'bg-blue-100 dark:bg-blue-900/30' : ''
@@ -245,11 +244,6 @@ export default function CompactRotationGrid({
                           >
                             <div className="text-center leading-tight">
                               <div className="font-bold">{assignedShift.name}</div>
-                              {!isAssignedFShift && (
-                                <div className="text-xs opacity-90">
-                                  {assignedShift.start_time.slice(0, 5)}
-                                </div>
-                              )}
                             </div>
                             {/* Quick remove button */}
                             <button
