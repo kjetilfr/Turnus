@@ -1,9 +1,9 @@
-// src/components/plan/TestsTab.tsx
+// src/components/plan/TestTab.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
 import { AVAILABLE_TESTS, runScheduleTests, type TestResult, type TestSuite } from '@/lib/schedule-tests'
-import { testRedDayTimesForHelpingPlan } from '@/lib/red-day-time'
+import { getRedDayTimeRangesInPeriod, type RedDayTimeRange } from '@/lib/red-day-time'
 import FullCalendarView from '@/components/plan/FullCalendarView'
 import type { Plan, Shift, Rotation } from '@/types/scheduler'
 
@@ -11,6 +11,101 @@ interface TestsTabProps {
   plan: Plan
   shifts: Shift[]
   rotations: Rotation[]
+}
+
+interface RedDayOverlap {
+  rotation: Rotation
+  shift: Shift
+  redDayRange: RedDayTimeRange
+  overlapStart: Date
+  overlapEnd: Date
+  overlapHours: number
+}
+
+// Helper function to check if a shift is an F shift (F1-F5)
+function isFShift(shift: Shift): boolean {
+  return /^f[1-5]$/i.test(shift.name.trim())
+}
+
+// Helper to get actual shift times for a rotation
+function getShiftDateTime(rotation: Rotation, shift: Shift, startDate: Date, isEndTime: boolean = false): Date {
+  const shiftDate = new Date(startDate)
+  shiftDate.setDate(startDate.getDate() + (rotation.week_index * 7) + rotation.day_of_week)
+  
+  if (isFShift(shift)) {
+    // F shifts cover the whole day
+    if (isEndTime) {
+      shiftDate.setHours(23, 59, 59, 999)
+    } else {
+      shiftDate.setHours(0, 0, 0, 0)
+    }
+    return shiftDate
+  }
+  
+  // Regular shifts with specific times
+  const timeString = isEndTime ? shift.end_time : shift.start_time
+  const [hours, minutes] = timeString.split(':').map(Number)
+  
+  if (!isEndTime && shift.start_time > shift.end_time) {
+    // Night shift starts the day before
+    shiftDate.setDate(shiftDate.getDate() - 1)
+  }
+  
+  shiftDate.setHours(hours, minutes, 0, 0)
+  return shiftDate
+}
+
+// Check for red day overlaps
+function checkRedDayOverlaps(
+  plan: Plan, 
+  shifts: Shift[], 
+  rotations: Rotation[], 
+  startDate: Date
+): RedDayOverlap[] {
+  const endDate = new Date(startDate)
+  endDate.setDate(startDate.getDate() + (plan.duration_weeks * 7) - 1)
+  
+  // Get all red day ranges in the plan period
+  const redDayRanges = getRedDayTimeRangesInPeriod(startDate, endDate)
+  
+  if (redDayRanges.length === 0) {
+    return []
+  }
+  
+  const overlaps: RedDayOverlap[] = []
+  
+  // Check each rotation with a shift assignment
+  rotations
+    .filter(rotation => rotation.shift_id && rotation.shift)
+    .forEach(rotation => {
+      const shift = rotation.shift!
+      
+      // Get actual shift start and end times
+      const shiftStart = getShiftDateTime(rotation, shift, startDate, false)
+      const shiftEnd = getShiftDateTime(rotation, shift, startDate, true)
+      
+      // Check against each red day range
+      redDayRanges.forEach(redDayRange => {
+        // Check if there's any overlap
+        const overlapStart = new Date(Math.max(shiftStart.getTime(), redDayRange.startTime.getTime()))
+        const overlapEnd = new Date(Math.min(shiftEnd.getTime(), redDayRange.endTime.getTime()))
+        
+        if (overlapStart < overlapEnd) {
+          const overlapHours = (overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60)
+          
+          overlaps.push({
+            rotation,
+            shift,
+            redDayRange,
+            overlapStart,
+            overlapEnd,
+            overlapHours
+          })
+        }
+      })
+    })
+  
+  return overlaps
 }
 
 export default function TestsTab({ plan, shifts, rotations }: TestsTabProps) {
@@ -25,6 +120,10 @@ export default function TestsTab({ plan, shifts, rotations }: TestsTabProps) {
   const [selectedStartDate, setSelectedStartDate] = useState<Date | null>(null)
   const [showCalendar, setShowCalendar] = useState(false)
   const [isDateLoaded, setIsDateLoaded] = useState(false)
+  
+  // Red day overlap state
+  const [redDayOverlaps, setRedDayOverlaps] = useState<RedDayOverlap[]>([])
+  const [hasCheckedRedDays, setHasCheckedRedDays] = useState(false)
 
   const isHelpingPlan = plan.plan_type === 'helping'
 
@@ -55,6 +154,15 @@ export default function TestsTab({ plan, shifts, rotations }: TestsTabProps) {
       setIsDateLoaded(true)
     }
   }, [isHelpingPlan, plan.id, isDateLoaded])
+
+  // Manual red day check function
+  const checkRedDayTime = () => {
+    if (selectedStartDate && rotations.length > 0) {
+      const overlaps = checkRedDayOverlaps(plan, shifts, rotations, selectedStartDate)
+      setRedDayOverlaps(overlaps)
+      setHasCheckedRedDays(true)
+    }
+  }
 
   const toggleTest = (testId: string) => {
     const newSelected = new Set(selectedTests)
@@ -106,6 +214,8 @@ export default function TestsTab({ plan, shifts, rotations }: TestsTabProps) {
     } else {
       setSelectedStartDate(null)
       setShowCalendar(false)
+      setRedDayOverlaps([])
+      setHasCheckedRedDays(false)
       
       // Remove from localStorage when cleared
       try {
@@ -120,6 +230,8 @@ export default function TestsTab({ plan, shifts, rotations }: TestsTabProps) {
     const storageKey = `helping-plan-date-${plan.id}`
     setSelectedStartDate(null)
     setShowCalendar(false)
+    setRedDayOverlaps([])
+    setHasCheckedRedDays(false)
     
     try {
       localStorage.removeItem(storageKey)
@@ -180,6 +292,8 @@ export default function TestsTab({ plan, shifts, rotations }: TestsTabProps) {
 
   // Check if the selected date is in the past
   const isDateInPast = selectedStartDate && selectedStartDate < new Date(new Date().setHours(0, 0, 0, 0))
+
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
   return (
     <div className="space-y-6">
@@ -274,6 +388,134 @@ export default function TestsTab({ plan, shifts, rotations }: TestsTabProps) {
               </div>
             </div>
           </div>
+
+          {/* Red Day Time Check Button */}
+          {selectedStartDate && rotations.some(r => r.shift_id) && (
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700 transition-colors duration-300">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Red Day Time Check</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Check if any of your shifts overlap with Norwegian holiday "red time" periods
+                </p>
+              </div>
+              <div className="p-6">
+                <div className="flex justify-center">
+                  <button
+                    onClick={checkRedDayTime}
+                    className="inline-flex items-center px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-md font-medium transition-colors duration-200 shadow-sm"
+                  >
+                    <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    Check Red Day Times
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Red Day Time Check Results */}
+          {hasCheckedRedDays && selectedStartDate && (
+            <div className={`shadow rounded-lg border transition-colors duration-300 ${
+              redDayOverlaps.length > 0 
+                ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+            }`}>
+              <div className="px-6 py-4 border-b border-amber-200 dark:border-amber-800">
+                <div className="flex items-center">
+                  {redDayOverlaps.length > 0 ? (
+                    <svg className="h-6 w-6 text-amber-600 dark:text-amber-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                  ) : (
+                    <svg className="h-6 w-6 text-green-600 dark:text-green-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  )}
+                  <div>
+                    <h3 className={`text-lg font-medium ${
+                      redDayOverlaps.length > 0 
+                        ? 'text-amber-900 dark:text-amber-200'
+                        : 'text-green-900 dark:text-green-200'
+                    }`}>
+                      Red Day Time Check
+                    </h3>
+                    <p className={`text-sm mt-1 ${
+                      redDayOverlaps.length > 0 
+                        ? 'text-amber-700 dark:text-amber-300'
+                        : 'text-green-700 dark:text-green-300'
+                    }`}>
+                      {redDayOverlaps.length > 0 
+                        ? `${redDayOverlaps.length} shift${redDayOverlaps.length !== 1 ? 's' : ''} overlap with Norwegian holiday "red time" periods`
+                        : 'No shifts overlap with Norwegian holiday "red time" periods'
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {redDayOverlaps.length > 0 && (
+                <div className="p-6">
+                  <div className="space-y-4">
+                    {redDayOverlaps.map((overlap, index) => (
+                      <div key={index} className="bg-amber-100 dark:bg-amber-900/30 rounded-lg p-4 border border-amber-200 dark:border-amber-700">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h4 className="font-medium text-amber-900 dark:text-amber-200">
+                              Week {overlap.rotation.week_index + 1} {dayNames[overlap.rotation.day_of_week]} - {overlap.shift.name}
+                            </h4>
+                            <p className="text-sm text-amber-700 dark:text-amber-300">
+                              Overlaps with: {overlap.redDayRange.holiday.name}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                              {overlap.overlapHours.toFixed(1)}h overlap
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-amber-600 dark:text-amber-400">
+                          <div>
+                            <div className="font-medium mb-1">Your Shift:</div>
+                            {isFShift(overlap.shift) ? (
+                              <div>F-shift (whole day)</div>
+                            ) : (
+                              <div>
+                                {overlap.shift.start_time} - {overlap.shift.end_time}
+                                <br />
+                                <span className="text-amber-500 dark:text-amber-500">
+                                  {overlap.overlapStart.toLocaleString('nb-NO')} - {overlap.overlapEnd.toLocaleString('nb-NO')}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div>
+                            <div className="font-medium mb-1">Red Day Period:</div>
+                            <div>
+                              {overlap.redDayRange.holiday.name} ({overlap.redDayRange.type})
+                              <br />
+                              <span className="text-amber-500 dark:text-amber-500">
+                                {overlap.redDayRange.startTime.toLocaleString('nb-NO')} - {overlap.redDayRange.endTime.toLocaleString('nb-NO')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="mt-4 p-3 bg-amber-200 dark:bg-amber-900/50 rounded-lg">
+                    <p className="text-xs text-amber-800 dark:text-amber-300">
+                      <strong>Note:</strong> Working during Norwegian holiday "red time" periods may require special compensation or approval. 
+                      Check with your employer about policies for holiday work.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Calendar View */}
           {showCalendar && selectedStartDate && (
@@ -476,38 +718,6 @@ export default function TestsTab({ plan, shifts, rotations }: TestsTabProps) {
           </div>
         )
       )}
-
-      {/* Info Box */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-        <div className="flex items-start">
-          <svg className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <div>
-            <h4 className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-1">
-              {isHelpingPlan ? 'About Helping Plan Calendar' : 'About Schedule Tests'}
-            </h4>
-            <div className="text-xs text-blue-800 dark:text-blue-300 space-y-1">
-              {isHelpingPlan ? (
-                <>
-                  <p>• Your selected start date is automatically saved and will be remembered next time</p>
-                  <p>• Use the quick buttons (Today, Next Monday) for common date selections</p>
-                  <p>• The calendar shows your {plan.duration_weeks}-week helping plan with Norwegian date formatting</p>
-                  <p>• F shift times are ignored - only placement and visual representation matter</p>
-                  <p>• You can still run validation tests on your helping plan if needed</p>
-                </>
-              ) : (
-                <>
-                  <p>• Tests validate your schedule against nursing regulations and best practices</p>
-                  <p>• F shift times are ignored in calculations - only placement matters for F shifts</p>
-                  <p>• Run tests regularly as you build your schedule to catch issues early</p>
-                  <p>• Some tests require both F shifts and regular shifts to be meaningful</p>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }
