@@ -1,4 +1,4 @@
-// src/components/plan/ShiftList.tsx - Updated with compact mode support
+// src/components/plan/ShiftList.tsx - Updated with compact mode and transparent color support
 'use client'
 
 import { useCompactMode } from '@/lib/compact-mode-context'
@@ -14,7 +14,8 @@ interface ShiftListProps {
 
 // Helper function to check if a shift is an F shift (F1-F5)
 function isFShift(shift: Shift): boolean {
-  return /^f[1-5]$/i.test(shift.name.trim())
+  const name = shift.name.trim().toLowerCase()
+  return name === 'f1' || name === 'f2' || name === 'f3' || name === 'f4' || name === 'f5'
 }
 
 export default function ShiftList({ shifts, onEdit, onDelete, onCreateNew }: ShiftListProps) {

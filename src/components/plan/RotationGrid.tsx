@@ -1,4 +1,4 @@
-// src/components/plan/RotationGrid.tsx - Updated with compact mode support
+// src/components/plan/RotationGrid.tsx - Updated with transparent color support
 'use client'
 
 import { useState } from 'react'
@@ -183,6 +183,7 @@ export default function RotationGrid({
             {shifts.map((shift) => {
               const isShiftFShift = isFShift(shift)
               const isDragging = draggedShift?.id === shift.id && !draggedFrom
+              const isTransparent = shift.color === 'none'
               
               return (
                 <div
@@ -196,8 +197,8 @@ export default function RotationGrid({
                   title={isShiftFShift ? 'F Shift - placement only matters' : `${formatTime(shift.start_time)} - ${formatTime(shift.end_time)}`}
                 >
                   <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: shift.color }}
+                    className={`w-3 h-3 rounded-full ${isTransparent ? 'border border-gray-400 bg-gray-50 dark:bg-gray-600' : ''}`}
+                    style={{ backgroundColor: shift.color === 'none' ? 'transparent' : shift.color }}
                   />
                   <span className="text-sm font-medium text-gray-900 dark:text-white">
                     {shift.name}
@@ -205,6 +206,11 @@ export default function RotationGrid({
                   {!isShiftFShift && (
                     <span className="text-xs text-gray-500 dark:text-gray-400">
                       {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                    </span>
+                  )}
+                  {isTransparent && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400 italic">
+                      (no color)
                     </span>
                   )}
                 </div>
@@ -240,6 +246,7 @@ export default function RotationGrid({
                     const assignedShift = dayRotation?.shift
                     const isSunday = day.id === 0
                     const isAssignedFShift = assignedShift && isFShift(assignedShift)
+                    const isTransparent = assignedShift && assignedShift.color === 'none'
                     const isDraggedOver = dragOverCell?.weekIndex === weekIndex && dragOverCell?.dayOfWeek === day.id
                     const isBeingDragged = draggedFrom?.weekIndex === weekIndex && draggedFrom?.dayOfWeek === day.id && draggedShift?.id === assignedShift?.id
                     
@@ -284,8 +291,8 @@ export default function RotationGrid({
                             onDragEnd={handleDragEnd}
                           >
                             <div
-                              className="w-4 h-4 rounded-full mx-auto"
-                              style={{ backgroundColor: assignedShift.color }}
+                              className={`w-4 h-4 rounded-full mx-auto ${isTransparent ? 'border border-gray-400 bg-gray-50 dark:bg-gray-600' : ''}`}
+                              style={{ backgroundColor: assignedShift.color === 'none' ? 'transparent' : assignedShift.color }}
                             />
                             <div className={`text-xs font-medium ${
                               isSunday 
@@ -293,6 +300,11 @@ export default function RotationGrid({
                                 : 'text-gray-900 dark:text-white'
                             }`}>
                               {assignedShift.name}
+                              {isTransparent && (
+                                <span className="block text-xs text-gray-500 dark:text-gray-400 italic">
+                                  (no color)
+                                </span>
+                              )}
                             </div>
                             {!isAssignedFShift ? (
                               <>
@@ -349,6 +361,7 @@ export default function RotationGrid({
           <li>• <strong>Move shifts:</strong> Drag shifts between days to move or swap them</li>
           <li>• <strong>Remove shifts:</strong> Double-click on an assigned shift or press Delete/Backspace</li>
           <li>• <strong>F Shifts:</strong> F1-F5 shifts don&apos;t use specific times - only placement matters</li>
+          <li>• <strong>No color shifts:</strong> Appear with no background color</li>
           <li>• <strong>Sundays:</strong> Shown in red text - typically F3 shifts should go here</li>
         </ul>
       </div>

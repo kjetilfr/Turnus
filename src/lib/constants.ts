@@ -1,4 +1,4 @@
-// Create: src/lib/constants.ts
+// src/lib/constants.ts
 export const DAYS_OF_WEEK = [
   { id: 1, name: 'Monday', short: 'Mon' },
   { id: 2, name: 'Tuesday', short: 'Tue' },
@@ -10,6 +10,7 @@ export const DAYS_OF_WEEK = [
 ]
 
 export const SHIFT_COLORS = [
+  'none', // NEW: Transparent option as default (shorter than 'transparent')
   '#3B82F6', // blue
   '#10B981', // green
   '#F59E0B', // yellow
@@ -19,6 +20,3 @@ export const SHIFT_COLORS = [
   '#F97316', // orange
   '#84CC16', // lime
 ]
-
-// Then update each file to import instead of defining:
-

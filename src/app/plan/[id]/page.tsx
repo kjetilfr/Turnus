@@ -1,4 +1,4 @@
-// src/app/plan/[id]/page.tsx - Complete version with Tests Tab
+// src/app/plan/[id]/page.tsx - Fixed version with better error handling
 'use client'
 
 import { useAuth } from '@/lib/auth-context'
@@ -114,23 +114,48 @@ export default function PlanPage() {
   }
 
   const handleSaveShift = async (formData: ShiftFormData) => {
-    if (!plan) return
+    if (!plan) {
+      console.error('No plan available')
+      alert('Error: Plan not found')
+      return
+    }
 
     // Prevent saving F shifts
     if (editingShift && isFShift(editingShift)) {
+      console.error('Attempted to save F shift')
       alert('F Shifts cannot be modified')
       return
     }
 
+    // Validate form data
+    if (!formData.name || !formData.name.trim()) {
+      alert('Shift name is required')
+      return
+    }
+
+    if (!formData.color) {
+      alert('Shift color is required')
+      return
+    }
+
+    // For non-F shifts, validate times
+    if (editingShift && !isFShift(editingShift) && (!formData.start_time || !formData.end_time)) {
+      alert('Start time and end time are required')
+      return
+    }
+
     setSavingShift(true)
+    
     try {
       const shiftData = {
         name: formData.name.trim(),
-        start_time: formData.start_time,
-        end_time: formData.end_time,
+        start_time: formData.start_time || '00:00',
+        end_time: formData.end_time || '00:00',
         color: formData.color,
         plan_id: plan.id,
       }
+
+      console.log('Saving shift data:', shiftData)
 
       if (editingShift) {
         // Update existing shift
@@ -141,8 +166,17 @@ export default function PlanPage() {
           .select()
           .single()
 
-        if (error) throw error
+        if (error) {
+          console.error('Supabase update error:', error)
+          throw new Error(`Failed to update shift: ${error.message}`)
+        }
+
+        if (!data) {
+          throw new Error('No data returned from update operation')
+        }
+
         setShifts(shifts.map(s => s.id === editingShift.id ? data : s))
+        console.log('Shift updated successfully:', data)
       } else {
         // Create new shift
         const { data, error } = await supabase
@@ -151,14 +185,29 @@ export default function PlanPage() {
           .select()
           .single()
 
-        if (error) throw error
+        if (error) {
+          console.error('Supabase insert error:', error)
+          throw new Error(`Failed to create shift: ${error.message}`)
+        }
+
+        if (!data) {
+          throw new Error('No data returned from insert operation')
+        }
+
         setShifts([...shifts, data])
+        console.log('Shift created successfully:', data)
       }
 
       handleCancelShiftForm()
     } catch (error) {
       console.error('Error saving shift:', error)
-      alert('Failed to save shift')
+      
+      // Provide more specific error messages
+      if (error instanceof Error) {
+        alert(`Failed to save shift: ${error.message}`)
+      } else {
+        alert('Failed to save shift: Unknown error occurred')
+      }
     } finally {
       setSavingShift(false)
     }
@@ -182,7 +231,10 @@ export default function PlanPage() {
         .delete()
         .eq('id', shiftId)
 
-      if (error) throw error
+      if (error) {
+        console.error('Error deleting shift:', error)
+        throw new Error(`Failed to delete shift: ${error.message}`)
+      }
 
       setShifts(shifts.filter(s => s.id !== shiftId))
       setRotations(rotations.map(r => 
@@ -190,13 +242,21 @@ export default function PlanPage() {
       ))
     } catch (error) {
       console.error('Error deleting shift:', error)
-      alert('Failed to delete shift')
+      if (error instanceof Error) {
+        alert(`Failed to delete shift: ${error.message}`)
+      } else {
+        alert('Failed to delete shift: Unknown error occurred')
+      }
     }
   }
 
   // Updated rotation handler for week-specific assignments
   const handleRotationUpdate = async (weekIndex: number, dayOfWeek: number, shiftId: string | null) => {
-    if (!plan) return
+    if (!plan) {
+      console.error('No plan available for rotation update')
+      alert('Error: Plan not found')
+      return
+    }
 
     console.log(`handleRotationUpdate called: Week ${weekIndex + 1}, Day ${dayOfWeek}, ShiftId: ${shiftId || 'null'}`)
 
@@ -220,7 +280,7 @@ export default function PlanPage() {
 
         if (error) {
           console.error('Error updating rotation:', error)
-          throw error
+          throw new Error(`Failed to update rotation: ${error.message}`)
         }
         
         console.log('Rotation updated successfully:', data)
@@ -244,7 +304,7 @@ export default function PlanPage() {
 
         if (error) {
           console.error('Error creating rotation:', error)
-          throw error
+          throw new Error(`Failed to create rotation: ${error.message}`)
         }
         
         console.log('New rotation created successfully:', data)
@@ -256,14 +316,19 @@ export default function PlanPage() {
       console.error('Error in handleRotationUpdate:', error)
       
       // Provide more specific error messages with proper error type checking
-      const errorMessage = error instanceof Error ? error.message : String(error)
+      let errorMessage = 'Unknown error'
+      if (error instanceof Error) {
+        errorMessage = error.message
+      } else if (typeof error === 'string') {
+        errorMessage = error
+      }
       
       if (errorMessage.includes('violates foreign key constraint')) {
         alert('Error: Invalid shift or plan reference. Please refresh the page and try again.')
       } else if (errorMessage.includes('duplicate key')) {
         alert('Error: A rotation already exists for this time slot. Please refresh the page.')
       } else {
-        alert(`Failed to update rotation: ${errorMessage || 'Unknown error'}`)
+        alert(`Failed to update rotation: ${errorMessage}`)
       }
       
       // Re-fetch data to ensure consistency

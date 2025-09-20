@@ -1,4 +1,4 @@
-// src/components/plan/CompactRotationGrid.tsx - Enhanced version
+// src/components/plan/CompactRotationGrid.tsx - Enhanced version with transparent color support
 'use client'
 
 import { useState } from 'react'
@@ -144,6 +144,7 @@ export default function CompactRotationGrid({
             {shifts.map((shift) => {
               const isShiftFShift = isFShift(shift)
               const isDragging = draggedShift?.id === shift.id && !draggedFrom
+              const isTransparent = shift.color === 'none'
               
               return (
                 <div
@@ -153,13 +154,22 @@ export default function CompactRotationGrid({
                   onDragEnd={handleDragEnd}
                   className={`flex items-center space-x-1 px-1.5 py-0.5 rounded text-xs cursor-move hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200 ${
                     isDragging ? 'opacity-50' : ''
+                  } ${
+                    isTransparent 
+                      ? 'border border-gray-300 bg-gray-50/50 dark:bg-gray-800/50'
+                      : 'border'
                   }`}
-                  style={{ backgroundColor: `${shift.color}20`, border: `1px solid ${shift.color}40` }}
-                  title={isShiftFShift ? 'F Shift' : `${shift.start_time} - ${shift.end_time}`}
+                  style={isTransparent ? {
+                    borderColor: '#9CA3AF'
+                  } : {
+                    backgroundColor: `${shift.color}20`, 
+                    border: `1px solid ${shift.color}40`
+                  }}
+                  title={isShiftFShift ? 'F Shift' : `${shift.start_time.slice(0, 5)} - ${shift.end_time.slice(0, 5)}`}
                 >
                   <div
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: shift.color }}
+                    className={`w-2 h-2 rounded-full ${isTransparent ? 'border border-gray-400 bg-gray-50 dark:bg-gray-600' : ''}`}
+                    style={{ backgroundColor: shift.color === 'none' ? 'transparent' : shift.color }}
                   />
                   <span className="font-medium text-gray-900 dark:text-white whitespace-nowrap">
                     {shift.name}
@@ -169,6 +179,7 @@ export default function CompactRotationGrid({
                       {shift.start_time.slice(0, 5)}
                     </span>
                   )}
+                  {/* Removed ∅ symbol for cleaner look */}
                 </div>
               )
             })}
@@ -213,6 +224,7 @@ export default function CompactRotationGrid({
                     const assignedShift = dayRotation?.shift
                     const isSunday = day.id === 0
                     const isAssignedFShift = assignedShift && isFShift(assignedShift)
+                    const isTransparent = assignedShift && assignedShift.color === 'none'
                     const isDraggedOver = dragOverCell?.weekIndex === weekIndex && dragOverCell?.dayOfWeek === day.id
                     const isBeingDragged = draggedFrom?.weekIndex === weekIndex && draggedFrom?.dayOfWeek === day.id && draggedShift?.id === assignedShift?.id
                     const isSelected = selectedCell?.weekIndex === weekIndex && selectedCell?.dayOfWeek === day.id
@@ -235,19 +247,22 @@ export default function CompactRotationGrid({
                       >
                         {assignedShift ? (
                           <div 
-                            className={`w-full min-h-[32px] flex items-center justify-center text-white text-xs font-semibold cursor-move relative ${isBeingDragged ? 'opacity-50' : ''}`}
-                            style={{ backgroundColor: assignedShift.color }}
+                            className={`w-full min-h-[32px] flex items-center justify-center text-white text-xs font-semibold cursor-move relative ${isBeingDragged ? 'opacity-50' : ''} ${
+                              isTransparent ? 'text-gray-700 dark:text-gray-300 border border-gray-300 bg-gray-50 dark:bg-gray-700' : ''
+                            }`}
+                            style={isTransparent ? {} : { backgroundColor: assignedShift.color }}
                             draggable
                             onDragStart={(e) => handleDragStart(e, assignedShift, weekIndex, day.id)}
                             onDragEnd={handleDragEnd}
-                            title={`${assignedShift.name}${!isAssignedFShift ? ` (${assignedShift.start_time.slice(0, 5)}-${assignedShift.end_time.slice(0, 5)})` : ' (F-shift)'} - Double-click to remove`}
+                            title={`${assignedShift.name}${!isAssignedFShift ? ` (${assignedShift.start_time.slice(0, 5)}-${assignedShift.end_time.slice(0, 5)})` : ' (F-shift)'}${isTransparent ? ' (no color)' : ''} - Double-click to remove`}
                           >
                             <div className="text-center leading-tight">
                               <div className="font-bold">{assignedShift.name}</div>
+                              {/* Removed ∅ symbol for cleaner look */}
                             </div>
                             {/* Quick remove button */}
                             <button
-                              className="absolute top-0 right-0 w-3 h-3 text-white hover:text-red-200 opacity-0 hover:opacity-100 transition-opacity"
+                              className={`absolute top-0 right-0 w-3 h-3 ${isTransparent ? 'text-gray-600 hover:text-red-600' : 'text-white hover:text-red-200'} opacity-0 hover:opacity-100 transition-opacity`}
                               onClick={(e) => {
                                 e.stopPropagation()
                                 handleDoubleClick(weekIndex, day.id)
@@ -286,19 +301,23 @@ export default function CompactRotationGrid({
                               <div className="px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700">
                                 Quick assign:
                               </div>
-                              {shifts.map((shift) => (
-                                <button
-                                  key={shift.id}
-                                  onClick={() => handleQuickAssign(weekIndex, day.id, shift.id)}
-                                  className="w-full px-2 py-1 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-1"
-                                >
-                                  <div
-                                    className="w-2 h-2 rounded-full"
-                                    style={{ backgroundColor: shift.color }}
-                                  />
-                                  <span>{shift.name}</span>
-                                </button>
-                              ))}
+                              {shifts.map((shift) => {
+                                const isTransparent = shift.color === 'none'
+                                return (
+                                  <button
+                                    key={shift.id}
+                                    onClick={() => handleQuickAssign(weekIndex, day.id, shift.id)}
+                                    className="w-full px-2 py-1 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-1"
+                                  >
+                                    <div
+                                      className={`w-2 h-2 rounded-full ${isTransparent ? 'border border-gray-400 bg-gray-50 dark:bg-gray-600' : ''}`}
+                                      style={{ backgroundColor: shift.color === 'none' ? 'transparent' : shift.color }}
+                                    />
+                                    <span>{shift.name}</span>
+                                    {/* Removed ∅ symbol for cleaner look */}
+                                  </button>
+                                )
+                              })}
                               <button
                                 onClick={() => handleQuickAssign(weekIndex, day.id, '')}
                                 className="w-full px-2 py-1 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-red-600 dark:text-red-400"
@@ -325,6 +344,7 @@ export default function CompactRotationGrid({
           <span><strong>Click:</strong> quick assign menu</span>
           <span><strong>Double-click:</strong> remove</span>
           <span><strong>F-shifts:</strong> ignore times</span>
+          <span><strong>No color:</strong> shifts with no background</span>
         </div>
       </div>
     </div>

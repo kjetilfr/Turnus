@@ -159,23 +159,34 @@ export default function ShiftForm({
               Color
             </label>
             <div className="flex flex-wrap gap-3">
-              {SHIFT_COLORS.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => !isEditingFShift && setFormData({ ...formData, color })}
-                  disabled={isEditingFShift}
-                  className={`w-8 h-8 rounded-full border-2 ${
-                    formData.color === color
-                      ? 'border-gray-900 dark:border-white scale-110'
-                      : 'border-gray-300 dark:border-gray-600'
-                  } transition-all duration-200 ${
-                    isEditingFShift ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'
-                  }`}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
+              {SHIFT_COLORS.map((color) => {
+                const isSelected = formData.color === color
+                const isTransparent = color === 'none'
+                
+                return (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => !isEditingFShift && setFormData({ ...formData, color })}
+                    disabled={isEditingFShift}
+                    className={`w-10 h-10 rounded-full border-2 ${
+                      isSelected
+                        ? 'border-gray-900 dark:border-white scale-110 ring-2 ring-blue-500'
+                        : 'border-gray-300 dark:border-gray-600'
+                    } transition-all duration-200 ${
+                      isEditingFShift ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'
+                    } relative overflow-hidden`}
+                    style={{ backgroundColor: color === 'none' ? 'transparent' : color }}
+                    title={isTransparent ? 'No color (default)' : `Color: ${color}`}
+                  >
+                    {/* Removed the ∅ symbol for cleaner look */}
+                  </button>
+                )
+              })}
             </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              No color shifts appear with no background color.
+            </p>
           </div>
         </div>
         

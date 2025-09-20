@@ -4,7 +4,7 @@ export interface Plan {
   name: string
   description?: string
   duration_weeks: number
-  plan_type: 'main' | 'helping' // NEW: Plan type field
+  plan_type: 'main' | 'helping' // Plan type field
   user_id: string
   created_at: string
   updated_at: string
@@ -16,7 +16,7 @@ export interface Shift {
   name: string
   start_time: string // "09:00:00" format
   end_time: string   // "17:00:00" format
-  color: string      // hex color
+  color: string      // hex color or 'transparent'
   created_at: string
 }
 
@@ -42,13 +42,13 @@ export interface WeeklySchedule {
   }
 }
 
-// Default shift templates
+// Default shift templates - Updated to use 'none' color by default
 export const DEFAULT_SHIFTS = [
-  { name: 'F1', start_time: '00:00', end_time: '00:00', color: '#F59E0B' },
-  { name: 'F2', start_time: '00:00', end_time: '00:00', color: '#F59E0B' },
-  { name: 'F3', start_time: '00:00', end_time: '00:00', color: '#F59E0B' },
-  { name: 'F4', start_time: '00:00', end_time: '00:00', color: '#F59E0B' },
-  { name: 'F5', start_time: '00:00', end_time: '00:00', color: '#F59E0B' },
+  { name: 'F1', start_time: '00:00', end_time: '00:00', color: 'none' },
+  { name: 'F2', start_time: '00:00', end_time: '00:00', color: 'none' },
+  { name: 'F3', start_time: '00:00', end_time: '00:00', color: 'none' },
+  { name: 'F4', start_time: '00:00', end_time: '00:00', color: 'none' },
+  { name: 'F5', start_time: '00:00', end_time: '00:00', color: 'none' },
 ]
 
 // Plan type display helpers
