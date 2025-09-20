@@ -1,7 +1,9 @@
+// src/app/dashboard/page.tsx - Updated with compact mode toggle
 'use client'
 
 import { useAuth } from '@/lib/auth-context'
 import { useDarkMode } from '@/lib/dark-mode-context'
+import { useCompactMode } from '@/lib/compact-mode-context'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -9,6 +11,7 @@ import { createClient } from '@/lib/supabase'
 export default function SettingsPage() {
   const { user, loading, signOut } = useAuth()
   const { darkMode, toggleDarkMode, mounted } = useDarkMode()
+  const { compactMode, toggleCompactMode, mounted: compactMounted } = useCompactMode()
   const router = useRouter()
   const supabase = createClient()
   
@@ -34,10 +37,16 @@ export default function SettingsPage() {
   }
 
   const handleDarkModeToggle = () => {
-    console.log('Toggle clicked. Mounted:', mounted, 'Current dark mode:', darkMode)
     if (mounted) {
       toggleDarkMode()
       showMessage(`Switched to ${!darkMode ? 'dark' : 'light'} mode`, 'success')
+    }
+  }
+
+  const handleCompactModeToggle = () => {
+    if (compactMounted) {
+      toggleCompactMode()
+      showMessage(`${!compactMode ? 'Enabled' : 'Disabled'} compact mode`, 'success')
     }
   }
 
@@ -85,7 +94,7 @@ export default function SettingsPage() {
   }
 
   // Show loading while components mount
-  if (loading || !mounted) {
+  if (loading || !mounted || !compactMounted) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center transition-colors duration-200">
         <div className="text-xl text-gray-900 dark:text-white">Loading...</div>
@@ -140,27 +149,27 @@ export default function SettingsPage() {
           <div className="space-y-6">
             {/* Account Information */}
             <div className="bg-white dark:bg-gray-800 shadow rounded-lg transition-colors duration-300 border border-gray-200 dark:border-gray-700">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-lg font-medium text-gray-900 dark:text-white">Account Information</h2>
-            </div>
-            <div className="px-6 py-4">
+              </div>
+              <div className="px-6 py-4">
                 <div className="space-y-4">
-                <div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-900 dark:text-white">Email</label>
                     <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{user.email}</p>
-                </div>
-                <div>
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-900 dark:text-white">User ID</label>
                     <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 font-mono break-all">{user.id}</p>
-                </div>
-                <div>
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-900 dark:text-white">Account Created</label>
                     <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                    {new Date(user.created_at).toLocaleDateString()}
+                      {new Date(user.created_at).toLocaleDateString()}
                     </p>
+                  </div>
                 </div>
-                </div>
-            </div>
+              </div>
             </div>
 
             {/* Change Password */}
@@ -217,12 +226,13 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Dark Mode Setting */}
+            {/* Interface Settings */}
             <div className="bg-white dark:bg-gray-800 shadow rounded-lg transition-colors duration-300 border border-gray-200 dark:border-gray-700">
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Appearance</h2>
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white">Interface Settings</h2>
               </div>
-              <div className="px-6 py-4">
+              <div className="px-6 py-4 space-y-6">
+                {/* Dark Mode Setting */}
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <h3 className="text-sm font-medium text-gray-900 dark:text-white">Dark Mode</h3>
@@ -243,6 +253,33 @@ export default function SettingsPage() {
                       <span
                         className={`${
                           darkMode ? 'translate-x-5' : 'translate-x-0'
+                        } pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Compact Mode Setting */}
+                <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">Compact Mode</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      Enable dense, Excel-like interface for schedules and other UI elements
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0 ml-4">
+                    <button
+                      type="button"
+                      onClick={handleCompactModeToggle}
+                      disabled={!compactMounted}
+                      className={`${
+                        compactMode ? 'bg-green-600' : 'bg-gray-200'
+                      } relative inline-flex flex-shrink-0 h-6 w-11 border-2 border-transparent rounded-full cursor-pointer transition-colors ease-in-out duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50`}
+                    >
+                      <span className="sr-only">Toggle compact mode</span>
+                      <span
+                        className={`${
+                          compactMode ? 'translate-x-5' : 'translate-x-0'
                         } pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition ease-in-out duration-200`}
                       />
                     </button>

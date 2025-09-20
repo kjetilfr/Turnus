@@ -1,7 +1,9 @@
+// src/app/layout.tsx - Updated with CompactModeProvider
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/lib/auth-context'
 import { DarkModeProvider } from '@/lib/dark-mode-context'
+import { CompactModeProvider } from '@/lib/compact-mode-context'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -20,9 +22,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <DarkModeProvider>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
+          <CompactModeProvider>
+            <AuthProvider>
+              {children}
+            </AuthProvider>
+          </CompactModeProvider>
         </DarkModeProvider>
       </body>
     </html>

@@ -1,5 +1,8 @@
+// src/components/plan/ScheduleStatistics.tsx - Updated with compact mode support
 'use client'
 
+import { useCompactMode } from '@/lib/compact-mode-context'
+import CompactScheduleStatistics from './CompactScheduleStatistics'
 import type { Plan, Rotation } from '@/types/scheduler'
 
 interface ScheduleStatisticsProps {
@@ -8,6 +11,14 @@ interface ScheduleStatisticsProps {
 }
 
 export default function ScheduleStatistics({ plan, rotations }: ScheduleStatisticsProps) {
+  const { compactMode } = useCompactMode()
+
+  // Use compact statistics if compact mode is enabled
+  if (compactMode) {
+    return <CompactScheduleStatistics plan={plan} rotations={rotations} />
+  }
+
+  // Original statistics layout
   const calculateShiftDuration = (startTime: string, endTime: string) => {
     const start = new Date(`2000-01-01T${startTime}:00`)
     let end = new Date(`2000-01-01T${endTime}:00`)

@@ -1,7 +1,10 @@
+// src/components/plan/RotationGrid.tsx - Updated with compact mode support
 'use client'
 
 import { useState } from 'react'
+import { useCompactMode } from '@/lib/compact-mode-context'
 import { DAYS_OF_WEEK } from '@/lib/constants'
+import CompactRotationGrid from './CompactRotationGrid'
 import type { Plan, Shift, Rotation } from '@/types/scheduler'
 
 interface RotationGridProps {
@@ -17,9 +20,22 @@ export default function RotationGrid({
   rotations, 
   onRotationUpdate 
 }: RotationGridProps) {
+  const { compactMode } = useCompactMode()
   const [draggedShift, setDraggedShift] = useState<Shift | null>(null)
   const [draggedFrom, setDraggedFrom] = useState<{weekIndex: number, dayOfWeek: number} | null>(null)
   const [dragOverCell, setDragOverCell] = useState<{weekIndex: number, dayOfWeek: number} | null>(null)
+
+  // If compact mode is enabled, use the enhanced compact grid component
+  if (compactMode) {
+    return (
+      <CompactRotationGrid
+        plan={plan}
+        shifts={shifts}
+        rotations={rotations}
+        onRotationUpdate={onRotationUpdate}
+      />
+    )
+  }
 
   // Helper function to check if a shift is an F shift (F1-F5)
   const isFShift = (shift: Shift): boolean => {

@@ -1,6 +1,8 @@
-// src/components/plan/ShiftList.tsx
+// src/components/plan/ShiftList.tsx - Updated with compact mode support
 'use client'
 
+import { useCompactMode } from '@/lib/compact-mode-context'
+import CompactShiftList from './CompactShiftList'
 import type { Shift } from '@/types/scheduler'
 
 interface ShiftListProps {
@@ -16,6 +18,14 @@ function isFShift(shift: Shift): boolean {
 }
 
 export default function ShiftList({ shifts, onEdit, onDelete, onCreateNew }: ShiftListProps) {
+  const { compactMode } = useCompactMode()
+
+  // Use compact list if compact mode is enabled
+  if (compactMode) {
+    return <CompactShiftList shifts={shifts} onEdit={onEdit} onDelete={onDelete} onCreateNew={onCreateNew} />
+  }
+
+  // Original list layout
   const formatTime = (time: string) => {
     // Handle both "HH:MM" and "HH:MM:SS" formats and convert to 24-hour format
     const parts = time.split(':')

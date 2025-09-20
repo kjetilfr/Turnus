@@ -1,6 +1,9 @@
+// src/components/home/PlansGrid.tsx - Updated with compact mode support
 'use client'
 
 import Link from 'next/link'
+import { useCompactMode } from '@/lib/compact-mode-context'
+import CompactPlansGrid from './CompactPlansGrid'
 import type { Plan } from '@/types/scheduler'
 import { PLAN_TYPE_LABELS } from '@/types/scheduler'
 
@@ -11,6 +14,14 @@ interface PlansGridProps {
 }
 
 export default function PlansGrid({ plans, onDeletePlan, onShowCreateForm }: PlansGridProps) {
+  const { compactMode } = useCompactMode()
+
+  // Use compact grid if compact mode is enabled
+  if (compactMode) {
+    return <CompactPlansGrid plans={plans} onDeletePlan={onDeletePlan} onShowCreateForm={onShowCreateForm} />
+  }
+
+  // Original grid layout
   if (plans.length === 0) {
     return (
       <div className="text-center py-12">
