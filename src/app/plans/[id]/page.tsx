@@ -217,6 +217,7 @@ export default async function PlanDetailPage({ params }: PageProps) {
             <RotationGrid 
               rotations={rotations || []} 
               durationWeeks={plan.duration_weeks}
+              planId={id}
             />
           </div>
         </div>
