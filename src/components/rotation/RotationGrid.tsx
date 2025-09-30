@@ -298,7 +298,7 @@ export default function RotationGrid({ rotations, durationWeeks, planId, planTyp
                   )
                 })}
                 <td className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold bg-indigo-50 text-indigo-900">
-                  {weeklyHours[weekIndex]?.toFixed(1) || '0.0'}h
+                  {weeklyHours[weekIndex]?.toFixed(2) || '0.0'}h
                 </td>
               </tr>
             ))}
@@ -313,11 +313,11 @@ export default function RotationGrid({ rotations, durationWeeks, planId, planTyp
                   key={dayIndex}
                   className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-gray-900"
                 >
-                  {dailyTotals[dayIndex]?.toFixed(1) || '0.0'}h
+                  {dailyTotals[dayIndex]?.toFixed(2) || '0.0'}h
                 </td>
               ))}
               <td className="border border-gray-300 px-4 py-3 text-center text-sm font-bold bg-indigo-100 text-indigo-900">
-                {grandTotal.toFixed(1)}h
+                {grandTotal.toFixed(2)}h
               </td>
             </tr>
           </tbody>
