@@ -73,7 +73,7 @@ export function calculateEveningHours(startTime: string | null, endTime: string 
 export function calculateNightHours(startTime: string | null, endTime: string | null): number {
   if (!startTime || !endTime) return 0
 
-  let startMinutes = parseTimeToMinutes(startTime)
+  const startMinutes = parseTimeToMinutes(startTime)
   let endMinutes = parseTimeToMinutes(endTime)
   
   // Handle shifts crossing midnight
@@ -130,7 +130,7 @@ export function calculateWeekendHours(
   if (!isWeekendDay(dayOfWeek)) return 0
 
   // For weekend days, all hours in the shift count as weekend hours
-  let startMinutes = parseTimeToMinutes(startTime)
+  const startMinutes = parseTimeToMinutes(startTime)
   let endMinutes = parseTimeToMinutes(endTime)
   
   // Handle shifts crossing midnight
@@ -161,7 +161,7 @@ export function getShiftPeriodSummary(
   const weekendHours = calculateWeekendHours(startTime, endTime, dayOfWeek)
   
   // Calculate total hours
-  let startMinutes = parseTimeToMinutes(startTime || '00:00')
+  const startMinutes = parseTimeToMinutes(startTime || '00:00')
   let endMinutes = parseTimeToMinutes(endTime || '00:00')
   if (endMinutes < startMinutes) {
     endMinutes += 24 * 60
