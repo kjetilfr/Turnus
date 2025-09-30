@@ -10,6 +10,7 @@ export interface Plan {
   duration_weeks: number
   type: PlanType
   base_plan_id: string | null
+  date_started: string // Format: YYYY-MM-DD
   created_at: string
   updated_at: string
 }
@@ -24,4 +25,5 @@ export interface CreatePlanData {
   duration_weeks: number
   type: PlanType
   base_plan_id?: string
+  date_started: string
 }

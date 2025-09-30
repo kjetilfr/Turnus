@@ -24,3 +24,30 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Fix for light text in form inputs */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="time"],
+textarea,
+select {
+  color: #111827 !important; /* gray-900 */
+}
+
+/* Placeholder text styling */
+input::placeholder,
+textarea::placeholder {
+  color: #9ca3af; /* gray-400 */
+  opacity: 1;
+}
+
+/* Ensure autofilled inputs have dark text */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: #111827 !important;
+}

@@ -1,4 +1,4 @@
-// src/components/CreatePlanForm.tsx
+// src/components/plan/CreatePlanForm.tsx
 'use client'
 
 import { useState } from 'react'
@@ -24,6 +24,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
   const [durationWeeks, setDurationWeeks] = useState(1)
   const [type, setType] = useState<PlanType>('main')
   const [basePlanId, setBasePlanId] = useState('')
+  const [dateStarted, setDateStarted] = useState(new Date().toISOString().split('T')[0])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -50,6 +51,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
         description: description || null,
         duration_weeks: durationWeeks,
         type,
+        date_started: dateStarted,
       }
 
       // Only add base_plan_id for helping plans
@@ -63,7 +65,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
 
       if (insertError) throw insertError
 
-      router.push('/dashboard')
+      router.push('/')
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -92,36 +94,86 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
             placeholder="e.g., Emergency Department Schedule"
           />
         </div>
 
-        {/* Plan Type */}
+        {/* Date Started */}
         <div>
-          <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="dateStarted" className="block text-sm font-medium text-gray-700 mb-2">
+            Start Date *
+          </label>
+          <input
+            id="dateStarted"
+            type="date"
+            value={dateStarted}
+            onChange={(e) => setDateStarted(e.target.value)}
+            required
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
+          />
+          <p className="mt-2 text-sm text-gray-600">
+            The date when this rotation plan begins
+          </p>
+        </div>
+
+        {/* Plan Type - CARD SELECTION */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-3">
             Plan Type *
           </label>
-          <select
-            id="type"
-            value={type}
-            onChange={(e) => {
-              setType(e.target.value as PlanType)
-              if (e.target.value !== 'helping') {
+          <div className="grid grid-cols-3 gap-4">
+            {/* Main Plan Card */}
+            <button
+              type="button"
+              onClick={() => {
+                setType('main')
                 setBasePlanId('')
-              }
-            }}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          >
-            <option value="main">Main Plan</option>
-            <option value="helping">Helping Plan</option>
-            <option value="year" disabled>Year Plan (Coming Soon)</option>
-          </select>
-          <p className="mt-2 text-sm text-gray-600">
-            {type === 'main' && 'A primary scheduling plan that can be used as a base for helping plans'}
-            {type === 'helping' && 'A supplementary plan based on an existing main plan'}
-            {type === 'year' && 'Annual planning (coming soon)'}
-          </p>
+              }}
+              className={`
+                p-4 border-2 rounded-lg text-left transition-all
+                ${type === 'main' 
+                  ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' 
+                  : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                }
+              `}
+            >
+              <div className="font-semibold text-gray-900 mb-1">Main Plan</div>
+              <div className="text-xs text-gray-600">
+                Primary scheduling plan
+              </div>
+            </button>
+
+            {/* Helping Plan Card */}
+            <button
+              type="button"
+              onClick={() => setType('helping')}
+              className={`
+                p-4 border-2 rounded-lg text-left transition-all
+                ${type === 'helping' 
+                  ? 'border-green-500 bg-green-50 ring-2 ring-green-200' 
+                  : 'border-gray-300 hover:border-green-400 hover:bg-green-50'
+                }
+              `}
+            >
+              <div className="font-semibold text-gray-900 mb-1">Helping Plan</div>
+              <div className="text-xs text-gray-600">
+                Supplementary plan
+              </div>
+            </button>
+
+            {/* Year Plan Card (Disabled) */}
+            <button
+              type="button"
+              disabled
+              className="p-4 border-2 border-gray-200 rounded-lg text-left opacity-50 cursor-not-allowed bg-gray-50"
+            >
+              <div className="font-semibold text-gray-500 mb-1">Year Plan</div>
+              <div className="text-xs text-gray-400">
+                Coming soon
+              </div>
+            </button>
+          </div>
         </div>
 
         {/* Base Plan (only for helping plans) */}
@@ -136,7 +188,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
                 value={basePlanId}
                 onChange={(e) => setBasePlanId(e.target.value)}
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
               >
                 <option value="">Select a main plan</option>
                 {mainPlans.map((plan) => (
@@ -166,7 +218,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
             value={durationWeeks}
             onChange={(e) => setDurationWeeks(parseInt(e.target.value))}
             required
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
           />
           <p className="mt-2 text-sm text-gray-600">
             How many weeks does this plan cover?
@@ -183,7 +235,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={4}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
             placeholder="Add any notes or details about this plan..."
           />
         </div>

@@ -143,63 +143,60 @@ export default async function PlanDetailPage({ params }: PageProps) {
           </div>
 
           {/* Shifts Summary Card */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Shift Types</h2>
+          <div className="bg-white rounded-lg shadow-md p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold text-gray-900">Shift Types</h2>
               <Link
                 href={`/plans/${id}/shifts`}
-                className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
               >
-                View all →
+                Manage shifts →
               </Link>
             </div>
             
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-2 gap-4">
               {/* Default Shifts */}
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Default Shifts</h3>
-                <div className="space-y-2">
+                <h3 className="text-xs font-medium text-gray-700 mb-2">Default Shifts</h3>
+                <div className="flex flex-wrap gap-1.5">
                   {defaultShifts.length > 0 ? (
                     defaultShifts.map((shift) => (
-                      <div key={shift.id} className="flex items-center gap-2">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800">
-                          {shift.name}
-                        </span>
-                        {shift.description && (
-                          <span className="text-xs text-gray-500">{shift.description}</span>
-                        )}
-                      </div>
+                      <span 
+                        key={shift.id}
+                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800"
+                      >
+                        {shift.name}
+                      </span>
                     ))
                   ) : (
-                    <p className="text-sm text-gray-500">No default shifts created yet</p>
+                    <p className="text-xs text-gray-500">No default shifts</p>
                   )}
                 </div>
               </div>
 
               {/* Custom Shifts */}
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Custom Shifts</h3>
-                <div className="space-y-2">
+                <h3 className="text-xs font-medium text-gray-700 mb-2">Custom Shifts</h3>
+                <div className="flex flex-wrap gap-1.5">
                   {customShifts.length > 0 ? (
-                    customShifts.slice(0, 5).map((shift) => (
-                      <div key={shift.id} className="flex items-center gap-2">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-100 text-indigo-800">
+                    <>
+                      {customShifts.slice(0, 5).map((shift) => (
+                        <span 
+                          key={shift.id}
+                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800"
+                          title={shift.start_time && shift.end_time ? `${shift.start_time.substring(0, 5)} - ${shift.end_time.substring(0, 5)}` : ''}
+                        >
                           {shift.name}
                         </span>
-                        {shift.start_time && shift.end_time && (
-                          <span className="text-xs text-gray-600">
-                            {shift.start_time.substring(0, 5)} - {shift.end_time.substring(0, 5)}
-                          </span>
-                        )}
-                      </div>
-                    ))
+                      ))}
+                      {customShifts.length > 5 && (
+                        <span className="text-xs text-gray-500 italic self-center">
+                          +{customShifts.length - 5} more
+                        </span>
+                      )}
+                    </>
                   ) : (
-                    <p className="text-sm text-gray-500">No custom shifts yet</p>
-                  )}
-                  {customShifts.length > 5 && (
-                    <p className="text-xs text-gray-500 italic">
-                      +{customShifts.length - 5} more shifts
-                    </p>
+                    <p className="text-xs text-gray-500">No custom shifts</p>
                   )}
                 </div>
               </div>
