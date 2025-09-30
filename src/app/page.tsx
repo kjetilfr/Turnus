@@ -1,4 +1,4 @@
-// src/app/(protected)/page.tsx
+// src/app/page.tsx
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import LogoutButton from '@/components/LogoutButton'

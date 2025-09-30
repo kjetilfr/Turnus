@@ -1,4 +1,4 @@
-// src/components/PlansList.tsx
+// src/components/plan/PlansList.tsx
 'use client'
 
 import { PlanWithBasePlan } from '@/types/plan'
@@ -113,16 +113,16 @@ export default function PlansList({ plans }: PlansListProps) {
                     {isYearPlan ? (
                       <span className="text-gray-400 italic">Coming Soon</span>
                     ) : (
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-3">
                         <Link
                           href={`/plans/${plan.id}`}
-                          className="text-indigo-600 hover:text-indigo-900"
+                          className="text-indigo-600 hover:text-indigo-900 font-medium"
                         >
                           View
                         </Link>
                         <Link
                           href={`/plans/${plan.id}/edit`}
-                          className="text-gray-600 hover:text-gray-900"
+                          className="text-gray-600 hover:text-gray-900 font-medium"
                         >
                           Edit
                         </Link>
