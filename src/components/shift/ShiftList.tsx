@@ -119,7 +119,7 @@ export default function ShiftsList({ shifts, planId }: ShiftsListProps) {
           
           {customShifts.length === 0 ? (
             <div className="px-6 py-12 text-center text-gray-500">
-              <p>No custom shifts yet. Click "Create Shift" to add one.</p>
+              <p>No custom shifts yet. Click &quot;Create Shift&quot; to add one.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">

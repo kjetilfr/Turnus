@@ -12,7 +12,7 @@ export function calculateShiftHours(startTime: string | null, endTime: string | 
   const [endHour, endMinute] = endTime.split(':').map(Number)
   
   // Convert to minutes
-  let startMinutes = startHour * 60 + startMinute
+  const startMinutes = startHour * 60 + startMinute
   let endMinutes = endHour * 60 + endMinute
   
   // Handle shifts that cross midnight

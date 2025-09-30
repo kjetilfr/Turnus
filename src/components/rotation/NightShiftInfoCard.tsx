@@ -55,10 +55,10 @@ export default function NightShiftInfoCard() {
                 <strong>Daily Hours:</strong> The hours before midnight (1h 45m) count toward Tuesday, and hours after midnight (7h 45m) count toward Wednesday.
               </li>
               <li>
-                <strong>Weekly Calculation:</strong> Full shift duration counts toward the week where it's placed, EXCEPT for Monday shifts.
+                <strong>Weekly Calculation:</strong> Full shift duration counts toward the week where it&lsquo;s placed, EXCEPT for Monday shifts.
               </li>
               <li>
-                <strong>Monday Exception:</strong> If a night shift is on Monday, the hours before midnight (starting Sunday 22:15) count toward the previous week. If it's Monday of Week 1, these hours wrap to the last week of the rotation.
+                <strong>Monday Exception:</strong> If a night shift is on Monday, the hours before midnight (starting Sunday 22:15) count toward the previous week. If it&lsquo;s Monday of Week 1, these hours wrap to the last week of the rotation.
               </li>
             </ul>
           </div>

@@ -29,7 +29,7 @@ export default async function DashboardPage() {
   const basePlanIds = plans?.filter(p => p.base_plan_id).map(p => p.base_plan_id) || []
   
   // Fetch base plans if there are any
-  let basePlansMap = new Map()
+  const basePlansMap = new Map()
   if (basePlanIds.length > 0) {
     const { data: basePlans } = await supabase
       .from('plans')

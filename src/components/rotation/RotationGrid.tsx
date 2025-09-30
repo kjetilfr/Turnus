@@ -2,6 +2,7 @@
 'use client'
 
 import { Rotation, DAY_NAMES_SHORT, RotationGridData } from '@/types/rotation'
+import { Shift } from '@/types/shift'
 import { useMemo, useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -27,7 +28,17 @@ export default function RotationGrid({ rotations, durationWeeks, planId }: Rotat
     day: number
     rotationId?: string
   } | null>(null)
-  const [shifts, setShifts] = useState<any[]>([])
+  const [shifts, setShifts] = useState<Array<{
+    id: string
+    plan_id: string
+    name: string
+    description: string | null
+    start_time: string | null
+    end_time: string | null
+    is_default: boolean
+    created_at: string
+    updated_at: string
+  }>>([])
   const [loadingShifts, setLoadingShifts] = useState(true)
 
   // Organize rotations into a grid structure for easy access
@@ -296,7 +307,7 @@ export default function RotationGrid({ rotations, durationWeeks, planId }: Rotat
                   )
                 })}
                 <td className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold bg-indigo-50 text-indigo-900">
-                  {weeklyHours[weekIndex]?.toFixed(2) || '0.0'}h
+                  {weeklyHours[weekIndex]?.toFixed(1) || '0.0'}h
                 </td>
               </tr>
             ))}
@@ -311,11 +322,11 @@ export default function RotationGrid({ rotations, durationWeeks, planId }: Rotat
                   key={dayIndex}
                   className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-gray-900"
                 >
-                  {dailyTotals[dayIndex]?.toFixed(2) || '0.0'}h
+                  {dailyTotals[dayIndex]?.toFixed(1) || '0.0'}h
                 </td>
               ))}
               <td className="border border-gray-300 px-4 py-3 text-center text-sm font-bold bg-indigo-100 text-indigo-900">
-                {grandTotal.toFixed(2)}h
+                {grandTotal.toFixed(1)}h
               </td>
             </tr>
           </tbody>

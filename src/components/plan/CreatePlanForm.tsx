@@ -45,13 +45,14 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
         throw new Error('Helping plans must have a base plan selected')
       }
 
-      const planData: any = {
+      const planData = {
         user_id: user.id,
         name,
         description: description || null,
         duration_weeks: durationWeeks,
         type,
         date_started: dateStarted,
+        ...(type === 'helping' && { base_plan_id: basePlanId }),
       }
 
       // Only add base_plan_id for helping plans

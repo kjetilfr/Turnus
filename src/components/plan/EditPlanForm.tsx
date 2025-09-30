@@ -40,13 +40,14 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
         throw new Error('Helping plans must have a base plan selected')
       }
 
-      const updateData: any = {
+    const updateData = {
         name,
         description: description || null,
         duration_weeks: durationWeeks,
         type,
         date_started: dateStarted,
-      }
+        base_plan_id: type === 'helping' ? basePlanId : null,
+    }
 
       // Handle base_plan_id based on type
       if (type === 'helping') {
