@@ -6,6 +6,12 @@ import { useMemo, useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import ShiftSelectorModal from './ShiftSelectorModal'
+import { 
+  calculateShiftHours, 
+  shiftCrossesMidnight, 
+  calculateHoursBeforeMidnight, 
+  calculateHoursAfterMidnight 
+} from '@/lib/utils/shiftCalculations'
 
 interface RotationGridProps {
   rotations: Rotation[]
@@ -41,6 +47,91 @@ export default function RotationGrid({ rotations, durationWeeks, planId }: Rotat
     
     return grid
   }, [rotations])
+
+  // Calculate weekly hours
+  const weeklyHours = useMemo(() => {
+    const hours: { [week: number]: number } = {}
+    
+    for (let week = 0; week < durationWeeks; week++) {
+      let totalHours = 0
+      
+      for (let day = 0; day < 7; day++) {
+        const rotation = gridData[week]?.[day]
+        if (rotation?.shift_id) {
+          const shift = shifts.find(s => s.id === rotation.shift_id)
+          if (shift) {
+            const crossesMidnight = shiftCrossesMidnight(shift.start_time, shift.end_time)
+            
+            // Only split hours between weeks if it's a Monday night shift
+            if (crossesMidnight && day === 0) {
+              // Monday night shift - split between weeks
+              // Add hours after midnight to current week
+              totalHours += calculateHoursAfterMidnight(shift.start_time, shift.end_time)
+              
+              // Add hours before midnight to previous week
+              const hoursBeforeMidnight = calculateHoursBeforeMidnight(shift.start_time, shift.end_time)
+              
+              if (week === 0) {
+                // First week Monday - wrap to last week
+                hours[durationWeeks - 1] = (hours[durationWeeks - 1] || 0) + hoursBeforeMidnight
+              } else {
+                // Regular Monday - add to previous week
+                hours[week - 1] = (hours[week - 1] || 0) + hoursBeforeMidnight
+              }
+            } else {
+              // All other shifts (including non-Monday night shifts) - add full hours to current week
+              totalHours += calculateShiftHours(shift.start_time, shift.end_time)
+            }
+          }
+        }
+      }
+      
+      hours[week] = (hours[week] || 0) + totalHours
+    }
+    
+    return hours
+  }, [gridData, durationWeeks, shifts])
+
+  // Calculate daily totals (across all weeks)
+  const dailyTotals = useMemo(() => {
+    const totals: number[] = Array(7).fill(0)
+    
+    for (let week = 0; week < durationWeeks; week++) {
+      for (let day = 0; day < 7; day++) {
+        const rotation = gridData[week]?.[day]
+        if (rotation?.shift_id) {
+          const shift = shifts.find(s => s.id === rotation.shift_id)
+          if (shift) {
+            const crossesMidnight = shiftCrossesMidnight(shift.start_time, shift.end_time)
+            
+            if (crossesMidnight) {
+              // For night shifts, add hours after midnight (current day portion)
+              totals[day] += calculateHoursAfterMidnight(shift.start_time, shift.end_time)
+              
+              // Add hours before midnight to the previous day
+              if (day === 0) {
+                // Monday shift started on Sunday - add to Sunday total
+                totals[6] += calculateHoursBeforeMidnight(shift.start_time, shift.end_time)
+              } else {
+                // Add to previous day
+                totals[day - 1] += calculateHoursBeforeMidnight(shift.start_time, shift.end_time)
+              }
+            } else {
+              // Regular shift
+              totals[day] += calculateShiftHours(shift.start_time, shift.end_time)
+            }
+          }
+        }
+      }
+    }
+    
+    return totals
+  }, [gridData, durationWeeks, shifts])
+
+  // Calculate grand total
+  const grandTotal = useMemo(() => {
+    return Object.values(weeklyHours).reduce((sum, hours) => sum + hours, 0)
+  }, [weeklyHours])
 
   // Fetch shifts for this plan
   useEffect(() => {
@@ -117,19 +208,6 @@ export default function RotationGrid({ rotations, durationWeeks, planId }: Rotat
     return shifts.find(s => s.id === shiftId)
   }
 
-  // Format shift display
-  const formatShiftDisplay = (shift: any) => {
-    if (!shift) return null
-    
-    if (shift.is_default) {
-      return shift.name
-    }
-    
-    const start = shift.start_time ? shift.start_time.substring(0, 5) : ''
-    const end = shift.end_time ? shift.end_time.substring(0, 5) : ''
-    return `${shift.name} (${start}-${end})`
-  }
-
   if (loadingShifts) {
     return (
       <div className="text-center py-12">
@@ -155,6 +233,9 @@ export default function RotationGrid({ rotations, durationWeeks, planId }: Rotat
                   {day}
                 </th>
               ))}
+              <th className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-indigo-700 min-w-[100px] bg-indigo-50">
+                Weekly Hours
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -167,6 +248,7 @@ export default function RotationGrid({ rotations, durationWeeks, planId }: Rotat
                   const rotation = gridData[weekIndex]?.[dayIndex]
                   const shift = rotation?.shift_id ? getShiftById(rotation.shift_id) : null
                   const isSelected = selectedCell?.week === weekIndex && selectedCell?.day === dayIndex
+                  const crossesMidnight = shift ? shiftCrossesMidnight(shift.start_time, shift.end_time) : false
                   
                   return (
                     <td 
@@ -183,10 +265,20 @@ export default function RotationGrid({ rotations, durationWeeks, planId }: Rotat
                         <div>
                           <div className={`font-semibold ${shift.is_default ? 'text-gray-800' : 'text-indigo-800'}`}>
                             {shift.name}
+                            {crossesMidnight && (
+                              <span className="ml-1 text-xs text-purple-600" title="This shift crosses midnight">
+                                🌙
+                              </span>
+                            )}
                           </div>
                           {!shift.is_default && shift.start_time && shift.end_time && (
                             <div className="text-xs text-gray-600 mt-1">
                               {shift.start_time.substring(0, 5)} - {shift.end_time.substring(0, 5)}
+                            </div>
+                          )}
+                          {crossesMidnight && (
+                            <div className="text-xs text-purple-600 mt-1">
+                              Starts: {dayIndex === 0 ? 'Sun' : DAY_NAMES_SHORT[dayIndex - 1]}
                             </div>
                           )}
                         </div>
@@ -203,8 +295,29 @@ export default function RotationGrid({ rotations, durationWeeks, planId }: Rotat
                     </td>
                   )
                 })}
+                <td className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold bg-indigo-50 text-indigo-900">
+                  {weeklyHours[weekIndex]?.toFixed(2) || '0.0'}h
+                </td>
               </tr>
             ))}
+            
+            {/* Summary Row */}
+            <tr className="bg-gray-100">
+              <td className="sticky left-0 z-10 bg-gray-200 border border-gray-300 px-4 py-3 text-sm font-bold text-gray-900">
+                Total
+              </td>
+              {Array.from({ length: 7 }, (_, dayIndex) => (
+                <td 
+                  key={dayIndex}
+                  className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-gray-900"
+                >
+                  {dailyTotals[dayIndex]?.toFixed(2) || '0.0'}h
+                </td>
+              ))}
+              <td className="border border-gray-300 px-4 py-3 text-center text-sm font-bold bg-indigo-100 text-indigo-900">
+                {grandTotal.toFixed(2)}h
+              </td>
+            </tr>
           </tbody>
         </table>
         

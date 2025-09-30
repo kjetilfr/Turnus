@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { notFound } from 'next/navigation'
 import RotationGrid from '@/components/rotation/RotationGrid'
+import ShiftSummary from '@/components/rotation/ShiftSummary'
+import NightShiftInfoCard from '@/components/rotation/NightShiftInfoCard'
 import Link from 'next/link'
 
 interface PageProps {
@@ -208,15 +210,27 @@ export default async function PlanDetailPage({ params }: PageProps) {
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold text-gray-900">Rotation Schedule</h2>
               <div className="text-sm text-gray-600">
-                Click on cells to assign shifts (coming soon)
+                Click on cells to assign shifts
               </div>
             </div>
+            
+            {/* Night Shift Info Card */}
+            <div className="mb-6">
+              <NightShiftInfoCard />
+            </div>
+            
             <RotationGrid 
               rotations={rotations || []} 
               durationWeeks={plan.duration_weeks}
               planId={id}
             />
           </div>
+
+          {/* Shift Summary Statistics */}
+          <ShiftSummary 
+            rotations={rotations || []} 
+            shifts={shifts || []} 
+          />
         </div>
       </main>
     </div>
