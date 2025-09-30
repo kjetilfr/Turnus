@@ -45,10 +45,10 @@ export default function LoginPage() {
         router.push('/dashboard')
         router.refresh()
       }
-    } catch (error: any) {
+    } catch (error) {
       setMessage({
         type: 'error',
-        text: error.message || 'An error occurred'
+        text: error instanceof Error ? error.message : 'An error occurred'
       })
     } finally {
       setLoading(false)
