@@ -223,13 +223,15 @@ export default async function PlanDetailPage({ params }: PageProps) {
               rotations={rotations || []} 
               durationWeeks={plan.duration_weeks}
               planId={id}
+              planType={plan.type}
             />
           </div>
 
           {/* Shift Summary Statistics */}
           <ShiftSummary 
             rotations={rotations || []} 
-            shifts={shifts || []} 
+            shifts={shifts || []}
+            planType={plan.type}
           />
         </div>
       </main>
