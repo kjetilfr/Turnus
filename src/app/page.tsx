@@ -2,8 +2,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import LogoutButton from '@/components/LogoutButton'
-import PlansList from '@/components/PlansList'
-import CreatePlanButton from '@/components/CreatePlanButton'
+import PlansList from '@/components/plan/PlansList'
+import CreatePlanButton from '@/components/plan/CreatePlanButton'
 
 export default async function DashboardPage() {
   const supabase = await createClient()

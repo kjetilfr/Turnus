@@ -18,7 +18,7 @@ export default function PlansList({ plans }: PlansListProps) {
           Get started by creating your first scheduling plan
         </p>
         <Link
-          href="/dashboard/plans/new"
+          href="/plans/new"
           className="inline-block bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
         >
           Create Your First Plan
@@ -115,13 +115,13 @@ export default function PlansList({ plans }: PlansListProps) {
                     ) : (
                       <div className="flex justify-end gap-2">
                         <Link
-                          href={`/dashboard/plans/${plan.id}`}
+                          href={`/plans/${plan.id}`}
                           className="text-indigo-600 hover:text-indigo-900"
                         >
                           View
                         </Link>
                         <Link
-                          href={`/dashboard/plans/${plan.id}/edit`}
+                          href={`/plans/${plan.id}/edit`}
                           className="text-gray-600 hover:text-gray-900"
                         >
                           Edit

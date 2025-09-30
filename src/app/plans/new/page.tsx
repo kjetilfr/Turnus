@@ -1,7 +1,7 @@
 // src/app/plans/new/page.tsx
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import CreatePlanForm from '@/components/CreatePlanForm'
+import CreatePlanForm from '@/components/plan/CreatePlanForm'
 
 export default async function NewPlanPage() {
   const supabase = await createClient()
