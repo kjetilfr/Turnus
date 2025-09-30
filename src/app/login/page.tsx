@@ -66,10 +66,10 @@ export default function LoginPage() {
       })
       
       if (error) throw error
-    } catch (error: any) {
+    } catch (error) {
       setMessage({
         type: 'error',
-        text: error.message || 'An error occurred'
+        text: error instanceof Error ? error.message : 'An error occurred'
       })
       setLoading(false)
     }
