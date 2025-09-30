@@ -94,42 +94,6 @@ export default function RotationGrid({ rotations, durationWeeks, planId, planTyp
     return hours
   }, [gridData, durationWeeks, shifts])
 
-  // Calculate daily totals (across all weeks)
-  const dailyTotals = useMemo(() => {
-    const totals: number[] = Array(7).fill(0)
-    
-    for (let week = 0; week < durationWeeks; week++) {
-      for (let day = 0; day < 7; day++) {
-        const rotation = gridData[week]?.[day]
-        if (rotation?.shift_id) {
-          const shift = shifts.find(s => s.id === rotation.shift_id)
-          if (shift) {
-            const crossesMidnight = shiftCrossesMidnight(shift.start_time, shift.end_time)
-            
-            if (crossesMidnight) {
-              // For night shifts, add hours after midnight (current day portion)
-              totals[day] += calculateHoursAfterMidnight(shift.start_time, shift.end_time)
-              
-              // Add hours before midnight to the previous day
-              if (day === 0) {
-                // Monday shift started on Sunday - add to Sunday total
-                totals[6] += calculateHoursBeforeMidnight(shift.start_time, shift.end_time)
-              } else {
-                // Add to previous day
-                totals[day - 1] += calculateHoursBeforeMidnight(shift.start_time, shift.end_time)
-              }
-            } else {
-              // Regular shift
-              totals[day] += calculateShiftHours(shift.start_time, shift.end_time)
-            }
-          }
-        }
-      }
-    }
-    
-    return totals
-  }, [gridData, durationWeeks, shifts])
-
   // Calculate grand total
   const grandTotal = useMemo(() => {
     return Object.values(weeklyHours).reduce((sum, hours) => sum + hours, 0)
@@ -313,7 +277,7 @@ export default function RotationGrid({ rotations, durationWeeks, planId, planTyp
                   key={dayIndex}
                   className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-gray-900"
                 >
-                  {dailyTotals[dayIndex]?.toFixed(2) || '0.0'}h
+                  -
                 </td>
               ))}
               <td className="border border-gray-300 px-4 py-3 text-center text-sm font-bold bg-indigo-100 text-indigo-900">
