@@ -1,79 +1,81 @@
+// src/app/(protected)/page.tsx
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
+import LogoutButton from '@/components/LogoutButton'
+import PlansList from '@/components/PlansList'
+import CreatePlanButton from '@/components/CreatePlanButton'
 
-export default async function Home() {
+export default async function DashboardPage() {
   const supabase = await createClient()
+  
   const { data: { user } } = await supabase.auth.getUser()
 
-  // If logged in, redirect to dashboard
-  if (user) {
-    redirect('/dashboard')
+  if (!user) {
+    redirect('/login')
   }
 
+  // Fetch all plans for the user
+  const { data: plans, error } = await supabase
+    .from('plans')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching plans:', error)
+  }
+
+  // Get all base plan IDs
+  const basePlanIds = plans?.filter(p => p.base_plan_id).map(p => p.base_plan_id) || []
+  
+  // Fetch base plans if there are any
+  let basePlansMap = new Map()
+  if (basePlanIds.length > 0) {
+    const { data: basePlans } = await supabase
+      .from('plans')
+      .select('*')
+      .in('id', basePlanIds)
+    
+    if (basePlans) {
+      basePlans.forEach(plan => basePlansMap.set(plan.id, plan))
+    }
+  }
+
+  // Merge base plans with main plans
+  const plansWithBasePlan = plans?.map(plan => ({
+    ...plan,
+    base_plan: plan.base_plan_id ? basePlansMap.get(plan.base_plan_id) : null
+  })) || []
+
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-16">
-        <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-12">
-            <h1 className="text-5xl font-bold text-gray-900 mb-4">
-              Nurse Scheduling App
-            </h1>
-            <p className="text-xl text-gray-600">
-              Simplify your healthcare staff scheduling
-            </p>
-          </div>
-
-          {/* Feature Cards */}
-          <div className="grid md:grid-cols-3 gap-6 mb-12">
-            <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-              <div className="text-3xl mb-4">📅</div>
-              <h3 className="text-xl font-semibold mb-2">Easy Scheduling</h3>
-              <p className="text-gray-600">
-                Create and manage nurse schedules with an intuitive interface
-              </p>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-              <div className="text-3xl mb-4">👥</div>
-              <h3 className="text-xl font-semibold mb-2">Staff Management</h3>
-              <p className="text-gray-600">
-                Track nurse availability, skills, and preferences
-              </p>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-              <div className="text-3xl mb-4">📊</div>
-              <h3 className="text-xl font-semibold mb-2">Shift Analytics</h3>
-              <p className="text-gray-600">
-                Monitor coverage, overtime, and staffing patterns
-              </p>
-            </div>
-          </div>
-
-          {/* CTA Section */}
-          <div className="bg-white rounded-lg shadow-xl p-8 text-center">
-            <h2 className="text-2xl font-bold mb-4">Ready to Get Started?</h2>
-            <p className="text-gray-600 mb-6">
-              Sign up now and start managing your nursing staff efficiently
-            </p>
-            <Link 
-              href="/login"
-              className="inline-block bg-indigo-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
-            >
-              Sign In / Sign Up
-            </Link>
-          </div>
-
-          {/* Status Badge */}
-          <div className="mt-8 text-center">
-            <span className="inline-flex items-center px-4 py-2 rounded-full bg-green-100 text-green-800 text-sm font-medium">
-              ✓ Supabase Authentication Integrated
-            </span>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      {/* Header */}
+      <header className="bg-white shadow-sm">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-gray-900">Nurse Scheduling Dashboard</h1>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-600">{user.email}</span>
+            <LogoutButton />
           </div>
         </div>
-      </div>
-    </main>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8">
+        <div className="max-w-6xl mx-auto">
+          {/* Header with Create Button */}
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900">My Plans</h2>
+              <p className="text-gray-600 mt-1">Manage your scheduling plans</p>
+            </div>
+            <CreatePlanButton />
+          </div>
+
+          {/* Plans List */}
+          <PlansList plans={plansWithBasePlan || []} />
+        </div>
+      </main>
+    </div>
   )
 }
