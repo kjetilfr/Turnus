@@ -11,9 +11,19 @@ import { Shift } from '@/types/shift'
 export const f1RestPeriodCheck: LawCheck = {
   id: 'f1-rest-period',
   name: 'F1 Shift Rest Period',
-  description: 'Verifies that F1 shifts have adequate rest time before and after (default 35 hours). Checks that only one F1 shift is placed per week and warns if no F1 shifts are found.',
+  description: 'Verifies that F1 shifts have adequate rest time before and after (default 35 hours). Checks that only one F1 shift is placed per week and warns if any week is missing an F1 shift.',
   category: 'shared',
   lawType: 'aml',
+  lawReferences: [
+    {
+      title: 'AML §10-8 (2) - Daglig og ukentlig arbeidsfri',
+      url: 'https://lovdata.no/dokument/NL/lov/2005-06-17-62/KAPITTEL_4#%C2%A710-8'
+    },
+    {
+      title: 'AML §10-8 (3) - Daglig og ukentlig arbeidsfri',
+      url: 'https://lovdata.no/dokument/NL/lov/2005-06-17-62/KAPITTEL_4#%C2%A710-8'
+    }
+  ],
   applicableTo: ['main', 'helping', 'year'], // Applies to all plan types
   inputs: [
     {
@@ -44,152 +54,219 @@ export const f1RestPeriodCheck: LawCheck = {
       return {
         status: 'warning',
         message: 'F1 shift type not found in this plan',
-        details: []
+        details: ['F1 shifts are required for proper rest period management']
       }
     }
 
     // Find all F1 rotations
     const f1Rotations = rotations.filter((r: Rotation) => r.shift_id === f1Shift.id)
 
-    if (f1Rotations.length === 0) {
-      return {
-        status: 'warning',
-        message: 'No F1 shifts placed in rotation',
-        details: ['Consider adding F1 shifts to provide adequate rest periods']
-      }
+    // Group rotations by week to check for F1 presence
+    const weeklyF1Count: Record<number, number> = {}
+    const weeklyRotations: Record<number, Rotation[]> = {}
+    const weekIssues: Record<number, string[]> = {}
+    
+    // Initialize weeks
+    for (let week = 0; week < plan.duration_weeks; week++) {
+      weeklyF1Count[week] = 0
+      weeklyRotations[week] = []
+      weekIssues[week] = []
     }
-
-    // Check for multiple F1 shifts per week
-    const f1ByWeek: Record<number, number> = {}
-    f1Rotations.forEach((r: Rotation) => {
-      f1ByWeek[r.week_index] = (f1ByWeek[r.week_index] || 0) + 1
+    
+    // Count F1 shifts per week and collect all rotations
+    rotations.forEach((r: Rotation) => {
+      weeklyRotations[r.week_index] = weeklyRotations[r.week_index] || []
+      weeklyRotations[r.week_index].push(r)
+      
+      if (r.shift_id === f1Shift.id) {
+        weeklyF1Count[r.week_index] = (weeklyF1Count[r.week_index] || 0) + 1
+      }
     })
 
-    const weeksWithMultipleF1 = Object.entries(f1ByWeek)
-      .filter(([_, count]) => count > 1)
-      .map(([week, count]) => ({ week: parseInt(week), count }))
+    let hasErrors = false
+    let hasWarnings = false
 
-    if (weeksWithMultipleF1.length > 0) {
-      result.status = 'fail'
-      result.message = `Found ${weeksWithMultipleF1.length} week(s) with multiple F1 shifts`
-      result.details = weeksWithMultipleF1.map(
-        ({ week, count }) => `Week ${week + 1}: ${count} F1 shifts (should be max 1)`
-      )
+    // Check each week for issues
+    for (let week = 0; week < plan.duration_weeks; week++) {
+      const f1Count = weeklyF1Count[week] || 0
+      const weekRotations = weeklyRotations[week] || []
       
-      weeksWithMultipleF1.forEach(({ week }) => {
+      // Issue 1: Multiple F1 shifts in one week
+      if (f1Count > 1) {
+        weekIssues[week].push(`Multiple F1 shifts (${f1Count}) - should be max 1`)
+        hasErrors = true
         result.violations?.push({
           weekIndex: week,
           dayOfWeek: -1,
           description: 'Multiple F1 shifts in same week'
         })
-      })
+        
+        // Still check rest periods for each F1 shift
+        const weekF1Rotations = f1Rotations.filter((r: Rotation) => r.week_index === week)
+        weekF1Rotations.forEach(f1Rotation => {
+          const restIssue = checkRestPeriod(
+            weekRotations,
+            shifts,
+            f1Rotation.day_of_week,
+            minRestHours,
+            false
+          )
+          
+          if (restIssue) {
+            weekIssues[week].push(restIssue)
+            hasErrors = true
+          }
+        })
+      }
+      
+      // Issue 2: Missing F1 shift
+      else if (f1Count === 0) {
+        weekIssues[week].push('No F1 shift found')
+        hasWarnings = true
+        result.violations?.push({
+          weekIndex: week,
+          dayOfWeek: -1,
+          description: 'Missing F1 shift'
+        })
+        
+        // Check rest period with assumed F1 day
+        const firstDayWithoutShift = Array.from({ length: 7 }, (_, day) => day)
+          .find(day => !weekRotations.some(r => r.day_of_week === day))
+        
+        if (firstDayWithoutShift !== undefined) {
+          const restIssue = checkRestPeriod(
+            weekRotations, 
+            shifts, 
+            firstDayWithoutShift, 
+            minRestHours,
+            true
+          )
+          
+          if (restIssue) {
+            weekIssues[week].push(restIssue)
+            hasErrors = true
+          }
+        }
+      }
+      
+      // Issue 3: Rest period violation (for weeks with exactly 1 F1)
+      else if (f1Count === 1) {
+        const f1Rotation = f1Rotations.find((r: Rotation) => r.week_index === week)
+        
+        if (f1Rotation) {
+          const restIssue = checkRestPeriod(
+            weekRotations,
+            shifts,
+            f1Rotation.day_of_week,
+            minRestHours,
+            false
+          )
+          
+          if (restIssue) {
+            weekIssues[week].push(restIssue)
+            hasErrors = true
+          }
+        }
+      }
     }
 
-    // Check F1 shifts on Wednesday (day 2) for adequate rest time
-    const wednesdayF1s = f1Rotations.filter((r: Rotation) => r.day_of_week === 2)
+    // Build details list organized by week
+    const detailsList: string[] = []
+    let totalIssueCount = 0
     
-    const restViolations: Array<{
-      weekIndex: number
-      dayOfWeek: number
-      description: string
-    }> = []
-
-    wednesdayF1s.forEach((f1Rotation: Rotation) => {
-      const weekIndex = f1Rotation.week_index
-      
-      // Find last shift before F1 (check Monday and Tuesday of same week)
-      let lastShiftEnd: { day: number; time: string } | null = null
-      
-      for (let day = 1; day >= 0; day--) { // Tuesday, then Monday
-        const rotation = rotations.find(
-          (r: Rotation) => r.week_index === weekIndex && r.day_of_week === day && r.shift_id
-        )
-        
-        if (rotation) {
-          const shift = shifts.find((s: Shift) => s.id === rotation.shift_id)
-          if (shift && shift.end_time) {
-            lastShiftEnd = { day, time: shift.end_time }
-            break
-          }
-        }
+    for (let week = 0; week < plan.duration_weeks; week++) {
+      if (weekIssues[week].length > 0) {
+        totalIssueCount += weekIssues[week].length
+        weekIssues[week].forEach(issue => {
+          detailsList.push(`Week ${week + 1}: ${issue}`)
+        })
       }
-
-      // Find next shift after F1 (check Thursday and Friday of same week)
-      let nextShiftStart: { day: number; time: string } | null = null
-      
-      for (let day = 3; day <= 4; day++) { // Thursday, then Friday
-        const rotation = rotations.find(
-          (r: Rotation) => r.week_index === weekIndex && r.day_of_week === day && r.shift_id
-        )
-        
-        if (rotation) {
-          const shift = shifts.find((s: Shift) => s.id === rotation.shift_id)
-          if (shift && shift.start_time) {
-            nextShiftStart = { day, time: shift.start_time }
-            break
-          }
-        }
-      }
-
-      // Calculate rest period if both shifts exist
-      if (lastShiftEnd && nextShiftStart) {
-        // Convert times to minutes
-        const parseTime = (time: string) => {
-          const [h, m] = time.split(':').map(Number)
-          return h * 60 + m
-        }
-
-        const lastEndMinutes = parseTime(lastShiftEnd.time)
-        const nextStartMinutes = parseTime(nextShiftStart.time)
-        
-        // Calculate days between
-        const daysBetween = nextShiftStart.day - lastShiftEnd.day
-        
-        // Total rest time in hours
-        const restMinutes = (daysBetween * 24 * 60) - lastEndMinutes + nextStartMinutes
-        const restHours = restMinutes / 60
-
-        if (restHours < minRestHours) {
-          restViolations.push({
-            weekIndex,
-            dayOfWeek: 2,
-            description: `Rest period of ${restHours.toFixed(1)}h is less than required ${minRestHours}h`
-          })
-        }
-      }
-    })
-
-    if (restViolations.length > 0) {
-      if (result.status === 'pass') {
-        result.status = 'fail'
-      }
-      result.message = result.message 
-        ? `${result.message}; ${restViolations.length} F1 shift(s) with insufficient rest period`
-        : `${restViolations.length} F1 shift(s) with insufficient rest period`
-      
-      result.details = [
-        ...(result.details || []),
-        ...restViolations.map(v => 
-          `Week ${v.weekIndex + 1}, Wednesday: ${v.description}`
-        )
-      ]
-      
-      result.violations = [
-        ...(result.violations || []),
-        ...restViolations
-      ]
     }
 
-    // If no violations found
-    if (result.status === 'pass') {
+    // Set final status and message
+    if (hasErrors) {
+      result.status = 'fail'
+      result.message = `Found ${totalIssueCount} issue${totalIssueCount !== 1 ? 's' : ''} across ${Object.keys(weekIssues).filter(w => weekIssues[parseInt(w)].length > 0).length} week${Object.keys(weekIssues).filter(w => weekIssues[parseInt(w)].length > 0).length !== 1 ? 's' : ''}`
+      result.details = detailsList
+    } else if (hasWarnings) {
+      result.status = 'warning'
+      result.message = `Found ${totalIssueCount} warning${totalIssueCount !== 1 ? 's' : ''} across ${Object.keys(weekIssues).filter(w => weekIssues[parseInt(w)].length > 0).length} week${Object.keys(weekIssues).filter(w => weekIssues[parseInt(w)].length > 0).length !== 1 ? 's' : ''}`
+      result.details = detailsList
+    } else {
+      result.status = 'pass'
       result.message = `All F1 shifts comply with ${minRestHours}h rest period requirement`
       result.details = [
         `Total F1 shifts: ${f1Rotations.length}`,
-        `F1 shifts on Wednesday: ${wednesdayF1s.length}`,
+        `All weeks have exactly one F1 shift`,
         'All rest periods are adequate'
       ]
     }
 
     return result
   }
+}
+
+// Helper function to check rest period around a specific day
+function checkRestPeriod(
+  weekRotations: Rotation[],
+  shifts: Shift[],
+  f1Day: number,
+  minRestHours: number,
+  isAssumedF1: boolean
+): string | null {
+  // Find last shift before F1
+  let lastShiftEnd: { day: number; time: string } | null = null
+  
+  for (let day = f1Day - 1; day >= 0; day--) {
+    const rotation = weekRotations.find(r => r.day_of_week === day && r.shift_id)
+    
+    if (rotation) {
+      const shift = shifts.find((s: Shift) => s.id === rotation.shift_id)
+      if (shift && shift.end_time) {
+        lastShiftEnd = { day, time: shift.end_time }
+        break
+      }
+    }
+  }
+
+  // Find next shift after F1
+  let nextShiftStart: { day: number; time: string } | null = null
+  
+  for (let day = f1Day + 1; day < 7; day++) {
+    const rotation = weekRotations.find(r => r.day_of_week === day && r.shift_id)
+    
+    if (rotation) {
+      const shift = shifts.find((s: Shift) => s.id === rotation.shift_id)
+      if (shift && shift.start_time) {
+        nextShiftStart = { day, time: shift.start_time }
+        break
+      }
+    }
+  }
+
+  // Calculate rest period if both shifts exist
+  if (lastShiftEnd && nextShiftStart) {
+    const parseTime = (time: string) => {
+      const [h, m] = time.split(':').map(Number)
+      return h * 60 + m
+    }
+
+    const lastEndMinutes = parseTime(lastShiftEnd.time)
+    const nextStartMinutes = parseTime(nextShiftStart.time)
+    
+    const daysBetween = nextShiftStart.day - lastShiftEnd.day
+    const restMinutes = (daysBetween * 24 * 60) - lastEndMinutes + nextStartMinutes
+    const restHours = restMinutes / 60
+
+    if (restHours < minRestHours) {
+      const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+      if (isAssumedF1) {
+        return `Insufficient rest period: ${restHours.toFixed(1)}h (tested as if ${dayNames[f1Day]} was F1) - requires ${minRestHours}h`
+      } else {
+        return `Insufficient rest period: ${restHours.toFixed(1)}h - requires ${minRestHours}h`
+      }
+    }
+  }
+
+  return null
 }

@@ -75,15 +75,15 @@ export default async function CalendarPage({ params }: PageProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link 
-                href={`/plans/${id}`}
+                href="/"
                 className="text-gray-600 hover:text-gray-900 transition-colors"
               >
-                ← Back to Plan
+                ← Tilbake til plan
               </Link>
               <div className="h-6 w-px bg-gray-300"></div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">{plan.name}</h1>
-                <p className="text-sm text-gray-600">Calendar View</p>
+                <p className="text-sm text-gray-600">Kalender</p>
               </div>
             </div>
           </div>
@@ -93,20 +93,20 @@ export default async function CalendarPage({ params }: PageProps) {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto space-y-6">
-          {/* Plan Details Card with Rotation Button */}
-          <PlanDetails 
-            plan={plan} 
-            basePlanName={basePlanName}
-            showRotationButton={true}
-          />
+            {/* Plan Details Card with Rotation Button */}
+            <PlanDetails 
+                plan={plan} 
+                basePlanName={basePlanName}
+                activePage="calendar"  // <-- This sets Calendar as the active tab
+            />
 
-          {/* Calendar View */}
-          <CalendarView 
-            rotations={rotations || []} 
-            shifts={shifts || []}
-            planStartDate={plan.date_started}
-            durationWeeks={plan.duration_weeks}
-          />
+            {/* Calendar View */}
+            <CalendarView 
+                rotations={rotations || []} 
+                shifts={shifts || []}
+                planStartDate={plan.date_started}
+                durationWeeks={plan.duration_weeks}
+            />
         </div>
       </main>
     </div>

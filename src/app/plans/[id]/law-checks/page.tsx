@@ -75,15 +75,15 @@ export default async function LawChecksPage({ params }: PageProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link 
-                href={`/plans/${id}`}
+                href="/"
                 className="text-gray-600 hover:text-gray-900 transition-colors"
               >
-                ← Back to Plan
+                ← Tilbake til plan
               </Link>
               <div className="h-6 w-px bg-gray-300"></div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">{plan.name}</h1>
-                <p className="text-sm text-gray-600">Law Compliance Checks</p>
+                <p className="text-sm text-gray-600">Lovsjekk</p>
               </div>
             </div>
           </div>
@@ -97,6 +97,7 @@ export default async function LawChecksPage({ params }: PageProps) {
           <PlanDetails 
             plan={plan} 
             basePlanName={basePlanName}
+            activePage="lawChecks"
           />
 
           {/* Law Checks View */}

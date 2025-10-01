@@ -32,12 +32,18 @@ export interface LawCheckResult {
   }>
 }
 
+export interface LawReference {
+  title: string
+  url: string
+}
+
 export interface LawCheck {
   id: string
   name: string
   description: string
   category: LawCheckCategory
   lawType: LawCheckLawType // 'aml' or 'hta'
+  lawReferences?: LawReference[] // Array of external law/regulation sources
   applicableTo?: LawCheckCategory[] // For shared tests: which plan types apply
   inputs?: LawCheckInput[]
   

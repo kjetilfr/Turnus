@@ -5,8 +5,8 @@ import { useState } from 'react'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
 import { Plan } from '@/types/plan'
-import { getChecksByLawTypeAndPlan, getAvailableLawTypes } from '@/lib/lawChecks'
-import { LawCheckResult, LawCheckStatus, LawCheckLawType } from '@/types/lawCheck'
+import { LAW_CHECKS } from '@/lib/lawChecks'
+import { LawCheckResult, LawCheckStatus, LawCheckCategory } from '@/types/lawCheck'
 import LawCheckCard from '@/components/lawChecks/LawCheckCard'
 
 interface LawChecksViewProps {
@@ -16,16 +16,23 @@ interface LawChecksViewProps {
 }
 
 export default function LawChecksView({ rotations, shifts, plan }: LawChecksViewProps) {
-  const [selectedLawType, setSelectedLawType] = useState<LawCheckLawType>('aml')
   const [checkResults, setCheckResults] = useState<Record<string, LawCheckResult>>({})
   const [runningChecks, setRunningChecks] = useState<Record<string, boolean>>({})
   const [checkInputs, setCheckInputs] = useState<Record<string, Record<string, number | string | boolean>>>({})
 
-  const lawTypes = getAvailableLawTypes()
-  const filteredChecks = getChecksByLawTypeAndPlan(selectedLawType, plan.type)
+  // Filter checks applicable to this plan type
+  const applicableChecks = LAW_CHECKS.filter(check => {
+    // If it's a shared check, verify it applies to this plan type
+    if (check.category === 'shared') {
+      return check.applicableTo?.includes(plan.type as LawCheckCategory) ?? false
+    }
+    
+    // If it's a specific category check, it must match the plan type
+    return check.category === plan.type
+  })
 
   const handleRunCheck = (checkId: string) => {
-    const check = filteredChecks.find(c => c.id === checkId)
+    const check = applicableChecks.find(c => c.id === checkId)
     if (!check) return
 
     setRunningChecks(prev => ({ ...prev, [checkId]: true }))
@@ -45,7 +52,7 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
   }
 
   const handleRunAllChecks = () => {
-    filteredChecks.forEach(check => {
+    applicableChecks.forEach(check => {
       handleRunCheck(check.id)
     })
   }
@@ -61,7 +68,7 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
   }
 
   // Calculate summary statistics
-  const summary = filteredChecks.reduce((acc, check) => {
+  const summary = applicableChecks.reduce((acc, check) => {
     const result = checkResults[check.id]
     if (result) {
       acc[result.status]++
@@ -70,6 +77,10 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
     }
     return acc
   }, { pass: 0, fail: 0, warning: 0, not_run: 0 } as Record<LawCheckStatus, number>)
+
+  // Count by law type
+  const amlCount = applicableChecks.filter(c => c.lawType === 'aml').length
+  const htaCount = applicableChecks.filter(c => c.lawType === 'hta').length
 
   return (
     <div className="space-y-6">
@@ -92,9 +103,10 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
           <div className="text-sm text-blue-900">
             <p className="font-semibold mb-1">About Law Compliance Checks:</p>
             <ul className="list-disc list-inside space-y-1">
-              <li><strong>AML:</strong> Arbeidsmiljøloven (Working Environment Act) compliance tests</li>
-              <li><strong>HTA:</strong> Hovedtariffavtalen (Main Collective Agreement) compliance tests</li>
-              <li>Tests are automatically filtered based on your plan type ({plan.type})</li>
+              <li><strong>AML:</strong> Arbeidsmiljøloven (Working Environment Act)</li>
+              <li><strong>HTA:</strong> Hovedtariffavtalen (Main Collective Agreement)</li>
+              <li>Tests shown are automatically filtered for {plan.type} plans</li>
+              <li>Available: {amlCount} AML test{amlCount !== 1 ? 's' : ''}, {htaCount} HTA test{htaCount !== 1 ? 's' : ''}</li>
             </ul>
           </div>
         </div>
@@ -102,36 +114,6 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
 
       {/* Main Card */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        {/* Law Type Selector */}
-        <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-1">Select Law Type</h2>
-              <p className="text-sm text-gray-600">Choose which law framework to check compliance against</p>
-            </div>
-            <div className="flex gap-3">
-              {lawTypes.map(lawType => (
-                <button
-                  key={lawType.id}
-                  onClick={() => setSelectedLawType(lawType.id)}
-                  className={`
-                    px-6 py-3 rounded-lg font-semibold text-sm transition-all
-                    ${selectedLawType === lawType.id
-                      ? 'bg-indigo-600 text-white shadow-md'
-                      : 'bg-white text-gray-700 border-2 border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'
-                    }
-                  `}
-                >
-                  {lawType.label}
-                  <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-white bg-opacity-20">
-                    {lawType.count}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
         {/* Summary Bar */}
         {Object.values(checkResults).length > 0 && (
           <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
@@ -162,13 +144,13 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold text-gray-900">
-                {lawTypes.find(lt => lt.id === selectedLawType)?.label} Tests
+                Compliance Tests
               </h3>
               <p className="text-sm text-gray-600 mt-1">
-                {filteredChecks.length} test{filteredChecks.length !== 1 ? 's' : ''} available for {plan.type} plans
+                {applicableChecks.length} test{applicableChecks.length !== 1 ? 's' : ''} available for {plan.type} plans
               </p>
             </div>
-            {filteredChecks.length > 0 && (
+            {applicableChecks.length > 0 && (
               <button
                 onClick={handleRunAllChecks}
                 className="inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors text-sm"
@@ -194,17 +176,16 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
 
         {/* Checks List */}
         <div className="p-6 space-y-4">
-          {filteredChecks.length === 0 ? (
+          {applicableChecks.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <div className="text-5xl mb-3">📋</div>
               <p className="text-lg font-semibold mb-2">No tests available</p>
               <p className="text-sm">
-                There are no {lawTypes.find(lt => lt.id === selectedLawType)?.label} tests 
-                configured for {plan.type} plans yet.
+                There are no compliance tests configured for {plan.type} plans yet.
               </p>
             </div>
           ) : (
-            filteredChecks.map(check => (
+            applicableChecks.map(check => (
               <LawCheckCard
                 key={check.id}
                 check={check}

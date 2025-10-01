@@ -79,9 +79,39 @@ export default function LawCheckCard({
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                {check.name}
-              </h3>
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {check.name}
+                </h3>
+                {/* Law Type Badge */}
+                <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
+                  check.lawType === 'aml' 
+                    ? 'bg-blue-100 text-blue-800' 
+                    : 'bg-purple-100 text-purple-800'
+                }`}>
+                  {check.lawType.toUpperCase()}
+                </span>
+                {/* Law References */}
+                {check.lawReferences && check.lawReferences.length > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    {check.lawReferences.map((ref, index) => (
+                      <a
+                        key={index}
+                        href={ref.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                        title={ref.title}
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        {ref.title.length > 20 ? `${ref.title.substring(0, 20)}...` : ref.title}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
               <p className="text-sm text-gray-600 mb-3">
                 {check.description}
               </p>
@@ -89,48 +119,67 @@ export default function LawCheckCard({
               {/* Input Fields */}
               {check.inputs && check.inputs.length > 0 && (
                 <div className="space-y-3 mb-3">
-                  {check.inputs.map(input => (
-                    <div key={input.id} className="flex items-center gap-3">
-                      <label htmlFor={`${check.id}-${input.id}`} className="text-sm font-medium text-gray-700 min-w-[140px]">
-                        {input.label}:
-                      </label>
-                      {input.type === 'number' && (
-                        <div className="flex items-center gap-2">
-                          <input
-                            id={`${check.id}-${input.id}`}
-                            type="number"
-                            value={(inputs[input.id] ?? input.defaultValue) as number}
-                            onChange={(e) => onInputChange(input.id, parseFloat(e.target.value))}
-                            min={input.min}
-                            max={input.max}
-                            step={input.step}
-                            className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-                          />
-                          {input.unit && (
-                            <span className="text-sm text-gray-600">{input.unit}</span>
+                  {check.inputs.map(input => {
+                    const currentValue = (inputs[input.id] ?? input.defaultValue) as number
+                    const showWarning = input.id === 'minRestHours' && input.type === 'number' && currentValue < 28
+                    
+                    return (
+                      <div key={input.id}>
+                        <div className="flex items-center gap-3">
+                          <label htmlFor={`${check.id}-${input.id}`} className="text-sm font-medium text-gray-700 min-w-[140px]">
+                            {input.label}:
+                          </label>
+                          {input.type === 'number' && (
+                            <div className="flex items-center gap-2">
+                              <input
+                                id={`${check.id}-${input.id}`}
+                                type="number"
+                                value={currentValue}
+                                onChange={(e) => onInputChange(input.id, parseFloat(e.target.value))}
+                                min={input.min}
+                                max={input.max}
+                                step={input.step}
+                                className={`w-24 px-3 py-1.5 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm ${
+                                  showWarning ? 'border-yellow-400' : 'border-gray-300'
+                                }`}
+                              />
+                              {input.unit && (
+                                <span className="text-sm text-gray-600">{input.unit}</span>
+                              )}
+                            </div>
+                          )}
+                          {input.type === 'text' && (
+                            <input
+                              id={`${check.id}-${input.id}`}
+                              type="text"
+                              value={(inputs[input.id] ?? input.defaultValue) as string}
+                              onChange={(e) => onInputChange(input.id, e.target.value)}
+                              className="flex-1 max-w-xs px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                            />
+                          )}
+                          {input.type === 'boolean' && (
+                            <input
+                              id={`${check.id}-${input.id}`}
+                              type="checkbox"
+                              checked={(inputs[input.id] ?? input.defaultValue) as boolean}
+                              onChange={(e) => onInputChange(input.id, e.target.checked)}
+                              className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                            />
                           )}
                         </div>
-                      )}
-                      {input.type === 'text' && (
-                        <input
-                          id={`${check.id}-${input.id}`}
-                          type="text"
-                          value={(inputs[input.id] ?? input.defaultValue) as string}
-                          onChange={(e) => onInputChange(input.id, e.target.value)}
-                          className="flex-1 max-w-xs px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-                        />
-                      )}
-                      {input.type === 'boolean' && (
-                        <input
-                          id={`${check.id}-${input.id}`}
-                          type="checkbox"
-                          checked={(inputs[input.id] ?? input.defaultValue) as boolean}
-                          onChange={(e) => onInputChange(input.id, e.target.checked)}
-                          className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                        />
-                      )}
-                    </div>
-                  ))}
+                        {showWarning && (
+                          <div className="ml-[152px] mt-1 flex items-start gap-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-2 py-1.5">
+                            <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span>
+                              Warning: Value below recommended minimum of 28 hours. This may not comply with standard rest period requirements.
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
 
@@ -204,39 +253,6 @@ export default function LawCheckCard({
               ))}
             </ul>
           </div>
-
-          {/* Violations Table */}
-          {result.violations && result.violations.length > 0 && (
-            <div className="mt-4">
-              <h4 className="text-sm font-semibold text-gray-900 mb-2">Violations:</h4>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-100 border-b border-gray-300">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-700">Week</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-700">Day</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-700">Issue</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {result.violations.map((violation, index) => (
-                      <tr key={index} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 text-gray-900">
-                          Week {violation.weekIndex + 1}
-                        </td>
-                        <td className="px-3 py-2 text-gray-900">
-                          {violation.dayOfWeek >= 0 ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][violation.dayOfWeek] : 'N/A'}
-                        </td>
-                        <td className="px-3 py-2 text-gray-700">
-                          {violation.description}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>

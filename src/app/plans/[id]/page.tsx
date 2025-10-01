@@ -87,10 +87,13 @@ export default async function PlanDetailPage({ params }: PageProps) {
                 href="/"
                 className="text-gray-600 hover:text-gray-900 transition-colors"
               >
-                ← Back to Dashboard
+                ← Tilbake til plan
               </Link>
               <div className="h-6 w-px bg-gray-300"></div>
-              <h1 className="text-2xl font-bold text-gray-900">{plan.name}</h1>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">{plan.name}</h1>
+                <p className="text-sm text-gray-600">Turnus</p>
+              </div>
             </div>
           </div>
         </div>
@@ -99,12 +102,11 @@ export default async function PlanDetailPage({ params }: PageProps) {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto space-y-6">
-          {/* Plan Details Card with Calendar and Law Checks Buttons */}
+          {/* Plan Details Card */}
           <PlanDetails 
             plan={plan} 
             basePlanName={basePlanName}
-            showCalendarButton={true}
-            showLawChecksButton={true}
+            activePage="rotation"
           />
 
           {/* Rotation Grid */}
