@@ -98,7 +98,7 @@ export default async function ShiftsPage({ params }: PageProps) {
                   <li>F1-F5 are default shifts created automatically and cannot be edited or deleted</li>
                   <li>Custom shifts require start and end times</li>
                   <li>All shifts can be assigned to rotation cells in the schedule</li>
-                  <li>Use "Import Shifts" to copy custom shifts from another plan</li>
+                  <li>Use &quot;Import Shifts&quot; to copy custom shifts from another plan</li>
                 </ul>
               </div>
             </div>
