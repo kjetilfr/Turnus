@@ -9,6 +9,7 @@ import interactionPlugin from '@fullcalendar/interaction'
 import nbLocale from '@fullcalendar/core/locales/nb'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
+import { getNorwegianHolidays } from '@/lib/utils/norwegianHolidays'
 
 interface CalendarViewProps {
   rotations: Rotation[]
@@ -32,6 +33,33 @@ export default function CalendarView({
 
     // Create a map of shifts for quick lookup
     const shiftsMap = new Map(shifts.map(shift => [shift.id, shift]))
+
+    // Get Norwegian holidays for relevant years
+    const startYear = new Date(planStartDate).getFullYear()
+    const endYear = new Date(planStartDate)
+    endYear.setDate(endYear.getDate() + (durationWeeks * 7))
+    const finalYear = endYear.getFullYear()
+    
+    let holidays: Array<{date: string, name: string, localName: string}> = []
+    for (let year = startYear; year <= finalYear; year++) {
+      holidays = holidays.concat(getNorwegianHolidays(year))
+    }
+
+    // Convert holidays to calendar events
+    const holidayEvents = holidays.map(holiday => ({
+      id: `holiday-${holiday.date}`,
+      title: `🇳🇴 ${holiday.localName}`,
+      start: holiday.date,
+      allDay: true,
+      backgroundColor: '#EF4444', // Red for holidays
+      borderColor: '#DC2626',
+      display: 'background',
+      extendedProps: {
+        isHoliday: true,
+        holidayName: holiday.name,
+        localName: holiday.localName
+      }
+    }))
 
     // Convert rotations to calendar events
     const events = rotations
@@ -112,6 +140,9 @@ export default function CalendarView({
       })
       .filter(event => event !== null)
 
+    // Combine shift events and holiday events
+    const allEvents = [...holidayEvents, ...events]
+
     // Initialize FullCalendar
     const calendar = new Calendar(calendarRef.current, {
       plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin],
@@ -119,6 +150,8 @@ export default function CalendarView({
       initialDate: planStartDate,
       locale: nbLocale,
       firstDay: 1, // Monday
+      weekNumbers: true, // Show week numbers
+      weekText: 'Uke ', // Norwegian for "Week"
       buttonText: {
         today: 'I dag',
         month: 'Måned',
@@ -130,7 +163,7 @@ export default function CalendarView({
         center: 'title',
         right: 'dayGridMonth,timeGridWeek'
       },
-      events: events,
+      events: allEvents,
       editable: false,
       selectable: false,
       displayEventTime: true,
@@ -156,6 +189,12 @@ export default function CalendarView({
       eventClick: (info) => {
         // Show event details in alert (you can customize this)
         const props = info.event.extendedProps
+        
+        if (props.isHoliday) {
+          alert(`🇳🇴 ${props.localName}\n(${props.holidayName})`)
+          return
+        }
+        
         let message = `Shift: ${info.event.title}\n`
         if (props.description) {
           message += `Description: ${props.description}\n`
@@ -184,6 +223,31 @@ export default function CalendarView({
           `
         }
       },
+      dayCellDidMount: (info) => {
+        // Add rotation week number below the week number
+        const date = info.date
+        const planStart = new Date(planStartDate)
+        
+        // Calculate days difference
+        const diffTime = date.getTime() - planStart.getTime()
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+        
+        // Calculate rotation week (0-indexed)
+        const rotationWeek = Math.floor(diffDays / 7)
+        
+        // Only show if within the plan duration and not negative
+        if (rotationWeek >= 0 && rotationWeek < durationWeeks) {
+          // Find the week number cell
+          const weekCell = info.el.closest('tr')?.querySelector('.fc-daygrid-week-number')
+          if (weekCell && !weekCell.querySelector('.rotation-week')) {
+            const rotationWeekSpan = document.createElement('div')
+            rotationWeekSpan.className = 'rotation-week'
+            rotationWeekSpan.style.cssText = 'font-size: 0.7em; color: #6366F1; font-weight: 600; margin-top: 2px;'
+            rotationWeekSpan.textContent = `(T${rotationWeek + 1})`
+            weekCell.appendChild(rotationWeekSpan)
+          }
+        }
+      },
       height: 'auto',
       aspectRatio: 1.8
     })
@@ -194,7 +258,7 @@ export default function CalendarView({
     return () => {
       calendar.destroy()
     }
-  }, [rotations, shifts, planStartDate])
+  }, [rotations, shifts, planStartDate, durationWeeks])
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -210,7 +274,7 @@ export default function CalendarView({
       {/* Legend */}
       <div className="mt-6 pt-6 border-t border-gray-200">
         <h3 className="text-sm font-semibold text-gray-900 mb-3">Legend</h3>
-        <div className="flex gap-6">
+        <div className="flex flex-wrap gap-6">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-gray-600"></div>
             <span className="text-sm text-gray-700">Default Shifts (F1-F5)</span>
@@ -218,6 +282,10 @@ export default function CalendarView({
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-indigo-600"></div>
             <span className="text-sm text-gray-700">Custom Shifts</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-red-500"></div>
+            <span className="text-sm text-gray-700">🇳🇴 Norwegian Holidays</span>
           </div>
         </div>
       </div>
@@ -288,7 +356,6 @@ export default function CalendarView({
           margin-left: 2px;
           margin-right: 2px;
           background-color: #4F46E5;
-          font-weight: 700;
         }
 
         .fc-timegrid-event {
@@ -297,6 +364,15 @@ export default function CalendarView({
 
         .fc-v-event .fc-event-main {
           color: white;
+        }
+
+        .fc-day-sun .fc-daygrid-day-number {
+            color: #DC2626;
+            font-weight: 600;
+        }
+
+        .fc-timegrid-axis-cushion, .fc-timegrid-slot-label-cushion {
+            color: black;
         }
 
         /* Ensure colors work in month view */
@@ -312,13 +388,37 @@ export default function CalendarView({
           font-weight: 600;
         }
 
+        /* Ensure block events show colors */
+        .fc-daygrid-block-event .fc-event-main {
+          padding: 2px 4px;
+        }
+
+        /* Style for holiday backgrounds */
+        .fc-bg-event {
+          opacity: 0.15;
+        }
+
+        .fc-day.fc-day-today {
+          background-color: #EEF2FF !important;
+        }
+
+        /* Style week numbers */
+        .fc-daygrid-week-number {
+          background-color: #F3F4F6;
+          color: #374151;
+          font-weight: 600;
+          padding: 4px 8px;
+          text-align: center;
+          min-width: 60px;
+        }
+
         .fc-toolbar-title {
             color: #000000;
         }
 
-        /* Ensure block events show colors */
-        .fc-daygrid-block-event .fc-event-main {
-          padding: 2px 4px;
+        .fc-daygrid-week-number a {
+          color: inherit;
+          text-decoration: none;
         }
       `}</style>
     </div>
