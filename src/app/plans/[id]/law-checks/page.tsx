@@ -1,14 +1,10 @@
-// src/app/plans/[id]/page.tsx
+// src/app/plans/[id]/law-checks/page.tsx
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { notFound } from 'next/navigation'
-import RotationGrid from '@/components/rotation/RotationGrid'
-import ShiftSummary from '@/components/rotation/ShiftSummary'
-import NightShiftInfoCard from '@/components/rotation/NightShiftInfoCard'
-import PlanDetails from '@/components/plan/PlanDetails'
-import ShiftsSummaryCard from '@/components/shift/ShiftsSummaryCard'
-import ManageShiftsButton from '@/components/shift/ManageShiftsButton'
 import Link from 'next/link'
+import LawChecksView from '@/components/lawChecks/LawChecksView'
+import PlanDetails from '@/components/plan/PlanDetails'
 
 interface PageProps {
   params: Promise<{
@@ -16,7 +12,7 @@ interface PageProps {
   }>
 }
 
-export default async function PlanDetailPage({ params }: PageProps) {
+export default async function LawChecksPage({ params }: PageProps) {
   const { id } = await params
   const supabase = await createClient()
   
@@ -55,15 +51,10 @@ export default async function PlanDetailPage({ params }: PageProps) {
     .from('shifts')
     .select('*')
     .eq('plan_id', id)
-    .order('is_default', { ascending: false })
-    .order('name')
 
   if (shiftsError) {
     console.error('Error fetching shifts:', shiftsError)
   }
-
-  const defaultShifts = shifts?.filter(s => s.is_default) || []
-  const customShifts = shifts?.filter(s => !s.is_default) || []
 
   // Fetch base plan if this is a helping plan
   let basePlanName = null
@@ -84,13 +75,16 @@ export default async function PlanDetailPage({ params }: PageProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link 
-                href="/"
+                href={`/plans/${id}`}
                 className="text-gray-600 hover:text-gray-900 transition-colors"
               >
-                ← Back to Dashboard
+                ← Back to Plan
               </Link>
               <div className="h-6 w-px bg-gray-300"></div>
-              <h1 className="text-2xl font-bold text-gray-900">{plan.name}</h1>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">{plan.name}</h1>
+                <p className="text-sm text-gray-600">Law Compliance Checks</p>
+              </div>
             </div>
           </div>
         </div>
@@ -99,45 +93,17 @@ export default async function PlanDetailPage({ params }: PageProps) {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto space-y-6">
-          {/* Plan Details Card with Calendar and Law Checks Buttons */}
+          {/* Plan Details Card */}
           <PlanDetails 
             plan={plan} 
             basePlanName={basePlanName}
-            showCalendarButton={true}
-            showLawChecksButton={true}
           />
 
-          {/* Rotation Grid */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Rotation Schedule</h2>
-              <ManageShiftsButton planId={id} />
-            </div>
-
-            {/* Shifts Summary */}
-            <ShiftsSummaryCard 
-              defaultShifts={defaultShifts}
-              customShifts={customShifts}
-            />
-            
-            {/* Night Shift Info Card */}
-            <div className="mb-6">
-              <NightShiftInfoCard />
-            </div>
-            
-            <RotationGrid 
-              rotations={rotations || []} 
-              durationWeeks={plan.duration_weeks}
-              planId={id}
-              planType={plan.type}
-            />
-          </div>
-
-          {/* Shift Summary Statistics */}
-          <ShiftSummary 
-            rotations={rotations || []} 
+          {/* Law Checks View */}
+          <LawChecksView 
+            rotations={rotations || []}
             shifts={shifts || []}
-            planType={plan.type}
+            plan={plan}
           />
         </div>
       </main>

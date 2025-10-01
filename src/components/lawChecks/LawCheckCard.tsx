@@ -1,0 +1,244 @@
+// src/components/lawChecks/LawCheckCard.tsx
+'use client'
+
+import { LawCheck, LawCheckResult, LawCheckStatus } from '@/types/lawCheck'
+import { useState } from 'react'
+
+interface LawCheckCardProps {
+  check: LawCheck
+  result?: LawCheckResult
+  isRunning: boolean
+  inputs: Record<string, number | string | boolean>
+  onRun: () => void
+  onInputChange: (inputId: string, value: number | string | boolean) => void
+}
+
+export default function LawCheckCard({
+  check,
+  result,
+  isRunning,
+  inputs,
+  onRun,
+  onInputChange
+}: LawCheckCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  const getStatusColor = (status: LawCheckStatus) => {
+    switch (status) {
+      case 'pass':
+        return 'bg-green-50 border-green-200 text-green-800'
+      case 'fail':
+        return 'bg-red-50 border-red-200 text-red-800'
+      case 'warning':
+        return 'bg-yellow-50 border-yellow-200 text-yellow-800'
+      default:
+        return 'bg-gray-50 border-gray-200 text-gray-800'
+    }
+  }
+
+  const getStatusIcon = (status: LawCheckStatus) => {
+    switch (status) {
+      case 'pass':
+        return (
+          <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        )
+      case 'fail':
+        return (
+          <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        )
+      case 'warning':
+        return (
+          <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        )
+      default:
+        return (
+          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        )
+    }
+  }
+
+  return (
+    <div className={`border-2 rounded-lg transition-all ${
+      result ? getStatusColor(result.status) : 'bg-white border-gray-200'
+    }`}>
+      {/* Header */}
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3 flex-1">
+            {result && (
+              <div className="mt-0.5">
+                {getStatusIcon(result.status)}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                {check.name}
+              </h3>
+              <p className="text-sm text-gray-600 mb-3">
+                {check.description}
+              </p>
+
+              {/* Input Fields */}
+              {check.inputs && check.inputs.length > 0 && (
+                <div className="space-y-3 mb-3">
+                  {check.inputs.map(input => (
+                    <div key={input.id} className="flex items-center gap-3">
+                      <label htmlFor={`${check.id}-${input.id}`} className="text-sm font-medium text-gray-700 min-w-[140px]">
+                        {input.label}:
+                      </label>
+                      {input.type === 'number' && (
+                        <div className="flex items-center gap-2">
+                          <input
+                            id={`${check.id}-${input.id}`}
+                            type="number"
+                            value={(inputs[input.id] ?? input.defaultValue) as number}
+                            onChange={(e) => onInputChange(input.id, parseFloat(e.target.value))}
+                            min={input.min}
+                            max={input.max}
+                            step={input.step}
+                            className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                          />
+                          {input.unit && (
+                            <span className="text-sm text-gray-600">{input.unit}</span>
+                          )}
+                        </div>
+                      )}
+                      {input.type === 'text' && (
+                        <input
+                          id={`${check.id}-${input.id}`}
+                          type="text"
+                          value={(inputs[input.id] ?? input.defaultValue) as string}
+                          onChange={(e) => onInputChange(input.id, e.target.value)}
+                          className="flex-1 max-w-xs px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                        />
+                      )}
+                      {input.type === 'boolean' && (
+                        <input
+                          id={`${check.id}-${input.id}`}
+                          type="checkbox"
+                          checked={(inputs[input.id] ?? input.defaultValue) as boolean}
+                          onChange={(e) => onInputChange(input.id, e.target.checked)}
+                          className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Result Message */}
+              {result && (
+                <div className="mb-3">
+                  <p className="text-sm font-semibold text-gray-900 mb-2">
+                    {result.message}
+                  </p>
+                  
+                  {/* Details toggle for long results */}
+                  {result.details && result.details.length > 0 && (
+                    <button
+                      onClick={() => setIsExpanded(!isExpanded)}
+                      className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
+                    >
+                      {isExpanded ? 'Hide' : 'Show'} Details
+                      <svg 
+                        className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Run Button */}
+          <button
+            onClick={onRun}
+            disabled={isRunning}
+            className="flex-shrink-0 inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          >
+            {isRunning ? (
+              <>
+                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Running...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Run Test
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Expanded Details */}
+      {isExpanded && result?.details && result.details.length > 0 && (
+        <div className="px-4 pb-4 border-t border-gray-300">
+          <div className="mt-4 space-y-2">
+            <h4 className="text-sm font-semibold text-gray-900 mb-2">Details:</h4>
+            <ul className="space-y-1">
+              {result.details.map((detail, index) => (
+                <li key={index} className="text-sm text-gray-700 flex items-start gap-2">
+                  <span className="text-gray-400 mt-0.5">•</span>
+                  <span>{detail}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Violations Table */}
+          {result.violations && result.violations.length > 0 && (
+            <div className="mt-4">
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">Violations:</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100 border-b border-gray-300">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-gray-700">Week</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-700">Day</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-700">Issue</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {result.violations.map((violation, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 text-gray-900">
+                          Week {violation.weekIndex + 1}
+                        </td>
+                        <td className="px-3 py-2 text-gray-900">
+                          {violation.dayOfWeek >= 0 ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][violation.dayOfWeek] : 'N/A'}
+                        </td>
+                        <td className="px-3 py-2 text-gray-700">
+                          {violation.description}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
