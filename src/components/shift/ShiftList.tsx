@@ -122,7 +122,7 @@ export default function ShiftsList({ shifts, planId }: ShiftsListProps) {
                   No custom shifts yet.
                 </p>
                 <p className="text-gray-500 text-xs">
-                  Click "Create Shift" or "Import Shifts" to add custom shifts.
+                  Click &quot;Create Shift&quot; or &quot;Import Shifts&quot; to add custom shifts.
                 </p>
               </div>
             ) : (
