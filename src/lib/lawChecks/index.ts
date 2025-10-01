@@ -1,6 +1,6 @@
 // src/lib/lawChecks/index.ts
 
-import { LawCheck } from '@/types/lawCheck'
+import { LawCheck, LawCheckLawType, LawCheckCategory } from '@/types/lawCheck'
 
 // Import shared checks
 import { f1RestPeriodCheck } from './shared/F1RestPeriodCheck'
@@ -32,29 +32,49 @@ export const LAW_CHECKS: LawCheck[] = [
 ]
 
 /**
- * Get checks by category
+ * Get checks by law type (aml or hta)
  */
-export function getChecksByCategory(category: 'main' | 'helping' | 'year' | 'shared'): LawCheck[] {
-  return LAW_CHECKS.filter(check => check.category === category)
+export function getChecksByLawType(lawType: LawCheckLawType): LawCheck[] {
+  return LAW_CHECKS.filter(check => check.lawType === lawType)
 }
 
 /**
- * Get all categories that have checks
+ * Get checks by law type and plan type
+ * For shared checks, only return if they're applicable to the given plan type
  */
-export function getAvailableCategories(): Array<{ id: string; label: string; count: number }> {
-  const categories = [
-    { id: 'shared', label: 'Shared Tests', count: 0 },
-    { id: 'main', label: 'Main Plan Tests', count: 0 },
-    { id: 'helping', label: 'Helping Plan Tests', count: 0 },
-    { id: 'year', label: 'Year Plan Tests', count: 0 },
+export function getChecksByLawTypeAndPlan(
+  lawType: LawCheckLawType, 
+  planType: LawCheckCategory
+): LawCheck[] {
+  return LAW_CHECKS.filter(check => {
+    // Must match law type
+    if (check.lawType !== lawType) return false
+    
+    // If it's a shared check, verify it applies to this plan type
+    if (check.category === 'shared') {
+      return check.applicableTo?.includes(planType) ?? false
+    }
+    
+    // If it's a specific category check, it must match the plan type
+    return check.category === planType
+  })
+}
+
+/**
+ * Get all law types that have checks
+ */
+export function getAvailableLawTypes(): Array<{ id: LawCheckLawType; label: string; count: number }> {
+  const lawTypes: Array<{ id: LawCheckLawType; label: string; count: number }> = [
+    { id: 'aml', label: 'AML (Arbeidsmiljøloven)', count: 0 },
+    { id: 'hta', label: 'HTA (Hovedtariffavtalen)', count: 0 },
   ]
 
   LAW_CHECKS.forEach(check => {
-    const cat = categories.find(c => c.id === check.category)
-    if (cat) cat.count++
+    const lawType = lawTypes.find(lt => lt.id === check.lawType)
+    if (lawType) lawType.count++
   })
 
-  return categories.filter(c => c.count > 0)
+  return lawTypes.filter(lt => lt.count > 0)
 }
 
 /**

@@ -1,6 +1,12 @@
 // src/types/lawCheck.ts
 
+import { Rotation } from '@/types/rotation'
+import { Shift } from '@/types/shift'
+import { Plan } from '@/types/plan'
+
 export type LawCheckCategory = 'main' | 'helping' | 'year' | 'shared'
+
+export type LawCheckLawType = 'aml' | 'hta'
 
 export type LawCheckStatus = 'pass' | 'fail' | 'warning' | 'not_run'
 
@@ -31,13 +37,15 @@ export interface LawCheck {
   name: string
   description: string
   category: LawCheckCategory
+  lawType: LawCheckLawType // 'aml' or 'hta'
+  applicableTo?: LawCheckCategory[] // For shared tests: which plan types apply
   inputs?: LawCheckInput[]
   
   // Function to run the check
   run: (params: {
-    rotations: any[]
-    shifts: any[]
-    plan: any
+    rotations: Rotation[]
+    shifts: Shift[]
+    plan: Plan
     inputs?: Record<string, number | string | boolean>
   }) => LawCheckResult
 }

@@ -13,6 +13,7 @@ export const exampleHelpingCheck: LawCheck = {
   name: 'Example Helping Plan Check',
   description: 'This is an example check that only applies to helping plans. Replace this with your actual check logic.',
   category: 'helping',
+  lawType: 'aml', // or 'hta'
   inputs: [
     {
       id: 'exampleParam',

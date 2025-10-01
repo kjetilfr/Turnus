@@ -5,9 +5,9 @@ import { useState } from 'react'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
 import { Plan } from '@/types/plan'
-import { LAW_CHECKS, getAvailableCategories } from '@/lib/lawChecks'
-import { LawCheckResult, LawCheckStatus } from '@/types/lawCheck'
-import LawCheckCard from './LawCheckCard'
+import { getChecksByLawTypeAndPlan, getAvailableLawTypes } from '@/lib/lawChecks'
+import { LawCheckResult, LawCheckStatus, LawCheckLawType } from '@/types/lawCheck'
+import LawCheckCard from '@/components/lawChecks/LawCheckCard'
 
 interface LawChecksViewProps {
   rotations: Rotation[]
@@ -16,16 +16,16 @@ interface LawChecksViewProps {
 }
 
 export default function LawChecksView({ rotations, shifts, plan }: LawChecksViewProps) {
-  const [selectedCategory, setSelectedCategory] = useState<string>('shared')
+  const [selectedLawType, setSelectedLawType] = useState<LawCheckLawType>('aml')
   const [checkResults, setCheckResults] = useState<Record<string, LawCheckResult>>({})
   const [runningChecks, setRunningChecks] = useState<Record<string, boolean>>({})
   const [checkInputs, setCheckInputs] = useState<Record<string, Record<string, number | string | boolean>>>({})
 
-  const categories = getAvailableCategories()
-  const filteredChecks = LAW_CHECKS.filter(check => check.category === selectedCategory)
+  const lawTypes = getAvailableLawTypes()
+  const filteredChecks = getChecksByLawTypeAndPlan(selectedLawType, plan.type)
 
   const handleRunCheck = (checkId: string) => {
-    const check = LAW_CHECKS.find(c => c.id === checkId)
+    const check = filteredChecks.find(c => c.id === checkId)
     if (!check) return
 
     setRunningChecks(prev => ({ ...prev, [checkId]: true }))
@@ -92,37 +92,43 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
           <div className="text-sm text-blue-900">
             <p className="font-semibold mb-1">About Law Compliance Checks:</p>
             <ul className="list-disc list-inside space-y-1">
-              <li><strong>Shared Tests:</strong> Apply to all plan types</li>
-              <li><strong>Main Plan Tests:</strong> Specific to main plans</li>
-              <li><strong>Helping Plan Tests:</strong> Specific to helping plans</li>
-              <li><strong>Year Plan Tests:</strong> Specific to year plans</li>
+              <li><strong>AML:</strong> Arbeidsmiljøloven (Working Environment Act) compliance tests</li>
+              <li><strong>HTA:</strong> Hovedtariffavtalen (Main Collective Agreement) compliance tests</li>
+              <li>Tests are automatically filtered based on your plan type ({plan.type})</li>
             </ul>
           </div>
         </div>
       </div>
 
-      {/* Category Tabs */}
+      {/* Main Card */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <div className="border-b border-gray-200">
-          <div className="flex overflow-x-auto">
-            {categories.map(category => (
-              <button
-                key={category.id}
-                onClick={() => setSelectedCategory(category.id)}
-                className={`
-                  px-6 py-4 font-semibold text-sm whitespace-nowrap border-b-2 transition-colors
-                  ${selectedCategory === category.id
-                    ? 'border-indigo-600 text-indigo-600 bg-indigo-50'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }
-                `}
-              >
-                {category.label}
-                <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-800">
-                  {category.count}
-                </span>
-              </button>
-            ))}
+        {/* Law Type Selector */}
+        <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-1">Select Law Type</h2>
+              <p className="text-sm text-gray-600">Choose which law framework to check compliance against</p>
+            </div>
+            <div className="flex gap-3">
+              {lawTypes.map(lawType => (
+                <button
+                  key={lawType.id}
+                  onClick={() => setSelectedLawType(lawType.id)}
+                  className={`
+                    px-6 py-3 rounded-lg font-semibold text-sm transition-all
+                    ${selectedLawType === lawType.id
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'bg-white text-gray-700 border-2 border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'
+                    }
+                  `}
+                >
+                  {lawType.label}
+                  <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-white bg-opacity-20">
+                    {lawType.count}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -154,28 +160,35 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
         {/* Actions Bar */}
         <div className="bg-white px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">
-              {categories.find(c => c.id === selectedCategory)?.label}
-            </h2>
-            <button
-              onClick={handleRunAllChecks}
-              className="inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors text-sm"
-            >
-              <svg 
-                className="w-4 h-4" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {lawTypes.find(lt => lt.id === selectedLawType)?.label} Tests
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                {filteredChecks.length} test{filteredChecks.length !== 1 ? 's' : ''} available for {plan.type} plans
+              </p>
+            </div>
+            {filteredChecks.length > 0 && (
+              <button
+                onClick={handleRunAllChecks}
+                className="inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors text-sm"
               >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" 
-                />
-              </svg>
-              Run All Tests
-            </button>
+                <svg 
+                  className="w-4 h-4" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" 
+                  />
+                </svg>
+                Run All Tests
+              </button>
+            )}
           </div>
         </div>
 
@@ -183,7 +196,12 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
         <div className="p-6 space-y-4">
           {filteredChecks.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
-              <p>No tests available for this category yet.</p>
+              <div className="text-5xl mb-3">📋</div>
+              <p className="text-lg font-semibold mb-2">No tests available</p>
+              <p className="text-sm">
+                There are no {lawTypes.find(lt => lt.id === selectedLawType)?.label} tests 
+                configured for {plan.type} plans yet.
+              </p>
             </div>
           ) : (
             filteredChecks.map(check => (

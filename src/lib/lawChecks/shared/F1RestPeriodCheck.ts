@@ -13,6 +13,8 @@ export const f1RestPeriodCheck: LawCheck = {
   name: 'F1 Shift Rest Period',
   description: 'Verifies that F1 shifts have adequate rest time before and after (default 35 hours). Checks that only one F1 shift is placed per week and warns if no F1 shifts are found.',
   category: 'shared',
+  lawType: 'aml',
+  applicableTo: ['main', 'helping', 'year'], // Applies to all plan types
   inputs: [
     {
       id: 'minRestHours',

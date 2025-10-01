@@ -13,6 +13,7 @@ export const exampleMainCheck: LawCheck = {
   name: 'Example Main Plan Check',
   description: 'This is an example check that only applies to main plans. Replace this with your actual check logic.',
   category: 'main',
+  lawType: 'aml', // or 'hta'
   inputs: [
     {
       id: 'exampleParam',

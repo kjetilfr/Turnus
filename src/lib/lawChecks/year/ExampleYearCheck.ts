@@ -13,6 +13,7 @@ export const exampleYearCheck: LawCheck = {
   name: 'Example Year Plan Check',
   description: 'This is an example check that only applies to year plans. Replace this with your actual check logic.',
   category: 'year',
+  lawType: 'aml', // or 'hta'
   inputs: [
     {
       id: 'exampleParam',

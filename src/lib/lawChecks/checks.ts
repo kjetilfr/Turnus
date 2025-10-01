@@ -1,9 +1,8 @@
-// src/lib/lawChecks/checks.ts
+// src/lib/lawChecks/shared/F1RestPeriodCheck.ts
 
 import { LawCheck, LawCheckResult } from '@/types/lawCheck'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
-import { Plan } from '@/types/plan'
 
 /**
  * F1 Rest Period Check (35 hours)
@@ -14,6 +13,8 @@ export const f1RestPeriodCheck: LawCheck = {
   name: 'F1 Shift Rest Period',
   description: 'Verifies that F1 shifts have adequate rest time before and after (default 35 hours). Checks that only one F1 shift is placed per week and warns if no F1 shifts are found.',
   category: 'shared',
+  lawType: 'aml',
+  applicableTo: ['main', 'helping', 'year'], // Applies to all plan types
   inputs: [
     {
       id: 'minRestHours',
@@ -191,32 +192,4 @@ export const f1RestPeriodCheck: LawCheck = {
 
     return result
   }
-}
-
-// Export all law checks
-export const LAW_CHECKS: LawCheck[] = [
-  f1RestPeriodCheck,
-  // Add more checks here as they are created
-]
-
-// Helper function to get checks by category
-export function getChecksByCategory(category: 'main' | 'helping' | 'year' | 'shared'): LawCheck[] {
-  return LAW_CHECKS.filter(check => check.category === category)
-}
-
-// Helper function to get all categories that have checks
-export function getAvailableCategories(): Array<{ id: string; label: string; count: number }> {
-  const categories = [
-    { id: 'shared', label: 'Shared Tests', count: 0 },
-    { id: 'main', label: 'Main Plan Tests', count: 0 },
-    { id: 'helping', label: 'Helping Plan Tests', count: 0 },
-    { id: 'year', label: 'Year Plan Tests', count: 0 },
-  ]
-
-  LAW_CHECKS.forEach(check => {
-    const cat = categories.find(c => c.id === check.category)
-    if (cat) cat.count++
-  })
-
-  return categories.filter(c => c.count > 0)
 }
