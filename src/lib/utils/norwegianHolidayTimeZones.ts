@@ -184,7 +184,7 @@ export function calculateHolidayHours(
   const shiftStart = new Date(year, month - 1, day, startHour, startMin)
   
   // Create end datetime (handle crossing midnight)
-  let shiftEnd = new Date(year, month - 1, day, endHour, endMin)
+  const shiftEnd = new Date(year, month - 1, day, endHour, endMin)
   if (endHour < startHour || (endHour === startHour && endMin < startMin)) {
     shiftEnd.setDate(shiftEnd.getDate() + 1)
   }
