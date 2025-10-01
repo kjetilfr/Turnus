@@ -17,6 +17,7 @@ export default function ShiftsList({ shifts, planId }: ShiftsListProps) {
   const supabase = createClient()
   const [editingShift, setEditingShift] = useState<Shift | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [expandedShift, setExpandedShift] = useState<string | null>(null)
 
   const defaultShifts = shifts.filter(s => s.is_default)
   const customShifts = shifts.filter(s => !s.is_default)
@@ -45,6 +46,10 @@ export default function ShiftsList({ shifts, planId }: ShiftsListProps) {
     }
   }
 
+  const toggleExpand = (shiftId: string) => {
+    setExpandedShift(expandedShift === shiftId ? null : shiftId)
+  }
+
   if (shifts.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-md p-12 text-center">
@@ -59,54 +64,47 @@ export default function ShiftsList({ shifts, planId }: ShiftsListProps) {
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="grid lg:grid-cols-2 gap-6">
         {/* Default Shifts Section */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">Default Shifts</h2>
-            <p className="text-sm text-gray-600 mt-1">These shifts are created automatically and cannot be edited</p>
+            <p className="text-sm text-gray-600 mt-1">F1-F5 shifts (cannot be edited)</p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Description
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Start Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    End Time
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {defaultShifts.map((shift) => (
-                  <tr key={shift.id} className="bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-800">
+          <div className="divide-y divide-gray-200">
+            {defaultShifts.map((shift) => (
+              <div key={shift.id} className="bg-gray-50">
+                <div className="px-6 py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold bg-gray-200 text-gray-800">
                           {shift.name}
                         </span>
+                        {shift.description && (
+                          <button
+                            onClick={() => toggleExpand(shift.id)}
+                            className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                          >
+                            {expandedShift === shift.id ? 'Hide details' : 'Show details'}
+                          </button>
+                        )}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {shift.description || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {formatShiftTime(shift.start_time)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {formatShiftTime(shift.end_time)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      {shift.description && expandedShift === shift.id && (
+                        <div className="mt-3 p-3 bg-white rounded border border-gray-200 text-sm text-gray-700 leading-relaxed">
+                          {shift.description}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {defaultShifts.length === 0 && (
+              <div className="px-6 py-8 text-center text-gray-500 text-sm">
+                No default shifts found
+              </div>
+            )}
           </div>
         </div>
 
@@ -114,77 +112,60 @@ export default function ShiftsList({ shifts, planId }: ShiftsListProps) {
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">Custom Shifts</h2>
-            <p className="text-sm text-gray-600 mt-1">Create and manage your own shift types</p>
+            <p className="text-sm text-gray-600 mt-1">Your custom shift types</p>
           </div>
-          
-          {customShifts.length === 0 ? (
-            <div className="px-6 py-12 text-center text-gray-500">
-              <p>No custom shifts yet. Click &quot;Create Shift&quot; to add one.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Description
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Start Time
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      End Time
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {customShifts.map((shift) => (
-                    <tr key={shift.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+          <div className="divide-y divide-gray-200">
+            {customShifts.length === 0 ? (
+              <div className="px-6 py-12 text-center">
+                <div className="text-4xl mb-3">⏰</div>
+                <p className="text-gray-600 text-sm mb-4">
+                  No custom shifts yet.
+                </p>
+                <p className="text-gray-500 text-xs">
+                  Click "Create Shift" or "Import Shifts" to add custom shifts.
+                </p>
+              </div>
+            ) : (
+              customShifts.map((shift) => (
+                <div key={shift.id} className="hover:bg-gray-50 transition-colors">
+                  <div className="px-6 py-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold bg-indigo-100 text-indigo-800">
                             {shift.name}
                           </span>
+                          <span className="text-xs font-medium text-gray-700 bg-white px-2 py-0.5 rounded border border-gray-300">
+                            {formatShiftTime(shift.start_time)} - {formatShiftTime(shift.end_time)}
+                          </span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {shift.description || '-'}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 font-medium">
-                        {formatShiftTime(shift.start_time)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 font-medium">
-                        {formatShiftTime(shift.end_time)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end gap-3">
-                          <button
-                            onClick={() => setEditingShift(shift)}
-                            className="text-indigo-600 hover:text-indigo-900"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(shift.id)}
-                            disabled={deleting === shift.id}
-                            className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                          >
-                            {deleting === shift.id ? 'Deleting...' : 'Delete'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                        {shift.description && (
+                          <div className="text-sm text-gray-600 mt-1">
+                            {shift.description}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => setEditingShift(shift)}
+                          className="text-sm text-indigo-600 hover:text-indigo-900 font-medium"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(shift.id)}
+                          disabled={deleting === shift.id}
+                          className="text-sm text-red-600 hover:text-red-900 font-medium disabled:opacity-50"
+                        >
+                          {deleting === shift.id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
