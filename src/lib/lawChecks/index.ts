@@ -2,33 +2,16 @@
 
 import { LawCheck, LawCheckLawType, LawCheckCategory } from '@/types/lawCheck'
 
-// Import shared checks
-import { f1RestPeriodCheck } from './shared/F1RestPeriodCheck'
-
-// Import main plan checks
-// import { exampleMainCheck } from './main/ExampleMainCheck'
-
-// Import helping plan checks
-// import { exampleHelpingCheck } from './helping/ExampleHelpingCheck'
-
-// Import year plan checks
-// import { exampleYearCheck } from './year/ExampleYearCheck'
+// Import all checks from this directory
+import { f1RestPeriodCheck } from './F1RestPeriodCheck'
 
 /**
- * All law checks organized by category
+ * All law checks
+ * Add new checks to this array as you create them
  */
 export const LAW_CHECKS: LawCheck[] = [
-  // Shared checks
   f1RestPeriodCheck,
-  
-  // Main plan checks
-  // exampleMainCheck,
-  
-  // Helping plan checks
-  // exampleHelpingCheck,
-  
-  // Year plan checks
-  // exampleYearCheck,
+  // Add more checks here as you create them
 ]
 
 /**

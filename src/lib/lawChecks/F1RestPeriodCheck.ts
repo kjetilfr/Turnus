@@ -1,4 +1,4 @@
-// src/lib/lawChecks/shared/F1RestPeriodCheck.ts
+// src/lib/lawChecks/F1RestPeriodCheck.ts
 
 import { LawCheck, LawCheckResult } from '@/types/lawCheck'
 import { Rotation } from '@/types/rotation'
