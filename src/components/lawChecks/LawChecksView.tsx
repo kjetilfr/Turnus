@@ -18,7 +18,27 @@ interface LawChecksViewProps {
 export default function LawChecksView({ rotations, shifts, plan }: LawChecksViewProps) {
   const [checkResults, setCheckResults] = useState<Record<string, LawCheckResult>>({})
   const [runningChecks, setRunningChecks] = useState<Record<string, boolean>>({})
-  const [checkInputs, setCheckInputs] = useState<Record<string, Record<string, number | string | boolean>>>({})
+  const [checkInputs, setCheckInputs] = useState<Record<string, Record<string, number | string | boolean>>>(() => {
+    // Initialize inputs with default values from checks
+    const initial: Record<string, Record<string, number | string | boolean>> = {}
+    LAW_CHECKS.forEach(check => {
+      if (check.inputs) {
+        initial[check.id] = {}
+        check.inputs.forEach(input => {
+          initial[check.id][input.id] = input.defaultValue
+        })
+      }
+    })
+    return initial
+  })
+  const [enabledChecks, setEnabledChecks] = useState<Record<string, boolean>>(() => {
+    // Initialize all checks as enabled by default
+    const initial: Record<string, boolean> = {}
+    LAW_CHECKS.forEach(check => {
+      initial[check.id] = true
+    })
+    return initial
+  })
 
   // Filter checks applicable to this plan type
   const applicableChecks = LAW_CHECKS.filter(check => {
@@ -33,7 +53,7 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
 
   const handleRunCheck = (checkId: string) => {
     const check = applicableChecks.find(c => c.id === checkId)
-    if (!check) return
+    if (!check || !enabledChecks[checkId]) return
 
     setRunningChecks(prev => ({ ...prev, [checkId]: true }))
 
@@ -53,8 +73,23 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
 
   const handleRunAllChecks = () => {
     applicableChecks.forEach(check => {
-      handleRunCheck(check.id)
+      if (enabledChecks[check.id]) {
+        handleRunCheck(check.id)
+      }
     })
+  }
+
+  const handleToggleCheck = (checkId: string, enabled: boolean) => {
+    setEnabledChecks(prev => ({ ...prev, [checkId]: enabled }))
+    
+    // Clear result when disabled
+    if (!enabled) {
+      setCheckResults(prev => {
+        const newResults = { ...prev }
+        delete newResults[checkId]
+        return newResults
+      })
+    }
   }
 
   const handleInputChange = (checkId: string, inputId: string, value: number | string | boolean) => {
@@ -67,8 +102,13 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
     }))
   }
 
-  // Calculate summary statistics
+  // Calculate summary statistics (only for enabled checks)
   const summary = applicableChecks.reduce((acc, check) => {
+    if (!enabledChecks[check.id]) {
+      acc.disabled++
+      return acc
+    }
+    
     const result = checkResults[check.id]
     if (result) {
       acc[result.status]++
@@ -76,11 +116,12 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
       acc.not_run++
     }
     return acc
-  }, { pass: 0, fail: 0, warning: 0, not_run: 0 } as Record<LawCheckStatus, number>)
+  }, { pass: 0, fail: 0, warning: 0, not_run: 0, disabled: 0 } as Record<LawCheckStatus | 'disabled', number>)
 
   // Count by law type
   const amlCount = applicableChecks.filter(c => c.lawType === 'aml').length
   const htaCount = applicableChecks.filter(c => c.lawType === 'hta').length
+  const enabledCount = applicableChecks.filter(c => enabledChecks[c.id]).length
 
   return (
     <div className="space-y-6">
@@ -107,6 +148,7 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
               <li><strong>HTA:</strong> Hovedtariffavtalen (Main Collective Agreement)</li>
               <li>Tests shown are automatically filtered for {plan.type} plans</li>
               <li>Available: {amlCount} AML test{amlCount !== 1 ? 's' : ''}, {htaCount} HTA test{htaCount !== 1 ? 's' : ''}</li>
+              <li><strong>Check the box</strong> next to each test to enable it (all enabled by default)</li>
             </ul>
           </div>
         </div>
@@ -135,6 +177,12 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
                 <div className="w-3 h-3 rounded-full bg-gray-400"></div>
                 <span className="text-gray-700">{summary.not_run} Not Run</span>
               </div>
+              {summary.disabled > 0 && (
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-gray-300"></div>
+                  <span className="text-gray-700">{summary.disabled} Disabled</span>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -147,10 +195,10 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
                 Compliance Tests
               </h3>
               <p className="text-sm text-gray-600 mt-1">
-                {applicableChecks.length} test{applicableChecks.length !== 1 ? 's' : ''} available for {plan.type} plans
+                {enabledCount} of {applicableChecks.length} test{applicableChecks.length !== 1 ? 's' : ''} enabled for {plan.type} plans
               </p>
             </div>
-            {applicableChecks.length > 0 && (
+            {applicableChecks.length > 0 && enabledCount > 0 && (
               <button
                 onClick={handleRunAllChecks}
                 className="inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors text-sm"
@@ -168,7 +216,7 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
                     d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" 
                   />
                 </svg>
-                Run All Tests
+                Run All Enabled Tests
               </button>
             )}
           </div>
@@ -191,8 +239,10 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
                 check={check}
                 result={checkResults[check.id]}
                 isRunning={runningChecks[check.id] || false}
+                isEnabled={enabledChecks[check.id] || false}
                 inputs={checkInputs[check.id] || {}}
                 onRun={() => handleRunCheck(check.id)}
+                onToggle={(enabled) => handleToggleCheck(check.id, enabled)}
                 onInputChange={(inputId, value) => handleInputChange(check.id, inputId, value)}
               />
             ))
