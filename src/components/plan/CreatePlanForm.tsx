@@ -1,264 +1,181 @@
-// src/components/plan/CreatePlanForm.tsx
+// src/components/rotation/WeeklyHoursSummary.tsx
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { PlanType } from '@/types/plan'
-
-interface MainPlan {
-  id: string
-  name: string
+interface WeeklyHoursSummaryProps {
+  totalHours: number
+  durationWeeks: number
+  workPercent: number
 }
 
-interface CreatePlanFormProps {
-  mainPlans: MainPlan[]
-}
-
-export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
-  const router = useRouter()
-  const supabase = createClient()
+export default function WeeklyHoursSummary({ 
+  totalHours, 
+  durationWeeks, 
+  workPercent 
+}: WeeklyHoursSummaryProps) {
+  // Calculate expected weekly hours based on work percentage
+  const expectedWeeklyHours = 35.5 * (workPercent / 100)
   
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [durationWeeks, setDurationWeeks] = useState(1)
-  const [type, setType] = useState<PlanType>('main')
-  const [basePlanId, setBasePlanId] = useState('')
-  const [dateStarted, setDateStarted] = useState(new Date().toISOString().split('T')[0])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (!user) {
-        throw new Error('Not authenticated')
-      }
-
-      // Validate helping plan has base plan
-      if (type === 'helping' && !basePlanId) {
-        throw new Error('Helping plans must have a base plan selected')
-      }
-
-      const planData = {
-        user_id: user.id,
-        name,
-        description: description || null,
-        duration_weeks: durationWeeks,
-        type,
-        date_started: dateStarted,
-        ...(type === 'helping' && { base_plan_id: basePlanId }),
-      }
-
-      // Only add base_plan_id for helping plans
-      if (type === 'helping') {
-        planData.base_plan_id = basePlanId
-      }
-
-      const { error: insertError } = await supabase
-        .from('plans')
-        .insert([planData])
-
-      if (insertError) throw insertError
-
-      router.push('/')
-      router.refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Calculate actual average weekly hours
+  const actualWeeklyHours = totalHours / durationWeeks
+  
+  // Calculate difference (negative = working too much, positive = working too little)
+  const difference = actualWeeklyHours - expectedWeeklyHours
+  
+  // Determine status
+  const isOverworking = difference < -0.1 // Working more than 0.1h extra per week
+  const isUnderworking = difference > 0.1 // Working less than 0.1h per week
+  const isBalanced = !isOverworking && !isUnderworking
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-8">
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {error && (
-          <div className="p-4 bg-red-50 text-red-800 rounded-lg border border-red-200">
-            {error}
+    <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+      <div className="flex items-center gap-2 mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">Average Weekly Hours</h3>
+        <button
+          type="button"
+          className="text-gray-400 hover:text-gray-600"
+          title="This shows your average weekly hours compared to your expected hours based on work percentage"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-4">
+        {/* Actual Hours */}
+        <div className="bg-gray-50 rounded-lg p-4">
+          <div className="text-xs font-medium text-gray-600 mb-1">Actual Average</div>
+          <div className="text-2xl font-bold text-gray-900">
+            {actualWeeklyHours.toFixed(1)}h
           </div>
-        )}
-
-        {/* Plan Name */}
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-            Plan Name *
-          </label>
-          <input
-            id="name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
-            placeholder="e.g., Emergency Department Schedule"
-          />
+          <div className="text-xs text-gray-500 mt-1">per week</div>
         </div>
 
-        {/* Date Started */}
-        <div>
-          <label htmlFor="dateStarted" className="block text-sm font-medium text-gray-700 mb-2">
-            Start Date *
-          </label>
-          <input
-            id="dateStarted"
-            type="date"
-            value={dateStarted}
-            onChange={(e) => setDateStarted(e.target.value)}
-            required
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
-          />
-          <p className="mt-2 text-sm text-gray-600">
-            The date when this rotation plan begins
-          </p>
+        {/* Expected Hours */}
+        <div className="bg-indigo-50 rounded-lg p-4">
+          <div className="text-xs font-medium text-indigo-700 mb-1">
+            Expected ({workPercent}%)
+          </div>
+          <div className="text-2xl font-bold text-indigo-900">
+            {expectedWeeklyHours.toFixed(1)}h
+          </div>
+          <div className="text-xs text-indigo-600 mt-1">per week</div>
         </div>
 
-        {/* Plan Type - CARD SELECTION */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Plan Type *
-          </label>
-          <div className="grid grid-cols-3 gap-4">
-            {/* Main Plan Card */}
+        {/* Difference */}
+        <div className={`rounded-lg p-4 ${
+          isBalanced 
+            ? 'bg-green-50' 
+            : isOverworking 
+              ? 'bg-red-50' 
+              : 'bg-yellow-50'
+        }`}>
+          <div className="flex items-center gap-2 mb-1">
+            <div className={`text-xs font-medium ${
+              isBalanced 
+                ? 'text-green-700' 
+                : isOverworking 
+                  ? 'text-red-700' 
+                  : 'text-yellow-700'
+            }`}>
+              Difference
+            </div>
             <button
               type="button"
-              onClick={() => {
-                setType('main')
-                setBasePlanId('')
-              }}
-              className={`
-                p-4 border-2 rounded-lg text-left transition-all
-                ${type === 'main' 
-                  ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' 
-                  : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
-                }
-              `}
+              className={`${
+                isBalanced 
+                  ? 'text-green-500 hover:text-green-700' 
+                  : isOverworking 
+                    ? 'text-red-500 hover:text-red-700' 
+                    : 'text-yellow-500 hover:text-yellow-700'
+              }`}
+              title={
+                isOverworking 
+                  ? '⚠️ Negative difference means you are working TOO MANY hours per week on average'
+                  : isUnderworking
+                    ? 'ℹ️ Positive difference means you are working TOO FEW hours per week on average'
+                    : '✓ Your weekly hours are balanced'
+              }
             >
-              <div className="font-semibold text-gray-900 mb-1">Main Plan</div>
-              <div className="text-xs text-gray-600">
-                Primary scheduling plan
-              </div>
-            </button>
-
-            {/* Helping Plan Card */}
-            <button
-              type="button"
-              onClick={() => setType('helping')}
-              className={`
-                p-4 border-2 rounded-lg text-left transition-all
-                ${type === 'helping' 
-                  ? 'border-green-500 bg-green-50 ring-2 ring-green-200' 
-                  : 'border-gray-300 hover:border-green-400 hover:bg-green-50'
-                }
-              `}
-            >
-              <div className="font-semibold text-gray-900 mb-1">Helping Plan</div>
-              <div className="text-xs text-gray-600">
-                Supplementary plan
-              </div>
-            </button>
-
-            {/* Year Plan Card (Disabled) */}
-            <button
-              type="button"
-              disabled
-              className="p-4 border-2 border-gray-200 rounded-lg text-left opacity-50 cursor-not-allowed bg-gray-50"
-            >
-              <div className="font-semibold text-gray-500 mb-1">Year Plan</div>
-              <div className="text-xs text-gray-400">
-                Coming soon
-              </div>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
             </button>
           </div>
-        </div>
-
-        {/* Base Plan (only for helping plans) */}
-        {type === 'helping' && (
-          <div>
-            <label htmlFor="basePlan" className="block text-sm font-medium text-gray-700 mb-2">
-              Base Plan *
-            </label>
-            {mainPlans.length > 0 ? (
-              <select
-                id="basePlan"
-                value={basePlanId}
-                onChange={(e) => setBasePlanId(e.target.value)}
-                required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
-              >
-                <option value="">Select a main plan</option>
-                {mainPlans.map((plan) => (
-                  <option key={plan.id} value={plan.id}>
-                    {plan.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div className="p-4 bg-yellow-50 text-yellow-800 rounded-lg border border-yellow-200">
-                You need to create a main plan first before you can create a helping plan.
-              </div>
-            )}
+          <div className={`text-2xl font-bold ${
+            isBalanced 
+              ? 'text-green-900' 
+              : isOverworking 
+                ? 'text-red-900' 
+                : 'text-yellow-900'
+          }`}>
+            {difference > 0 ? '+' : ''}{difference.toFixed(1)}h
           </div>
-        )}
-
-        {/* Duration */}
-        <div>
-          <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-2">
-            Duration (weeks) *
-          </label>
-          <input
-            id="duration"
-            type="number"
-            min="1"
-            max="52"
-            value={durationWeeks}
-            onChange={(e) => setDurationWeeks(parseInt(e.target.value))}
-            required
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
-          />
-          <p className="mt-2 text-sm text-gray-600">
-            How many weeks does this plan cover?
-          </p>
+          <div className={`text-xs mt-1 font-medium ${
+            isBalanced 
+              ? 'text-green-600' 
+              : isOverworking 
+                ? 'text-red-600' 
+                : 'text-yellow-600'
+          }`}>
+            {isBalanced && '✓ Balanced'}
+            {isOverworking && '⚠️ Overworking'}
+            {isUnderworking && 'ℹ️ Underworking'}
+          </div>
         </div>
+      </div>
 
-        {/* Description */}
-        <div>
-          <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-            Description
-          </label>
-          <textarea
-            id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={4}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
-            placeholder="Add any notes or details about this plan..."
-          />
+      {/* Detailed Breakdown */}
+      <div className="mt-4 pt-4 border-t border-gray-200">
+        <div className="grid md:grid-cols-2 gap-4 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Total Hours:</span>
+            <span className="font-semibold text-gray-900">{totalHours.toFixed(1)}h</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Duration:</span>
+            <span className="font-semibold text-gray-900">{durationWeeks} weeks</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Calculation:</span>
+            <span className="font-mono text-xs text-gray-700">
+              {actualWeeklyHours.toFixed(1)}h / {expectedWeeklyHours.toFixed(1)}h ({workPercent}%)
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Status:</span>
+            <span className={`font-semibold ${
+              isBalanced 
+                ? 'text-green-600' 
+                : isOverworking 
+                  ? 'text-red-600' 
+                  : 'text-yellow-600'
+            }`}>
+              {isBalanced && 'Within Expected Range'}
+              {isOverworking && `${Math.abs(difference).toFixed(1)}h Over per Week`}
+              {isUnderworking && `${difference.toFixed(1)}h Under per Week`}
+            </span>
+          </div>
         </div>
+      </div>
 
-        {/* Buttons */}
-        <div className="flex gap-4">
-          <button
-            type="submit"
-            disabled={loading || (type === 'helping' && mainPlans.length === 0)}
-            className="flex-1 bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Creating...' : 'Create Plan'}
-          </button>
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-          >
-            Cancel
-          </button>
+      {/* Warning for Overworking */}
+      {isOverworking && (
+        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex gap-2">
+            <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div className="text-sm text-red-900">
+              <p className="font-semibold mb-1">Warning: Exceeding Expected Hours</p>
+              <p>
+                You are scheduled for an average of {Math.abs(difference).toFixed(1)} hours more per week than your {workPercent}% position. 
+                Consider reviewing your schedule to ensure compliance with working time regulations.
+              </p>
+            </div>
+          </div>
         </div>
-      </form>
+      )}
     </div>
   )
 }

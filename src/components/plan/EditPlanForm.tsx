@@ -26,6 +26,7 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
   const [type, setType] = useState<PlanType>(plan.type)
   const [basePlanId, setBasePlanId] = useState(plan.base_plan_id || '')
   const [dateStarted, setDateStarted] = useState(plan.date_started)
+  const [workPercent, setWorkPercent] = useState(plan.work_percent || 100)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,20 +41,19 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
         throw new Error('Helping plans must have a base plan selected')
       }
 
-    const updateData = {
+      // Validate work percent
+      if (workPercent < 0 || workPercent > 100) {
+        throw new Error('Work percentage must be between 0 and 100')
+      }
+
+      const updateData = {
         name,
         description: description || null,
         duration_weeks: durationWeeks,
         type,
         date_started: dateStarted,
+        work_percent: workPercent,
         base_plan_id: type === 'helping' ? basePlanId : null,
-    }
-
-      // Handle base_plan_id based on type
-      if (type === 'helping') {
-        updateData.base_plan_id = basePlanId
-      } else {
-        updateData.base_plan_id = null
       }
 
       const { error: updateError } = await supabase
@@ -95,6 +95,8 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
       setLoading(false)
     }
   }
+
+  const expectedWeeklyHours = (35.5 * workPercent / 100).toFixed(1)
 
   return (
     <div className="bg-white rounded-lg shadow-md p-8">
@@ -244,6 +246,33 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
           />
           <p className="mt-2 text-sm text-gray-600">
             How many weeks does this plan cover?
+          </p>
+        </div>
+
+        {/* Work Percentage */}
+        <div>
+          <label htmlFor="workPercent" className="block text-sm font-medium text-gray-700 mb-2">
+            Work Percentage *
+          </label>
+          <div className="flex items-center gap-4">
+            <input
+              id="workPercent"
+              type="number"
+              min="0"
+              max="100"
+              step="0.1"
+              value={workPercent}
+              onChange={(e) => setWorkPercent(parseFloat(e.target.value))}
+              required
+              className="w-32 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
+            />
+            <span className="text-sm text-gray-700">%</span>
+            <div className="flex-1 text-sm text-gray-600">
+              Expected weekly hours: <span className="font-semibold text-gray-900">{expectedWeeklyHours}h</span>
+            </div>
+          </div>
+          <p className="mt-2 text-sm text-gray-600">
+            The work percentage for this position (100% = 35.5 hours/week)
           </p>
         </div>
 

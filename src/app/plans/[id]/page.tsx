@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation'
 import RotationGrid from '@/components/rotation/RotationGrid'
 import ShiftSummary from '@/components/rotation/ShiftSummary'
 import NightShiftInfoCard from '@/components/rotation/NightShiftInfoCard'
+import WeeklyHoursSummary from '@/components/rotation/WeeklyHoursSummary'
 import PlanDetails from '@/components/plan/PlanDetails'
 import ShiftsSummaryCard from '@/components/shift/ShiftsSummaryCard'
 import ManageShiftsButton from '@/components/shift/ManageShiftsButton'
@@ -76,6 +77,23 @@ export default async function PlanDetailPage({ params }: PageProps) {
     basePlanName = data?.name || null
   }
 
+  // Calculate total hours for weekly summary
+  const totalHours = rotations?.reduce((sum, rotation) => {
+    if (!rotation.shift_id) return sum
+    const shift = shifts?.find(s => s.id === rotation.shift_id)
+    if (!shift || !shift.start_time || !shift.end_time) return sum
+    
+    // Calculate shift hours
+    const [startHour, startMin] = shift.start_time.split(':').map(Number)
+    const [endHour, endMin] = shift.end_time.split(':').map(Number)
+    const startMinutes = startHour * 60 + startMin
+    let endMinutes = endHour * 60 + endMin
+    if (endMinutes < startMinutes) endMinutes += 24 * 60
+    const hours = (endMinutes - startMinutes) / 60
+    
+    return sum + hours
+  }, 0) || 0
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
@@ -123,9 +141,16 @@ export default async function PlanDetailPage({ params }: PageProps) {
             />
             
             {/* Night Shift Info Card */}
-            <div className="mb-6">
+            <div className="mb-4">
               <NightShiftInfoCard />
             </div>
+
+            {/* Weekly Hours Summary - MOVED INSIDE */}
+            <WeeklyHoursSummary
+              totalHours={totalHours}
+              durationWeeks={plan.duration_weeks}
+              workPercent={plan.work_percent || 100}
+            />
             
             <RotationGrid 
               rotations={rotations || []} 

@@ -11,6 +11,7 @@ export interface Plan {
   type: PlanType
   base_plan_id: string | null
   date_started: string // Format: YYYY-MM-DD
+  work_percent: number // Work percentage (0-100), default 100
   created_at: string
   updated_at: string
 }
@@ -26,4 +27,5 @@ export interface CreatePlanData {
   type: PlanType
   base_plan_id?: string
   date_started: string
+  work_percent?: number
 }
