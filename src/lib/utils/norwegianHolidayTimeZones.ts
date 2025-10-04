@@ -6,6 +6,9 @@
  * In Norwegian labor law, holidays have special time zones where different 
  * compensation rates apply. This utility helps calculate which hours fall 
  * within these special holiday periods.
+ * 
+ * Legal Reference: AML § 10-10 (1) - Søn- og helgedagsarbeid
+ * https://lovdata.no/lov/2005-06-17-62/§10-10
  */
 
 import { getNorwegianHolidays } from './norwegianHolidays'
@@ -19,7 +22,7 @@ export interface HolidayTimeZone {
 }
 
 /**
- * Norwegian Holiday Time Zone Rules:
+ * Norwegian Holiday Time Zone Rules (AML § 10-10):
  * 
  * 1. Labour Day (1st May) and Constitution Day (17th May):
  *    22:00 day before → 22:00 day of
@@ -33,7 +36,7 @@ export interface HolidayTimeZone {
  *    15:00 day before → 22:00 day of
  */
 
-const HOLIDAY_CATEGORIES = {
+export const HOLIDAY_CATEGORIES = {
   // 22:00 day before → 22:00 day of
   MAJOR: ['Labour Day', 'Constitution Day'],
   
@@ -49,6 +52,22 @@ const HOLIDAY_CATEGORIES = {
     'Whit Monday',
     "St. Stephen's Day"
   ]
+} as const
+
+/**
+ * Sunday Time Zone Definition (AML § 10-10 (1))
+ * Regular Sundays (not special holidays): Saturday 18:00 → Sunday 22:00
+ * 
+ * Legal Reference: Arbeidsmiljøloven § 10-10 (1) - Søn- og helgedagsarbeid
+ * https://lovdata.no/lov/2005-06-17-62/§10-10
+ */
+export const SUNDAY_TIME_ZONE = {
+  START_DAY: 5, // Saturday
+  START_HOUR: 18,
+  START_MINUTE: 0,
+  END_DAY: 6, // Sunday
+  END_HOUR: 15,
+  END_MINUTE: 0
 } as const
 
 /**
@@ -133,6 +152,48 @@ export function getHolidayTimeZones(year: number): HolidayTimeZone[] {
   // Sort by start date
   timeZones.sort((a, b) => a.startDateTime.getTime() - b.startDateTime.getTime())
 
+  return timeZones
+}
+
+/**
+ * Get all Sunday time zones for a year (regular Sundays, not special holidays)
+ * Returns time zones for Saturday 18:00 - Sunday 22:00 for each week
+ */
+export function getSundayTimeZones(year: number, startDate?: string, durationWeeks?: number): HolidayTimeZone[] {
+  const timeZones: HolidayTimeZone[] = []
+  
+  // If specific date range provided, use that; otherwise do whole year
+  const start = startDate ? new Date(startDate) : new Date(year, 0, 1)
+  const weeks = durationWeeks || 52
+  
+  for (let week = 0; week < weeks; week++) {
+    const weekStart = new Date(start)
+    weekStart.setDate(weekStart.getDate() + (week * 7))
+    
+    // Find the Saturday and Sunday of this week
+    // Assuming week starts on Monday (day 0)
+    const saturday = new Date(weekStart)
+    saturday.setDate(saturday.getDate() + SUNDAY_TIME_ZONE.START_DAY)
+    
+    const sunday = new Date(weekStart)
+    sunday.setDate(sunday.getDate() + SUNDAY_TIME_ZONE.END_DAY)
+    
+    // Sunday zone: Saturday 18:00 - Sunday 22:00
+    const zoneStart = new Date(saturday)
+    zoneStart.setHours(SUNDAY_TIME_ZONE.START_HOUR, SUNDAY_TIME_ZONE.START_MINUTE, 0, 0)
+    
+    const zoneEnd = new Date(sunday)
+    zoneEnd.setHours(SUNDAY_TIME_ZONE.END_HOUR, SUNDAY_TIME_ZONE.END_MINUTE, 0, 0)
+    
+    timeZones.push({
+      holidayName: 'Sunday',
+      localName: 'Søndag',
+      startDateTime: zoneStart,
+      endDateTime: zoneEnd,
+      type: 'full_day'
+    })
+  }
+  
   return timeZones
 }
 
