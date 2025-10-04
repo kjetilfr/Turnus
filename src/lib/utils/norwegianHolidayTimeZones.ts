@@ -66,7 +66,7 @@ export const SUNDAY_TIME_ZONE = {
   START_HOUR: 18,
   START_MINUTE: 0,
   END_DAY: 6, // Sunday
-  END_HOUR: 15,
+  END_HOUR: 22,
   END_MINUTE: 0
 } as const
 
