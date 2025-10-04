@@ -30,10 +30,19 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-    setError(null)
+    
+    // Validate required number fields
+    if (isNaN(durationWeeks) || durationWeeks < 1) {
+      setError('Please enter a valid duration')
+      return
+    }
+    
+    if (isNaN(workPercent) || workPercent < 0 || workPercent > 100) {
+      setError('Please enter a valid work percentage (0-100)')
+      return
+    }
 
     try {
       // Validate helping plan has base plan
@@ -231,50 +240,56 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
 
         {/* Duration */}
         <div>
-          <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-2">
-            Duration (weeks) *
-          </label>
-          <input
-            id="duration"
-            type="number"
-            min="1"
-            max="52"
-            value={durationWeeks}
-            onChange={(e) => setDurationWeeks(parseInt(e.target.value))}
-            required
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
-          />
-          <p className="mt-2 text-sm text-gray-600">
-            How many weeks does this plan cover?
-          </p>
-        </div>
+        <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-2">
+          Duration (weeks) *
+        </label>
+        <input
+          id="duration"
+          type="number"
+          min="1"
+          max="52"
+          value={isNaN(durationWeeks) ? '' : durationWeeks}
+          onChange={(e) => {
+            const val = e.target.value === '' ? NaN : parseInt(e.target.value)
+            setDurationWeeks(val)
+          }}
+          required
+          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
+        />
+        <p className="mt-2 text-sm text-gray-600">
+          How many weeks does this plan cover?
+        </p>
+      </div>
 
         {/* Work Percentage */}
         <div>
-          <label htmlFor="workPercent" className="block text-sm font-medium text-gray-700 mb-2">
-            Work Percentage *
-          </label>
-          <div className="flex items-center gap-4">
-            <input
-              id="workPercent"
-              type="number"
-              min="0"
-              max="100"
-              step="0.1"
-              value={workPercent}
-              onChange={(e) => setWorkPercent(parseFloat(e.target.value))}
-              required
-              className="w-32 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
-            />
-            <span className="text-sm text-gray-700">%</span>
-            <div className="flex-1 text-sm text-gray-600">
-              Expected weekly hours: <span className="font-semibold text-gray-900">{expectedWeeklyHours}h</span>
-            </div>
+        <label htmlFor="workPercent" className="block text-sm font-medium text-gray-700 mb-2">
+          Work Percentage *
+        </label>
+        <div className="flex items-center gap-4">
+          <input
+            id="workPercent"
+            type="number"
+            min="0"
+            max="100"
+            step="0.1"
+            value={isNaN(workPercent) ? '' : workPercent}
+            onChange={(e) => {
+              const val = e.target.value === '' ? NaN : parseFloat(e.target.value)
+              setWorkPercent(val)
+            }}
+            required
+            className="w-32 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
+          />
+          <span className="text-sm text-gray-700">%</span>
+          <div className="flex-1 text-sm text-gray-600">
+            Expected weekly hours: <span className="font-semibold text-gray-900">{isNaN(workPercent) ? '-' : (35.5 * workPercent / 100).toFixed(1)}h</span>
           </div>
-          <p className="mt-2 text-sm text-gray-600">
-            The work percentage for this position (100% = 35.5 hours/week)
-          </p>
         </div>
+        <p className="mt-2 text-sm text-gray-600">
+          The work percentage for this position (100% = 35.5 hours/week)
+        </p>
+      </div>
 
         {/* Description */}
         <div>

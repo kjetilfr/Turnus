@@ -228,7 +228,7 @@ export default function LawCheckCard({
                     .map(input => {
                       const currentValue = (inputs[input.id] ?? input.defaultValue) as number
                       const showWarningF1 = input.id === 'minRestHours' && input.type === 'number' && currentValue < 28
-                      const showWarningShiftRestPeriod = input.id === 'minShiftRestHours' && input.type === 'number' && currentValue < 8
+                      const showWarningShiftRestPeriod = input.id === 'minShiftRestHours' && input.type === 'number' && !isNaN(currentValue) && currentValue < 8
                       
                       return (
                         <div key={input.id}>
@@ -237,24 +237,27 @@ export default function LawCheckCard({
                               {input.label}:
                             </label>
                             {input.type === 'number' && (
-                              <div className="flex items-center gap-2">
-                                <input
-                                  id={`${check.id}-${input.id}`}
-                                  type="number"
-                                  value={currentValue}
-                                  onChange={(e) => onInputChange(input.id, parseFloat(e.target.value))}
-                                  min={input.min}
-                                  max={input.max}
-                                  step={input.step}
-                                  className={`w-24 px-3 py-1.5 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm ${
-                                    showWarningF1 ? 'border-yellow-400' : 'border-gray-300'
-                                  }`}
-                                />
-                                {input.unit && (
-                                  <span className="text-sm text-gray-600">{input.unit}</span>
-                                )}
-                              </div>
-                            )}
+                            <div className="flex items-center gap-2">
+                              <input
+                                id={`${check.id}-${input.id}`}
+                                type="number"
+                                value={isNaN(currentValue) ? '' : currentValue}
+                                onChange={(e) => {
+                                  const val = e.target.value === '' ? NaN : parseFloat(e.target.value)
+                                  onInputChange(input.id, val)
+                                }}
+                                min={input.min}
+                                max={input.max}
+                                step={input.step}
+                                className={`w-24 px-3 py-1.5 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm ${
+                                  showWarningF1 ? 'border-yellow-400' : 'border-gray-300'
+                                }`}
+                              />
+                              {input.unit && (
+                                <span className="text-sm text-gray-600">{input.unit}</span>
+                              )}
+                            </div>
+                          )}
                             {input.type === 'text' && (
                               <input
                                 id={`${check.id}-${input.id}`}
