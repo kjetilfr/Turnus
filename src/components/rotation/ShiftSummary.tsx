@@ -65,6 +65,9 @@ export default function ShiftSummary({ rotations, shifts, planType }: ShiftSumma
     // Filter and sort based on plan type
     return Array.from(statsMap.values())
       .filter(stat => {
+        //FIRST: Filter out shifts with zero count
+        if (stat.count === 0) return false
+        
         // For main plans, exclude all F shifts
         if (planType === 'main' && stat.shift.is_default) {
           return false
