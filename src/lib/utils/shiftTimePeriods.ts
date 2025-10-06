@@ -9,8 +9,14 @@ export const TIME_PERIODS = {
     START: { hour: 17, minute: 0 }, // 17:00
     END: { hour: 21, minute: 0 },   // 21:00
   },
-  NIGHT: {
+  //KS definerer 21:00-06:00 som natt i sin tariffavtale
+  NIGHT_KS: {
     START: { hour: 21, minute: 0 }, // 21:00
+    END: { hour: 6, minute: 0 },    // 06:00
+  },
+  //STATEN definerer 20:00-06:00 som natt i sin tariffavtale
+  NIGHT_STATEN: {
+    START: { hour: 20, minute: 0 }, // 20:00
     END: { hour: 6, minute: 0 },    // 06:00
   },
   WEEKEND: {
@@ -81,8 +87,8 @@ export function calculateNightHours(startTime: string | null, endTime: string | 
     endMinutes += 24 * 60
   }
 
-  const nightStart = timeToMinutes(TIME_PERIODS.NIGHT.START.hour, TIME_PERIODS.NIGHT.START.minute)
-  const nightEndAfterMidnight = timeToMinutes(TIME_PERIODS.NIGHT.END.hour, TIME_PERIODS.NIGHT.END.minute)
+  const nightStart = timeToMinutes(TIME_PERIODS.NIGHT_KS.START.hour, TIME_PERIODS.NIGHT_KS.START.minute)
+  const nightEndAfterMidnight = timeToMinutes(TIME_PERIODS.NIGHT_KS.END.hour, TIME_PERIODS.NIGHT_KS.END.minute)
   const midnight = 24 * 60
 
   let nightHours = 0

@@ -317,7 +317,7 @@ export const threeSplitAverageCheck: LawCheck = {
       result.status = 'pass'
       
       if (qualifiesFor33_6) {
-        result.message = `Plan qualifies for 33.6h work week → Calculated work week: ${finalWorkWeek.toFixed(2)}h`
+        result.message = `✅ Qualifies for 33.6h work week → Work week: ${finalWorkWeek.toFixed(2)}h/week (currently ${actualAvgHoursPerWeek.toFixed(2)}h/week)`
         result.details = [
           '✅ Qualifies for 33.6h work week:',
           `  ✓ 24-hour coverage: ${has24HourCoverage ? 'YES' : 'NO'}`,
@@ -348,7 +348,7 @@ export const threeSplitAverageCheck: LawCheck = {
           `  ✓ Sunday work: Already met above`
         ]
       } else {
-        result.message = 'Plan qualifies for 35.5h work week'
+        result.message = `✅ Qualifies for 35.5h work week → Work week: ${expectedMaxHours.toFixed(2)}h/week (currently ${actualAvgHoursPerWeek.toFixed(2)}h/week)`
         result.details = [
           '✅ Qualifies for 35.5h work week:',
           `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (20:00-06:00): ${avgNightHours20to6PerWeek.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
@@ -366,34 +366,65 @@ export const threeSplitAverageCheck: LawCheck = {
       result.status = 'fail'
       
       if (qualifiesFor33_6) {
-        result.message = `Plan qualifies for 33.6h but EXCEEDS calculated work week hours`
+        result.message = `✓ Qualifies for 33.6h work week BUT ✗ EXCEEDS hour limit → Reduce to ${expectedMaxHours.toFixed(2)}h/week (currently ${actualAvgHoursPerWeek.toFixed(2)}h/week)`
         result.details = [
-          '❌ Qualifies for 33.6h work week BUT exceeds hour limit:',
+          '✅ QUALIFIES for 33.6h work week (all requirements met):',
           `  ✓ 24-hour coverage: ${has24HourCoverage ? 'YES' : 'NO'}`,
           `  ✓ Sunday work: ${sundaysWorked}/${totalSundays} Sundays (1 in ${sundayWorkRatio.toFixed(1)}, required: 1 in ${requiredSundayFreq})`,
           `  ✓ Non-night hours: ${nonNightPercent.toFixed(1)}% (required: ${requiredNonNightPercent}%)`,
-          `  ✗ Hour limit: ${actualAvgHoursPerWeek.toFixed(2)}h/week > ${expectedMaxHours.toFixed(2)}h/week calculated limit`,
           '',
-          '📊 Calculated Work Week:',
-          `  Calculated work week limit: ${finalWorkWeek.toFixed(2)}h`,
-          `  Actual average hours per week: ${actualAvgHoursPerWeek.toFixed(2)}h`,
-          `  Exceeds limit by: ${(actualAvgHoursPerWeek - expectedMaxHours).toFixed(2)}h/week`,
+          '❌ BUT EXCEEDS calculated work week hour limit:',
+          `  Current average: ${actualAvgHoursPerWeek.toFixed(2)}h/week`,
+          `  Calculated limit: ${expectedMaxHours.toFixed(2)}h/week`,
+          `  Exceeds by: ${(actualAvgHoursPerWeek - expectedMaxHours).toFixed(2)}h/week`,
+          `  → Must reduce total hours to ${expectedMaxHours.toFixed(2)}h/week or less`,
           '',
-          'The rotation has too many hours to qualify for the calculated reduced work week.'
+          '📊 Full Calculation (33.6h work week):',
+          `  Base hours: 37.5h × ${plan.work_percent}% = ${baseWeeklyHours.toFixed(2)}h`,
+          '',
+          '  Bonus Hours:',
+          `    Night hours (21:00-06:00): ${totalNightHours21to6.toFixed(2)}h`,
+          `    Sunday hours: ${sundayOnlyHours.toFixed(2)}h (${totalSundayHours.toFixed(2)}h - ${totalOverlapHours.toFixed(2)}h overlap with night)`,
+          '',
+          `    Night bonus (15 min/hour): ${totalNightHours21to6.toFixed(2)}h × 0.25 = ${(totalNightHours21to6 * 0.25).toFixed(2)}h`,
+          `    Sunday bonus (10 min/hour): ${sundayOnlyHours.toFixed(2)}h × ${(10/60).toFixed(4)} = ${sundayBonus.toFixed(2)}h`,
+          `    Sunday bonus adjusted by work %: ${sundayBonus.toFixed(2)}h × ${plan.work_percent}% = ${sundayBonusAdjusted.toFixed(2)}h`,
+          '',
+          `  Total bonus hours: ${totalBonusHours.toFixed(2)}h`,
+          `  Average bonus per week: ${totalBonusHours.toFixed(2)}h ÷ ${plan.duration_weeks} weeks = ${avgBonusPerWeek.toFixed(2)}h`,
+          '',
+          `  Calculated: ${baseWeeklyHours.toFixed(2)}h - ${avgBonusPerWeek.toFixed(2)}h = ${calculatedWorkWeek.toFixed(2)}h`,
+          `  Minimum: ${minimumWorkWeek.toFixed(2)}h (33.6h × ${plan.work_percent}%)`,
+          `  → Work week limit: ${finalWorkWeek.toFixed(2)}h`,
+          '',
+          '35.5h work week status:',
+          `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (20:00-06:00): ${avgNightHours20to6PerWeek.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
+          `  ✓ Sunday work: Already met above`
         ]
       } else {
-        result.message = `Plan qualifies for 35.5h but EXCEEDS hour limit`
+        result.message = `✓ Qualifies for 35.5h work week BUT ✗ EXCEEDS hour limit → Reduce to ${expectedMaxHours.toFixed(2)}h/week (currently ${actualAvgHoursPerWeek.toFixed(2)}h/week)`
         result.details = [
-          '❌ Qualifies for 35.5h work week BUT exceeds hour limit:',
+          '✅ QUALIFIES for 35.5h work week (met at least one requirement):',
           `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (20:00-06:00): ${avgNightHours20to6PerWeek.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
           `  ${meetsSundayRequirement ? '✓' : '✗'} Sunday work: ${sundaysWorked}/${totalSundays} Sundays (1 in ${sundayWorkRatio.toFixed(1)}, required: 1 in ${requiredSundayFreq})`,
-          `  ✗ Hour limit: ${actualAvgHoursPerWeek.toFixed(2)}h/week > ${expectedMaxHours.toFixed(2)}h/week limit (35.5h × ${plan.work_percent}%)`,
           '',
-          `  Actual average hours per week: ${actualAvgHoursPerWeek.toFixed(2)}h`,
-          `  Expected maximum: ${expectedMaxHours.toFixed(2)}h (35.5h × ${plan.work_percent}%)`,
-          `  Exceeds limit by: ${(actualAvgHoursPerWeek - expectedMaxHours).toFixed(2)}h/week`,
+          '❌ BUT EXCEEDS 35.5h work week hour limit:',
+          `  Current average: ${actualAvgHoursPerWeek.toFixed(2)}h/week`,
+          `  35.5h limit (scaled by ${plan.work_percent}%): ${expectedMaxHours.toFixed(2)}h/week`,
+          `  Exceeds by: ${(actualAvgHoursPerWeek - expectedMaxHours).toFixed(2)}h/week`,
+          `  → Must reduce total hours to ${expectedMaxHours.toFixed(2)}h/week or less`,
           '',
-          'The rotation has too many hours to qualify for 35.5h work week.'
+          '📊 Hours Breakdown:',
+          `  Total hours: ${totalHours.toFixed(2)}h over ${plan.duration_weeks} weeks`,
+          `  Average per week: ${actualAvgHoursPerWeek.toFixed(2)}h`,
+          `  Night hours (21:00-06:00): ${totalNightHours21to6.toFixed(2)}h`,
+          `  Sunday hours: ${totalSundayHours.toFixed(2)}h`,
+          `  Non-night hours: ${nonNightHours.toFixed(2)}h (${nonNightPercent.toFixed(1)}%)`,
+          '',
+          '33.6h work week status:',
+          `  ${has24HourCoverage ? '✓' : '✗'} 24-hour coverage: ${has24HourCoverage ? 'YES' : 'NO'}`,
+          `  ${meetsSundayRequirement ? '✓' : '✗'} Sunday work: Already checked above`,
+          `  ${meetsNonNightRequirement ? '✓' : '✗'} Non-night hours: ${nonNightPercent.toFixed(1)}% (required: ${requiredNonNightPercent}%)`
         ]
       }
       
@@ -404,18 +435,40 @@ export const threeSplitAverageCheck: LawCheck = {
       }]
     } else {
       result.status = 'fail'
-      result.message = 'Plan does NOT qualify for reduced work week (neither 35.5h nor 33.6h)'
+      result.message = `✗ Does NOT qualify for 35.5h work week AND ✗ Does NOT qualify for 33.6h work week → Remains at standard 37.5h × ${plan.work_percent}% = ${baseWeeklyHours.toFixed(2)}h/week`
       result.details = [
-        '❌ Does NOT qualify for 35.5h work week:',
+        '❌ Does NOT qualify for 35.5h work week (must meet at least ONE):',
         `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (20:00-06:00): ${avgNightHours20to6PerWeek.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
+        `    ${meetsNightHours35 ? 'MET' : `Need ${(requiredNightHours - avgNightHours20to6PerWeek).toFixed(2)}h more per week`}`,
         `  ${meetsSundayRequirement ? '✓' : '✗'} Sunday work: ${sundaysWorked}/${totalSundays} Sundays (1 in ${sundayWorkRatio.toFixed(1)}, required: 1 in ${requiredSundayFreq})`,
-        '  → Must meet at least ONE of the above',
+        `    ${meetsSundayRequirement ? 'MET' : `Need to work ${Math.ceil(totalSundays / requiredSundayFreq) - sundaysWorked} more Sunday${Math.ceil(totalSundays / requiredSundayFreq) - sundaysWorked !== 1 ? 's' : ''}`}`,
         '',
-        '❌ Does NOT qualify for 33.6h work week:',
+        '❌ Does NOT qualify for 33.6h work week (must meet ALL three):',
         `  ${has24HourCoverage ? '✓' : '✗'} 24-hour coverage: ${has24HourCoverage ? 'YES' : 'NO'}`,
+        `    ${has24HourCoverage ? 'MET' : 'Need shifts covering all 24 hours'}`,
         `  ${meetsSundayRequirement ? '✓' : '✗'} Sunday work: Already checked above`,
         `  ${meetsNonNightRequirement ? '✓' : '✗'} Non-night hours: ${nonNightPercent.toFixed(1)}% (required: ${requiredNonNightPercent}%)`,
-        '  → Must meet ALL three requirements'
+        `    ${meetsNonNightRequirement ? 'MET' : `Need ${(requiredNonNightPercent - nonNightPercent).toFixed(1)}% more non-night hours`}`,
+        '',
+        '📊 Current Hours Analysis:',
+        `  Actual average: ${actualAvgHoursPerWeek.toFixed(2)}h/week`,
+        `  Total hours over ${plan.duration_weeks} weeks: ${totalHours.toFixed(2)}h`,
+        '',
+        '  Hours Breakdown:',
+        `    Night hours (21:00-06:00): ${totalNightHours21to6.toFixed(2)}h`,
+        `    Sunday hours: ${totalSundayHours.toFixed(2)}h`,
+        `    Hours that are both night AND Sunday: ${totalOverlapHours.toFixed(2)}h`,
+        `    Sunday-only hours: ${sundayOnlyHours.toFixed(2)}h`,
+        `    Night-only hours: ${nightOnlyHours.toFixed(2)}h`,
+        `    Non-night hours: ${nonNightHours.toFixed(2)}h (${nonNightPercent.toFixed(1)}% of total)`,
+        '',
+        '  Hypothetical 33.6h calculation (if qualified):',
+        `    Base hours: 37.5h × ${plan.work_percent}% = ${baseWeeklyHours.toFixed(2)}h`,
+        `    Night bonus: ${totalNightHours21to6.toFixed(2)}h × 0.25 = ${(totalNightHours21to6 * 0.25).toFixed(2)}h`,
+        `    Sunday bonus: ${sundayOnlyHours.toFixed(2)}h × ${(10/60).toFixed(4)} × ${plan.work_percent}% = ${sundayBonusAdjusted.toFixed(2)}h`,
+        `    Total bonus: ${totalBonusHours.toFixed(2)}h`,
+        `    Average bonus per week: ${avgBonusPerWeek.toFixed(2)}h`,
+        `    Would be: ${calculatedWorkWeek.toFixed(2)}h (min ${minimumWorkWeek.toFixed(2)}h) = ${finalWorkWeek.toFixed(2)}h/week`
       ]
       
       result.violations = [{
