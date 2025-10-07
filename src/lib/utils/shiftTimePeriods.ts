@@ -11,7 +11,7 @@ export const TIME_PERIODS = {
   },
   // KS definerer 21:00-06:00 som natt i sin tariffavtale
   NIGHT_KS: {
-    START: { hour: 21, minute: 0 }, // 21:00
+    START: { hour: 20, minute: 0 }, // 21:00
     END: { hour: 6, minute: 0 },    // 06:00
   },
   // STATEN definerer 20:00-06:00 som natt i sin tariffavtale
@@ -82,13 +82,54 @@ export function calculateEveningHours(startTime: string | null, endTime: string 
 }
 
 /**
+ * Calculate night hours using KS definition (21:00-06:00)
+ * KS Tariffavtale standard definition
+ */
+export function calculateNightHoursKS(startTime: string | null, endTime: string | null): number {
+  return calculateNightHoursByPeriod(startTime, endTime, TIME_PERIODS.NIGHT_KS)
+}
+
+/**
+ * Calculate night hours using STATEN definition (20:00-06:00)
+ * Statens tariffavtale definition
+ */
+export function calculateNightHoursStaten(startTime: string | null, endTime: string | null): number {
+  return calculateNightHoursByPeriod(startTime, endTime, TIME_PERIODS.NIGHT_STATEN)
+}
+
+/**
+ * Calculate night hours using AML definition (21:00-06:00)
+ * Arbeidsmiljøloven § 10-8 definition for daily rest
+ */
+export function calculateNightHoursAML(startTime: string | null, endTime: string | null): number {
+  return calculateNightHoursByPeriod(startTime, endTime, TIME_PERIODS.NIGHT_AML)
+}
+
+/**
+ * Calculate night hours using Oslo Kommune definition (21:00-06:00)
+ * Oslo Kommune standard definition
+ */
+export function calculateNightHoursOslo(startTime: string | null, endTime: string | null): number {
+  return calculateNightHoursByPeriod(startTime, endTime, TIME_PERIODS.NIGHT_OSLO)
+}
+
+/**
  * Calculate night hours within a shift
- * Night hours are from 21:00 to 06:00
- * This spans across midnight, so we need to check two periods:
- * - 21:00 to 24:00 (before midnight)
- * - 00:00 to 06:00 (after midnight)
+ * Uses KS definition (21:00-06:00) by default for backward compatibility
+ * @deprecated Use calculateNightHoursKS, calculateNightHoursStaten, calculateNightHoursAML, or calculateNightHoursOslo instead
  */
 export function calculateNightHours(startTime: string | null, endTime: string | null): number {
+  return calculateNightHoursKS(startTime, endTime)
+}
+
+/**
+ * Helper function to calculate night hours based on a specific night period definition
+ */
+function calculateNightHoursByPeriod(
+  startTime: string | null, 
+  endTime: string | null,
+  nightPeriod: { START: { hour: number; minute: number }; END: { hour: number; minute: number } }
+): number {
   if (!startTime || !endTime) return 0
 
   const startMinutes = parseTimeToMinutes(startTime)
@@ -99,20 +140,20 @@ export function calculateNightHours(startTime: string | null, endTime: string | 
     endMinutes += 24 * 60
   }
 
-  const nightStart = timeToMinutes(TIME_PERIODS.NIGHT_KS.START.hour, TIME_PERIODS.NIGHT_KS.START.minute)
-  const nightEndAfterMidnight = timeToMinutes(TIME_PERIODS.NIGHT_KS.END.hour, TIME_PERIODS.NIGHT_KS.END.minute)
+  const nightStart = timeToMinutes(nightPeriod.START.hour, nightPeriod.START.minute)
+  const nightEndAfterMidnight = timeToMinutes(nightPeriod.END.hour, nightPeriod.END.minute)
   const midnight = 24 * 60
 
   let nightHours = 0
 
-  // Period 1: 21:00 to midnight (if shift includes this)
+  // Period 1: nightStart to midnight (if shift includes this)
   const period1Start = Math.max(startMinutes, nightStart)
   const period1End = Math.min(endMinutes, midnight)
   if (period1Start < period1End) {
     nightHours += (period1End - period1Start) / 60
   }
 
-  // Period 2: midnight to 06:00 (if shift includes this)
+  // Period 2: midnight to nightEnd (if shift includes this)
   if (endMinutes > midnight) {
     const period2Start = Math.max(startMinutes, midnight)
     const period2End = Math.min(endMinutes, midnight + nightEndAfterMidnight)
@@ -123,6 +164,7 @@ export function calculateNightHours(startTime: string | null, endTime: string | 
 
   return nightHours
 }
+
 
 /**
  * Check if a specific day is a weekend day

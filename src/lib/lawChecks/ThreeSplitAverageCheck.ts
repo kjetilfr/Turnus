@@ -4,6 +4,7 @@ import { LawCheck, LawCheckResult } from '@/types/lawCheck'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
 import { getSundayTimeZones } from '@/lib/utils/norwegianHolidayTimeZones'
+import { calculateNightHoursKS } from '@/lib/utils/shiftTimePeriods'
 
 /**
  * Three-Split Average Check
@@ -208,7 +209,7 @@ export const threeSplitAverageCheck: LawCheck = {
 
     // Calculate non-night hours percentage (night = 21:00-06:00 from TIME_PERIODS.NIGHT_KS)
     let totalHours = 0
-    let totalNightHours21to6 = 0 // Night hours using KS definition (21:00-06:00) for 33.6h work week
+    let totalNightHoursKS = 0 // Night hours using KS definition (21:00-06:00) for 33.6h work week
     let totalSundayHours = 0
     let totalOverlapHours = 0 // Hours that are both night AND Sunday
 
@@ -220,8 +221,8 @@ export const threeSplitAverageCheck: LawCheck = {
           totalHours += shiftHours
           
           // Calculate night hours using KS definition (21:00-06:00) for 33.6h work week
-          const nightHours = calculateNightHours21to6(shift.start_time, shift.end_time)
-          totalNightHours21to6 += nightHours
+          const nightHours = calculateNightHoursKS(shift.start_time, shift.end_time)
+          totalNightHoursKS += nightHours
 
           // Calculate Sunday hours for this rotation
           const sundayHours = calculateSundayHoursForRotation(
@@ -244,7 +245,7 @@ export const threeSplitAverageCheck: LawCheck = {
       }
     })
 
-    const nonNightHours = totalHours - totalNightHours21to6
+    const nonNightHours = totalHours - totalNightHoursKS
     const nonNightPercent = totalHours > 0 ? (nonNightHours / totalHours) * 100 : 0
     const meetsNonNightRequirement = nonNightPercent >= requiredNonNightPercent
 
@@ -252,7 +253,7 @@ export const threeSplitAverageCheck: LawCheck = {
     // Night: 15 minutes per hour = 0.25 hours bonus per hour
     // Sunday: 10 minutes per hour = 0.1667 hours bonus per hour
     // Overlap: Only 15 minutes (higher bonus) per hour
-    const nightOnlyHours = totalNightHours21to6 - totalOverlapHours
+    const nightOnlyHours = totalNightHoursKS - totalOverlapHours
     const sundayOnlyHours = totalSundayHours - totalOverlapHours
     
     const nightBonus = nightOnlyHours * 0.25
@@ -330,10 +331,10 @@ export const threeSplitAverageCheck: LawCheck = {
           `  Base hours: 37.5h × ${plan.work_percent}% = ${baseWeeklyHours.toFixed(2)}h`,
           '',
           '  Bonus Hours:',
-          `    Night hours (21:00-06:00): ${totalNightHours21to6.toFixed(2)}h`,
+          `    Night hours (21:00-06:00): ${totalNightHoursKS.toFixed(2)}h`,
           `    Sunday hours: ${sundayOnlyHours.toFixed(2)}h (${totalSundayHours.toFixed(2)}h - ${totalOverlapHours.toFixed(2)}h overlap with night)`,
           '',
-          `    Night bonus (15 min/hour): ${totalNightHours21to6.toFixed(2)}h × 0.25 = ${(totalNightHours21to6 * 0.25).toFixed(2)}h`,
+          `    Night bonus (15 min/hour): ${totalNightHoursKS.toFixed(2)}h × 0.25 = ${(totalNightHoursKS * 0.25).toFixed(2)}h`,
           `    Sunday bonus (10 min/hour): ${sundayOnlyHours.toFixed(2)}h × ${(10/60).toFixed(4)} = ${sundayBonus.toFixed(2)}h`,
           `    Sunday bonus adjusted by work %: ${sundayBonus.toFixed(2)}h × ${plan.work_percent}% = ${sundayBonusAdjusted.toFixed(2)}h`,
           '',
@@ -384,10 +385,10 @@ export const threeSplitAverageCheck: LawCheck = {
           `  Base hours: 37.5h × ${plan.work_percent}% = ${baseWeeklyHours.toFixed(2)}h`,
           '',
           '  Bonus Hours:',
-          `    Night hours (21:00-06:00): ${totalNightHours21to6.toFixed(2)}h`,
+          `    Night hours (21:00-06:00): ${totalNightHoursKS.toFixed(2)}h`,
           `    Sunday hours: ${sundayOnlyHours.toFixed(2)}h (${totalSundayHours.toFixed(2)}h - ${totalOverlapHours.toFixed(2)}h overlap with night)`,
           '',
-          `    Night bonus (15 min/hour): ${totalNightHours21to6.toFixed(2)}h × 0.25 = ${(totalNightHours21to6 * 0.25).toFixed(2)}h`,
+          `    Night bonus (15 min/hour): ${totalNightHoursKS.toFixed(2)}h × 0.25 = ${(totalNightHoursKS * 0.25).toFixed(2)}h`,
           `    Sunday bonus (10 min/hour): ${sundayOnlyHours.toFixed(2)}h × ${(10/60).toFixed(4)} = ${sundayBonus.toFixed(2)}h`,
           `    Sunday bonus adjusted by work %: ${sundayBonus.toFixed(2)}h × ${plan.work_percent}% = ${sundayBonusAdjusted.toFixed(2)}h`,
           '',
@@ -418,7 +419,7 @@ export const threeSplitAverageCheck: LawCheck = {
           '📊 Hours Breakdown:',
           `  Total hours: ${totalHours.toFixed(2)}h over ${plan.duration_weeks} weeks`,
           `  Average per week: ${actualAvgHoursPerWeek.toFixed(2)}h`,
-          `  Night hours (21:00-06:00): ${totalNightHours21to6.toFixed(2)}h`,
+          `  Night hours (21:00-06:00): ${totalNightHoursKS.toFixed(2)}h`,
           `  Sunday hours: ${totalSundayHours.toFixed(2)}h`,
           `  Non-night hours: ${nonNightHours.toFixed(2)}h (${nonNightPercent.toFixed(1)}%)`,
           '',
@@ -456,7 +457,7 @@ export const threeSplitAverageCheck: LawCheck = {
         `  Total hours over ${plan.duration_weeks} weeks: ${totalHours.toFixed(2)}h`,
         '',
         '  Hours Breakdown:',
-        `    Night hours (21:00-06:00): ${totalNightHours21to6.toFixed(2)}h`,
+        `    Night hours (21:00-06:00): ${totalNightHoursKS.toFixed(2)}h`,
         `    Sunday hours: ${totalSundayHours.toFixed(2)}h`,
         `    Hours that are both night AND Sunday: ${totalOverlapHours.toFixed(2)}h`,
         `    Sunday-only hours: ${sundayOnlyHours.toFixed(2)}h`,
@@ -465,7 +466,7 @@ export const threeSplitAverageCheck: LawCheck = {
         '',
         '  Hypothetical 33.6h calculation (if qualified):',
         `    Base hours: 37.5h × ${plan.work_percent}% = ${baseWeeklyHours.toFixed(2)}h`,
-        `    Night bonus: ${totalNightHours21to6.toFixed(2)}h × 0.25 = ${(totalNightHours21to6 * 0.25).toFixed(2)}h`,
+        `    Night bonus: ${totalNightHoursKS.toFixed(2)}h × 0.25 = ${(totalNightHoursKS * 0.25).toFixed(2)}h`,
         `    Sunday bonus: ${sundayOnlyHours.toFixed(2)}h × ${(10/60).toFixed(4)} × ${plan.work_percent}% = ${sundayBonusAdjusted.toFixed(2)}h`,
         `    Total bonus: ${totalBonusHours.toFixed(2)}h`,
         `    Average bonus per week: ${avgBonusPerWeek.toFixed(2)}h`,
