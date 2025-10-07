@@ -4,8 +4,6 @@ import { LawCheck, LawCheckResult } from '@/types/lawCheck'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
 import { getSundayTimeZones } from '@/lib/utils/norwegianHolidayTimeZones'
-import { calculateNightHours } from '@/lib/utils/shiftTimePeriods'
-import { NightDefinition } from '@/lib/utils/shiftTimePeriods'
 
 /**
  * Three-Split Average Check
@@ -43,27 +41,15 @@ export const threeSplitAverageCheck: LawCheck = {
       url: 'https://www.ks.no/contentassets/8f9b17499f234bb8b556c546272be4cc/beregning-for-deltid-b-rundskrivnr-1-2011.pdf'
     },
     {
-      title: 'Rettssak 1,39t',
-      url: ''
+      title: 'NOU 2008:17 s. 34',
+      url: 'https://www.regjeringen.no/contentassets/a992608586e5422a8ed6530e1e0bf6b3/no/pdfs/nou200820080017000dddpdfs.pdf#page=36'
     }
   ],
   applicableTo: ['main', 'helping', 'year'],
   inputs: [
     {
-      id: 'nightDefinition35',
-      label: '35.5h: Night Hours Definition (for 1.39h/week requirement)',
-      type: 'text',
-      defaultValue: 'staten'
-    },
-    {
-      id: 'nightDefinition336',
-      label: '33.6h: Night Hours Definition (for non-night % calculation)',
-      type: 'text',
-      defaultValue: 'ks'
-    },
-    {
       id: 'requiredNightHoursPerWeek',
-      label: '35.5h: Required Average Night Hours per Week',
+      label: '35.5h: Required Average Night Hours per Week (20:00-06:00)',
       type: 'number',
       defaultValue: 1.39,
       min: 0,
@@ -94,8 +80,6 @@ export const threeSplitAverageCheck: LawCheck = {
   ],
   
   run: ({ rotations, shifts, plan, inputs = {} }) => {
-    const nightDef35 = (inputs.nightDefinition35 as NightDefinition) || 'staten'
-    const nightDef336 = (inputs.nightDefinition336 as NightDefinition) || 'ks'
     const requiredNightHours = (inputs.requiredNightHoursPerWeek as number) || 1.39
     const requiredSundayFreq = (inputs.requiredSundayFrequency as number) || 3
     const requiredNonNightPercent = (inputs.requiredNonNightPercent as number) || 25
@@ -111,20 +95,20 @@ export const threeSplitAverageCheck: LawCheck = {
     // Calculate metrics needed for both qualifications
     // ============================================================
 
-    // 1. Night hours for 35.5h qualification - uses selected definition (default: STATEN 20:00-06:00)
-    let totalNightHours35 = 0
+    // 1. Night hours (20:00 to 06:00) for 35.5h qualification
+    let totalNightHours20to6 = 0
     
     rotations.forEach((rotation: Rotation) => {
       if (rotation.shift_id) {
         const shift = shifts.find((s: Shift) => s.id === rotation.shift_id)
         if (shift && shift.start_time && shift.end_time) {
-          const nightHours = calculateNightHours(shift.start_time, shift.end_time, nightDef35)
-          totalNightHours35 += nightHours
+          const nightHours = calculateNightHours20to6(shift.start_time, shift.end_time)
+          totalNightHours20to6 += nightHours
         }
       }
     })
 
-    const avgNightHoursPerWeek35 = totalNightHours35 / plan.duration_weeks
+    const avgNightHoursPerWeek20to6 = totalNightHours20to6 / plan.duration_weeks
 
     // 2. Sunday work for both qualifications
     const sundayZones = getSundayTimeZones(
@@ -222,9 +206,9 @@ export const threeSplitAverageCheck: LawCheck = {
     // Check 24-hour coverage
     const has24HourCoverage = check24HourCoverage(rotations, shifts)
 
-    // Calculate non-night hours percentage - uses selected definition (default: KS 21:00-06:00)
+    // Calculate non-night hours percentage (night = 21:00-06:00 from TIME_PERIODS.NIGHT_KS)
     let totalHours = 0
-    let totalNightHours336 = 0 // Night hours using selected definition for 33.6h work week
+    let totalNightHours21to6 = 0 // Night hours using KS definition (21:00-06:00) for 33.6h work week
     let totalSundayHours = 0
     let totalOverlapHours = 0 // Hours that are both night AND Sunday
 
@@ -235,9 +219,9 @@ export const threeSplitAverageCheck: LawCheck = {
           const shiftHours = calculateShiftHours(shift.start_time, shift.end_time)
           totalHours += shiftHours
           
-          // Calculate night hours using selected definition for 33.6h work week
-          const nightHours = calculateNightHours(shift.start_time, shift.end_time, nightDef336)
-          totalNightHours336 += nightHours
+          // Calculate night hours using KS definition (21:00-06:00) for 33.6h work week
+          const nightHours = calculateNightHours21to6(shift.start_time, shift.end_time)
+          totalNightHours21to6 += nightHours
 
           // Calculate Sunday hours for this rotation
           const sundayHours = calculateSundayHoursForRotation(
@@ -253,15 +237,14 @@ export const threeSplitAverageCheck: LawCheck = {
             rotation,
             shift,
             plan.date_started,
-            plan.duration_weeks,
-            nightDef336
+            plan.duration_weeks
           )
           totalOverlapHours += overlapHours
         }
       }
     })
 
-    const nonNightHours = totalHours - totalNightHours336
+    const nonNightHours = totalHours - totalNightHours21to6
     const nonNightPercent = totalHours > 0 ? (nonNightHours / totalHours) * 100 : 0
     const meetsNonNightRequirement = nonNightPercent >= requiredNonNightPercent
 
@@ -269,7 +252,7 @@ export const threeSplitAverageCheck: LawCheck = {
     // Night: 15 minutes per hour = 0.25 hours bonus per hour
     // Sunday: 10 minutes per hour = 0.1667 hours bonus per hour
     // Overlap: Only 15 minutes (higher bonus) per hour
-    const nightOnlyHours = totalNightHours336 - totalOverlapHours
+    const nightOnlyHours = totalNightHours21to6 - totalOverlapHours
     const sundayOnlyHours = totalSundayHours - totalOverlapHours
     
     const nightBonus = nightOnlyHours * 0.25
@@ -294,7 +277,7 @@ export const threeSplitAverageCheck: LawCheck = {
     // ============================================================
 
     // 35.5h qualification
-    const meetsNightHours35 = avgNightHoursPerWeek35 >= requiredNightHours
+    const meetsNightHours35 = avgNightHoursPerWeek20to6 >= requiredNightHours
     const qualifiesFor35_5 = meetsNightHours35 || meetsSundayRequirement
 
     // 33.6h qualification (must meet ALL requirements)
@@ -347,10 +330,10 @@ export const threeSplitAverageCheck: LawCheck = {
           `  Base hours: 37.5h × ${plan.work_percent}% = ${baseWeeklyHours.toFixed(2)}h`,
           '',
           '  Bonus Hours:',
-          `    Night hours (${getNightDefLabel(nightDef336)}): ${totalNightHours336.toFixed(2)}h`,
+          `    Night hours (21:00-06:00): ${totalNightHours21to6.toFixed(2)}h`,
           `    Sunday hours: ${sundayOnlyHours.toFixed(2)}h (${totalSundayHours.toFixed(2)}h - ${totalOverlapHours.toFixed(2)}h overlap with night)`,
           '',
-          `    Night bonus (15 min/hour): ${totalNightHours336.toFixed(2)}h × 0.25 = ${(totalNightHours336 * 0.25).toFixed(2)}h`,
+          `    Night bonus (15 min/hour): ${totalNightHours21to6.toFixed(2)}h × 0.25 = ${(totalNightHours21to6 * 0.25).toFixed(2)}h`,
           `    Sunday bonus (10 min/hour): ${sundayOnlyHours.toFixed(2)}h × ${(10/60).toFixed(4)} = ${sundayBonus.toFixed(2)}h`,
           `    Sunday bonus adjusted by work %: ${sundayBonus.toFixed(2)}h × ${plan.work_percent}% = ${sundayBonusAdjusted.toFixed(2)}h`,
           '',
@@ -362,14 +345,14 @@ export const threeSplitAverageCheck: LawCheck = {
           `  → Final work week: ${finalWorkWeek.toFixed(2)}h`,
           '',
           '35.5h work week qualification:',
-          `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (${getNightDefLabel(nightDef35)}): ${avgNightHoursPerWeek35.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
+          `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (20:00-06:00): ${avgNightHoursPerWeek20to6.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
           `  ✓ Sunday work: Already met above`
         ]
       } else {
         result.message = `✅ Qualifies for 35.5h work week → Work week: ${expectedMaxHours.toFixed(2)}h/week (currently ${actualAvgHoursPerWeek.toFixed(2)}h/week)`
         result.details = [
           '✅ Qualifies for 35.5h work week:',
-          `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (${getNightDefLabel(nightDef35)}): ${avgNightHoursPerWeek35.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
+          `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (20:00-06:00): ${avgNightHoursPerWeek20to6.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
           `  ${meetsSundayRequirement ? '✓' : '✗'} Sunday work: ${sundaysWorked}/${totalSundays} Sundays (1 in ${sundayWorkRatio.toFixed(1)}, required: 1 in ${requiredSundayFreq})`,
           `  ✓ Actual hours: ${actualAvgHoursPerWeek.toFixed(2)}h/week ≤ ${expectedMaxHours.toFixed(2)}h/week limit (35.5h × ${plan.work_percent}%)`,
           '',
@@ -401,10 +384,10 @@ export const threeSplitAverageCheck: LawCheck = {
           `  Base hours: 37.5h × ${plan.work_percent}% = ${baseWeeklyHours.toFixed(2)}h`,
           '',
           '  Bonus Hours:',
-          `    Night hours (${getNightDefLabel(nightDef336)}): ${totalNightHours336.toFixed(2)}h`,
+          `    Night hours (21:00-06:00): ${totalNightHours21to6.toFixed(2)}h`,
           `    Sunday hours: ${sundayOnlyHours.toFixed(2)}h (${totalSundayHours.toFixed(2)}h - ${totalOverlapHours.toFixed(2)}h overlap with night)`,
           '',
-          `    Night bonus (15 min/hour): ${totalNightHours336.toFixed(2)}h × 0.25 = ${(totalNightHours336 * 0.25).toFixed(2)}h`,
+          `    Night bonus (15 min/hour): ${totalNightHours21to6.toFixed(2)}h × 0.25 = ${(totalNightHours21to6 * 0.25).toFixed(2)}h`,
           `    Sunday bonus (10 min/hour): ${sundayOnlyHours.toFixed(2)}h × ${(10/60).toFixed(4)} = ${sundayBonus.toFixed(2)}h`,
           `    Sunday bonus adjusted by work %: ${sundayBonus.toFixed(2)}h × ${plan.work_percent}% = ${sundayBonusAdjusted.toFixed(2)}h`,
           '',
@@ -416,14 +399,14 @@ export const threeSplitAverageCheck: LawCheck = {
           `  → Work week limit: ${finalWorkWeek.toFixed(2)}h`,
           '',
           '35.5h work week status:',
-          `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (${getNightDefLabel(nightDef35)}): ${avgNightHoursPerWeek35.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
+          `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (20:00-06:00): ${avgNightHoursPerWeek20to6.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
           `  ✓ Sunday work: Already met above`
         ]
       } else {
         result.message = `✓ Qualifies for 35.5h work week BUT ✗ EXCEEDS hour limit → Reduce to ${expectedMaxHours.toFixed(2)}h/week (currently ${actualAvgHoursPerWeek.toFixed(2)}h/week)`
         result.details = [
           '✅ QUALIFIES for 35.5h work week (met at least one requirement):',
-          `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (${getNightDefLabel(nightDef35)}): ${avgNightHoursPerWeek35.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
+          `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (20:00-06:00): ${avgNightHoursPerWeek20to6.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
           `  ${meetsSundayRequirement ? '✓' : '✗'} Sunday work: ${sundaysWorked}/${totalSundays} Sundays (1 in ${sundayWorkRatio.toFixed(1)}, required: 1 in ${requiredSundayFreq})`,
           '',
           '❌ BUT EXCEEDS 35.5h work week hour limit:',
@@ -435,7 +418,7 @@ export const threeSplitAverageCheck: LawCheck = {
           '📊 Hours Breakdown:',
           `  Total hours: ${totalHours.toFixed(2)}h over ${plan.duration_weeks} weeks`,
           `  Average per week: ${actualAvgHoursPerWeek.toFixed(2)}h`,
-          `  Night hours (${getNightDefLabel(nightDef336)}): ${totalNightHours336.toFixed(2)}h`,
+          `  Night hours (21:00-06:00): ${totalNightHours21to6.toFixed(2)}h`,
           `  Sunday hours: ${totalSundayHours.toFixed(2)}h`,
           `  Non-night hours: ${nonNightHours.toFixed(2)}h (${nonNightPercent.toFixed(1)}%)`,
           '',
@@ -456,8 +439,8 @@ export const threeSplitAverageCheck: LawCheck = {
       result.message = `✗ Does NOT qualify for 35.5h work week AND ✗ Does NOT qualify for 33.6h work week → Remains at standard 37.5h × ${plan.work_percent}% = ${baseWeeklyHours.toFixed(2)}h/week`
       result.details = [
         '❌ Does NOT qualify for 35.5h work week (must meet at least ONE):',
-        `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (${getNightDefLabel(nightDef35)}): ${avgNightHoursPerWeek35.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
-        `    ${meetsNightHours35 ? 'MET' : `Need ${(requiredNightHours - avgNightHoursPerWeek35).toFixed(2)}h more per week`}`,
+        `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (20:00-06:00): ${avgNightHoursPerWeek20to6.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
+        `    ${meetsNightHours35 ? 'MET' : `Need ${(requiredNightHours - avgNightHoursPerWeek20to6).toFixed(2)}h more per week`}`,
         `  ${meetsSundayRequirement ? '✓' : '✗'} Sunday work: ${sundaysWorked}/${totalSundays} Sundays (1 in ${sundayWorkRatio.toFixed(1)}, required: 1 in ${requiredSundayFreq})`,
         `    ${meetsSundayRequirement ? 'MET' : `Need to work ${Math.ceil(totalSundays / requiredSundayFreq) - sundaysWorked} more Sunday${Math.ceil(totalSundays / requiredSundayFreq) - sundaysWorked !== 1 ? 's' : ''}`}`,
         '',
@@ -473,7 +456,7 @@ export const threeSplitAverageCheck: LawCheck = {
         `  Total hours over ${plan.duration_weeks} weeks: ${totalHours.toFixed(2)}h`,
         '',
         '  Hours Breakdown:',
-        `    Night hours (${getNightDefLabel(nightDef336)}): ${totalNightHours336.toFixed(2)}h`,
+        `    Night hours (21:00-06:00): ${totalNightHours21to6.toFixed(2)}h`,
         `    Sunday hours: ${totalSundayHours.toFixed(2)}h`,
         `    Hours that are both night AND Sunday: ${totalOverlapHours.toFixed(2)}h`,
         `    Sunday-only hours: ${sundayOnlyHours.toFixed(2)}h`,
@@ -482,7 +465,7 @@ export const threeSplitAverageCheck: LawCheck = {
         '',
         '  Hypothetical 33.6h calculation (if qualified):',
         `    Base hours: 37.5h × ${plan.work_percent}% = ${baseWeeklyHours.toFixed(2)}h`,
-        `    Night bonus: ${totalNightHours336.toFixed(2)}h × 0.25 = ${(totalNightHours336 * 0.25).toFixed(2)}h`,
+        `    Night bonus: ${totalNightHours21to6.toFixed(2)}h × 0.25 = ${(totalNightHours21to6 * 0.25).toFixed(2)}h`,
         `    Sunday bonus: ${sundayOnlyHours.toFixed(2)}h × ${(10/60).toFixed(4)} × ${plan.work_percent}% = ${sundayBonusAdjusted.toFixed(2)}h`,
         `    Total bonus: ${totalBonusHours.toFixed(2)}h`,
         `    Average bonus per week: ${avgBonusPerWeek.toFixed(2)}h`,
@@ -501,27 +484,80 @@ export const threeSplitAverageCheck: LawCheck = {
 }
 
 /**
- * Get human-readable label for night definition
+ * Calculate night hours for the special 20:00-06:00 period
+ * This is different from the standard night hours calculation
+ * Used for 35.5h work week qualification
  */
-function getNightDefLabel(def: NightDefinition): string {
-  switch (def) {
-    case 'staten':
-      return '20:00-06:00 STATEN'
-    case 'ks':
-      return '21:00-06:00 KS'
-    case 'oslo':
-      return '21:00-06:00 OSLO'
-    case 'aml':
-      return '23:00-06:00 AML'
-    default:
-      return '21:00-06:00'
+function calculateNightHours20to6(startTime: string, endTime: string): number {
+  const parseTime = (time: string) => {
+    const [h, m] = time.split(':').map(Number)
+    return h * 60 + m
   }
+
+  const startMinutes = parseTime(startTime)
+  let endMinutes = parseTime(endTime)
+  
+  // Handle shifts crossing midnight
+  if (endMinutes < startMinutes) {
+    endMinutes += 24 * 60
+  }
+
+  // Night period: 20:00 (1200 minutes) to 06:00 next day (360 minutes + 1440)
+  const nightStart = 20 * 60 // 20:00 = 1200 minutes
+  const midnight = 24 * 60 // 1440 minutes
+  const nightEndAfterMidnight = 6 * 60 // 06:00 = 360 minutes
+
+  let nightHours = 0
+
+  // Period 1: 20:00 to midnight (if shift includes this)
+  const period1Start = Math.max(startMinutes, nightStart)
+  const period1End = Math.min(endMinutes, midnight)
+  if (period1Start < period1End) {
+    nightHours += (period1End - period1Start) / 60
+  }
+
+  // Period 2: midnight to 06:00 (if shift includes this)
+  if (endMinutes > midnight) {
+    const period2Start = Math.max(startMinutes, midnight)
+    const period2End = Math.min(endMinutes, midnight + nightEndAfterMidnight)
+    if (period2Start < period2End) {
+      nightHours += (period2End - period2Start) / 60
+    }
+  }
+
+  return nightHours
 }
 
 /**
- * Calculate total shift hours
+ * Calculate night hours using standard 21:00-06:00 period from TIME_PERIODS.NIGHT
+ * Used for 33.6h work week non-night hours percentage calculation
  */
-function calculateShiftHours(startTime: string, endTime: string): number {d1End - period1Start) / 60
+function calculateNightHours21to6(startTime: string, endTime: string): number {
+  const parseTime = (time: string) => {
+    const [h, m] = time.split(':').map(Number)
+    return h * 60 + m
+  }
+
+  const startMinutes = parseTime(startTime)
+  let endMinutes = parseTime(endTime)
+  
+  // Handle shifts crossing midnight
+  if (endMinutes < startMinutes) {
+    endMinutes += 24 * 60
+  }
+
+  // Night period from TIME_PERIODS.NIGHT: 21:00 to 06:00
+  const nightStart = 21 * 60 // 21:00 = 1260 minutes
+  const midnight = 24 * 60 // 1440 minutes
+  const nightEndAfterMidnight = 6 * 60 // 06:00 = 360 minutes
+
+  let nightHours = 0
+
+  // Period 1: 21:00 to midnight
+  const period1Start = Math.max(startMinutes, nightStart)
+  const period1End = Math.min(endMinutes, midnight)
+  if (period1Start < period1End) {
+    nightHours += (period1End - period1Start) / 60
   }
 
   // Period 2: midnight to 06:00

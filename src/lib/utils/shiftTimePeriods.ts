@@ -24,13 +24,18 @@ export const TIME_PERIODS = {
     START: { hour: 21, minute: 0 }, // 21:00
     END: { hour: 6, minute: 0 },    // 06:00
   },
+  // AML §10-11 bruker 21:00-06:00 for natt
+  NIGHT_OSLO: {
+    START: { hour: 21, minute: 0 }, // 21:00
+    END: { hour: 6, minute: 0 },    // 06:00
+  },
   WEEKEND: {
     START_DAY: 5, // Saturday (0 = Monday, 5 = Saturday)
     END_DAY: 6,   // Sunday (0 = Monday, 6 = Sunday)
   },
 } as const
 
-export type NightDefinition = 'ks' | 'staten' | 'aml'
+export type NightDefinition = 'ks' | 'staten' | 'aml' | 'oslo'
 
 /**
  * Convert time to minutes since midnight
