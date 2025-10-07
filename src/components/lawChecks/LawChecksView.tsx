@@ -150,6 +150,15 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
               <li>Available: {amlCount} AML test{amlCount !== 1 ? 's' : ''}, {htaCount} HTA test{htaCount !== 1 ? 's' : ''}</li>
               <li><strong>Check the box</strong> next to each test to enable it (all enabled by default)</li>
             </ul>
+            <div className="mt-3 pt-3 border-t border-blue-200">
+              <p className="font-semibold mb-1">Night Definitions (when applicable):</p>
+              <ul className="list-disc list-inside space-y-1 text-xs">
+                <li><strong>KS (21:00-06:00):</strong> KS Tariffavtale standard definisjon</li>
+                <li><strong>STATEN (20:00-06:00):</strong> Statens tariffavtale definisjon</li>
+                <li><strong>OSLO KOMMUNE (21:00-06:00):</strong> Oslo Kommune definisjon</li>
+                <li><strong>AML (23:00-06:00):</strong> Arbeidsmiljøloven § 10-8 definisjon for daglig hvile</li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>

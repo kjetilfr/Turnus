@@ -9,14 +9,19 @@ export const TIME_PERIODS = {
     START: { hour: 17, minute: 0 }, // 17:00
     END: { hour: 21, minute: 0 },   // 21:00
   },
-  //KS definerer 21:00-06:00 som natt i sin tariffavtale
+  // KS definerer 21:00-06:00 som natt i sin tariffavtale
   NIGHT_KS: {
     START: { hour: 21, minute: 0 }, // 21:00
     END: { hour: 6, minute: 0 },    // 06:00
   },
-  //STATEN definerer 20:00-06:00 som natt i sin tariffavtale
+  // STATEN definerer 20:00-06:00 som natt i sin tariffavtale
   NIGHT_STATEN: {
     START: { hour: 20, minute: 0 }, // 20:00
+    END: { hour: 6, minute: 0 },    // 06:00
+  },
+  // AML §10-11 bruker 21:00-06:00 for natt
+  NIGHT_AML: {
+    START: { hour: 21, minute: 0 }, // 21:00
     END: { hour: 6, minute: 0 },    // 06:00
   },
   WEEKEND: {
@@ -24,6 +29,8 @@ export const TIME_PERIODS = {
     END_DAY: 6,   // Sunday (0 = Monday, 6 = Sunday)
   },
 } as const
+
+export type NightDefinition = 'ks' | 'staten' | 'aml'
 
 /**
  * Convert time to minutes since midnight
