@@ -3,7 +3,7 @@
 import { LawCheck, LawCheckResult } from '@/types/lawCheck'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
-import { getSundayTimeZones } from '@/lib/utils/norwegianHolidayTimeZones'
+import { getSundayTimeZones, HolidayTimeZone } from '@/lib/utils/norwegianHolidayTimeZones'
 import { calculateNightHoursKS } from '@/lib/utils/shiftTimePeriods'
 
 /**
@@ -829,7 +829,7 @@ function calculateNightSundayOverlap(
   let overlapHours = 0
 
   // Iterate through each hour in the Sunday overlap and check if it's night time
-  let currentTime = new Date(sundayOverlapStart)
+  const currentTime = new Date(sundayOverlapStart)
   while (currentTime < sundayOverlapEnd) {
     const hour = currentTime.getHours()
     
@@ -873,7 +873,7 @@ function calculateSundayZoneOverlap(
   dayOfWeek: number,
   startTime: string,
   endTime: string,
-  zone: any, // HolidayTimeZone type from norwegianHolidayTimeZones
+  zone: HolidayTimeZone, // HolidayTimeZone type from norwegianHolidayTimeZones
   weekIndex: number,
   planStartDate: string
 ): number {

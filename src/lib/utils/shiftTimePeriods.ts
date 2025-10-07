@@ -186,20 +186,33 @@ export function calculateWeekendHours(
 ): number {
   if (!startTime || !endTime) return 0
   
-  // Only Saturday and Sunday count as weekend
-  if (!isWeekendDay(dayOfWeek)) return 0
-
-  // For weekend days, all hours in the shift count as weekend hours
   const startMinutes = parseTimeToMinutes(startTime)
   let endMinutes = parseTimeToMinutes(endTime)
   
+  // Check if this is a night shift (crosses midnight)
+  const isNightShift = endMinutes < startMinutes
+  
   // Handle shifts crossing midnight
-  if (endMinutes < startMinutes) {
+  if (isNightShift) {
     endMinutes += 24 * 60
   }
 
-  const totalMinutes = endMinutes - startMinutes
-  return totalMinutes / 60
+  // Special case: Monday night shift (shown on Monday but starts Sunday)
+  if (dayOfWeek === 0 && isNightShift) {
+    // This shift starts on Sunday (day 6), so all hours before midnight are weekend hours
+    const hoursBeforeMidnight = (24 * 60 - startMinutes) / 60
+    return hoursBeforeMidnight
+  }
+  
+  // Regular weekend days (Saturday and Sunday)
+  if (isWeekendDay(dayOfWeek)) {
+    // For weekend days, all hours in the shift count as weekend hours
+    const totalMinutes = endMinutes - startMinutes
+    return totalMinutes / 60
+  }
+
+  // Not a weekend day
+  return 0
 }
 
 /**
