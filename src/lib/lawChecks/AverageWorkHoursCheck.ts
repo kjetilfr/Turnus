@@ -25,7 +25,7 @@ export const averageWorkHoursCheck: LawCheck = {
       url: 'https://lovdata.no/lov/2005-06-17-62/§10-5'
     },
     {
-      title: '§ 10-12 (4).Unntak',
+      title: 'AML § 10-12 (4).Unntak',
       url: 'https://lovdata.no/lov/2005-06-17-62/§10-12'
     }
   ],

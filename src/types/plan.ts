@@ -1,6 +1,7 @@
 // src/types/plan.ts
 
 export type PlanType = 'main' | 'helping' | 'year'
+export type Tariffavtale = 'ks' | 'staten' | 'oslo' | 'aml'
 
 export interface Plan {
   id: string
@@ -12,6 +13,7 @@ export interface Plan {
   base_plan_id: string | null
   date_started: string // Format: YYYY-MM-DD
   work_percent: number // Work percentage (0-100), default 100
+  tariffavtale: Tariffavtale // Tariffavtale type
   created_at: string
   updated_at: string
 }
@@ -28,4 +30,5 @@ export interface CreatePlanData {
   base_plan_id?: string
   date_started: string
   work_percent?: number
+  tariffavtale?: Tariffavtale
 }

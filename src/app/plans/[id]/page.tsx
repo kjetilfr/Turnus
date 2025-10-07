@@ -164,6 +164,7 @@ export default async function PlanDetailPage({ params }: PageProps) {
           <ShiftSummary 
             rotations={rotations || []} 
             shifts={shifts || []}
+            plan={plan}  // Make sure this line exists
             planType={plan.type}
           />
         </div>

@@ -66,6 +66,15 @@ export default function PlanDetails({
             <div className="flex items-center gap-2">
               <span className="text-gray-600">Type:</span>
               <span className="font-medium text-gray-900 capitalize">{plan.type}</span>
+              <div className="flex items-center gap-2">
+              <span className="text-gray-600">Tariffavtale:</span>
+              <span className="font-medium text-gray-900 capitalize">
+                {plan.tariffavtale === 'ks' && 'KS'}
+                {plan.tariffavtale === 'staten' && 'Staten'}
+                {plan.tariffavtale === 'oslo' && 'Oslo Kommune'}
+                {plan.tariffavtale === 'aml' && 'Ingen (AML)'}
+              </span>
+            </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-gray-600">Start Date:</span>

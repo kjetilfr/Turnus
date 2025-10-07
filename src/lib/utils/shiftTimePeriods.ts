@@ -11,7 +11,7 @@ export const TIME_PERIODS = {
   },
   // KS definerer 21:00-06:00 som natt i sin tariffavtale
   NIGHT_KS: {
-    START: { hour: 20, minute: 0 }, // 21:00
+    START: { hour: 21, minute: 0 }, // 21:00
     END: { hour: 6, minute: 0 },    // 06:00
   },
   // STATEN definerer 20:00-06:00 som natt i sin tariffavtale
@@ -36,6 +36,48 @@ export const TIME_PERIODS = {
 } as const
 
 export type NightDefinition = 'ks' | 'staten' | 'aml' | 'oslo'
+
+/**
+ * Get night period definition based on tariffavtale
+ */
+export function getNightPeriodDefinition(tariffavtale: string): { start: number; end: number } {
+  switch (tariffavtale) {
+    case 'ks':
+      return { start: TIME_PERIODS.NIGHT_KS.START.hour, end: TIME_PERIODS.NIGHT_KS.END.hour }
+    case 'staten':
+      return { start: TIME_PERIODS.NIGHT_STATEN.START.hour, end: TIME_PERIODS.NIGHT_STATEN.END.hour }
+    case 'oslo':
+      return { start: TIME_PERIODS.NIGHT_OSLO.START.hour, end: TIME_PERIODS.NIGHT_OSLO.END.hour }
+    case 'aml':
+      return { start: TIME_PERIODS.NIGHT_AML.START.hour, end: TIME_PERIODS.NIGHT_AML.END.hour }
+    default:
+      return { start: TIME_PERIODS.NIGHT_KS.START.hour, end: TIME_PERIODS.NIGHT_KS.END.hour }
+  }
+}
+
+/**
+ * Get night hours label based on tariffavtale
+ */
+export function getNightHoursLabel(tariffavtale: string): string {
+  const period = getNightPeriodDefinition(tariffavtale)
+  return `${period.start.toString().padStart(2, '0')}:00-${period.end.toString().padStart(2, '0')}:00`
+}
+
+export function getNightHoursCalculator(tariffavtale: string): (startTime: string | null, endTime: string | null) => number {
+  switch (tariffavtale) {
+    case 'ks':
+      return calculateNightHoursKS // 21:00-06:00
+    case 'staten':
+      return calculateNightHoursStaten // 20:00-06:00
+    case 'oslo':
+      return calculateNightHoursOslo // 21:00-06:00
+    case 'aml':
+      return calculateNightHoursKS // Default to KS definition (21:00-06:00)
+    default:
+      return calculateNightHoursKS
+  }
+}
+
 
 /**
  * Convert time to minutes since midnight

@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Plan, PlanType } from '@/types/plan'
+import { Plan, PlanType, Tariffavtale } from '@/types/plan'
 
 interface MainPlan {
   id: string
@@ -27,10 +27,11 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
   const [basePlanId, setBasePlanId] = useState(plan.base_plan_id || '')
   const [dateStarted, setDateStarted] = useState(plan.date_started)
   const [workPercent, setWorkPercent] = useState(plan.work_percent || 100)
+  const [tariffavtale, setTariffavtale] = useState<Tariffavtale>(plan.tariffavtale || 'ks') // NEW
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     // Validate required number fields
@@ -43,6 +44,8 @@ const handleSubmit = async (e: React.FormEvent) => {
       setError('Please enter a valid work percentage (0-100)')
       return
     }
+
+    setLoading(true)
 
     try {
       // Validate helping plan has base plan
@@ -62,6 +65,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         type,
         date_started: dateStarted,
         work_percent: workPercent,
+        tariffavtale, // NEW
         base_plan_id: type === 'helping' ? basePlanId : null,
       }
 
@@ -240,56 +244,136 @@ const handleSubmit = async (e: React.FormEvent) => {
 
         {/* Duration */}
         <div>
-        <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-2">
-          Duration (weeks) *
-        </label>
-        <input
-          id="duration"
-          type="number"
-          min="1"
-          max="52"
-          value={isNaN(durationWeeks) ? '' : durationWeeks}
-          onChange={(e) => {
-            const val = e.target.value === '' ? NaN : parseInt(e.target.value)
-            setDurationWeeks(val)
-          }}
-          required
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
-        />
-        <p className="mt-2 text-sm text-gray-600">
-          How many weeks does this plan cover?
-        </p>
-      </div>
+          <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-2">
+            Duration (weeks) *
+          </label>
+          <input
+            id="duration"
+            type="number"
+            min="1"
+            max="52"
+            value={isNaN(durationWeeks) ? '' : durationWeeks}
+            onChange={(e) => {
+              const val = e.target.value === '' ? NaN : parseInt(e.target.value)
+              setDurationWeeks(val)
+            }}
+            required
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
+          />
+          <p className="mt-2 text-sm text-gray-600">
+            How many weeks does this plan cover?
+          </p>
+        </div>
 
         {/* Work Percentage */}
         <div>
-        <label htmlFor="workPercent" className="block text-sm font-medium text-gray-700 mb-2">
-          Work Percentage *
-        </label>
-        <div className="flex items-center gap-4">
-          <input
-            id="workPercent"
-            type="number"
-            min="0"
-            max="100"
-            step="0.1"
-            value={isNaN(workPercent) ? '' : workPercent}
-            onChange={(e) => {
-              const val = e.target.value === '' ? NaN : parseFloat(e.target.value)
-              setWorkPercent(val)
-            }}
-            required
-            className="w-32 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
-          />
-          <span className="text-sm text-gray-700">%</span>
-          <div className="flex-1 text-sm text-gray-600">
-            Expected weekly hours: <span className="font-semibold text-gray-900">{isNaN(workPercent) ? '-' : (35.5 * workPercent / 100).toFixed(1)}h</span>
+          <label htmlFor="workPercent" className="block text-sm font-medium text-gray-700 mb-2">
+            Work Percentage *
+          </label>
+          <div className="flex items-center gap-4">
+            <input
+              id="workPercent"
+              type="number"
+              min="0"
+              max="100"
+              step="0.1"
+              value={isNaN(workPercent) ? '' : workPercent}
+              onChange={(e) => {
+                const val = e.target.value === '' ? NaN : parseFloat(e.target.value)
+                setWorkPercent(val)
+              }}
+              required
+              className="w-32 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
+            />
+            <span className="text-sm text-gray-700">%</span>
+            <div className="flex-1 text-sm text-gray-600">
+              Expected weekly hours: <span className="font-semibold text-gray-900">{isNaN(workPercent) ? '-' : (35.5 * workPercent / 100).toFixed(1)}h</span>
+            </div>
+          </div>
+          <p className="mt-2 text-sm text-gray-600">
+            The work percentage for this position (100% = 35.5 hours/week)
+          </p>
+        </div>
+
+        {/* NEW: Tariffavtale Selection - COMPACT */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Tariffavtale *
+          </label>
+          <div className="grid grid-cols-4 gap-2">
+            <label className={`
+              flex items-center justify-center gap-2 p-2 border-2 rounded-lg cursor-pointer transition-all text-sm
+              ${tariffavtale === 'ks' 
+                ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' 
+                : 'border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'
+              }
+            `}>
+              <input
+                type="radio"
+                name="tariffavtale"
+                value="ks"
+                checked={tariffavtale === 'ks'}
+                onChange={(e) => setTariffavtale(e.target.value as Tariffavtale)}
+                className="w-3 h-3 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+              />
+              <span className="font-medium text-gray-900">KS</span>
+            </label>
+
+            <label className={`
+              flex items-center justify-center gap-2 p-2 border-2 rounded-lg cursor-pointer transition-all text-sm
+              ${tariffavtale === 'staten' 
+                ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' 
+                : 'border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'
+              }
+            `}>
+              <input
+                type="radio"
+                name="tariffavtale"
+                value="staten"
+                checked={tariffavtale === 'staten'}
+                onChange={(e) => setTariffavtale(e.target.value as Tariffavtale)}
+                className="w-3 h-3 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+              />
+              <span className="font-medium text-gray-900">Staten</span>
+            </label>
+
+            <label className={`
+              flex items-center justify-center gap-2 p-2 border-2 rounded-lg cursor-pointer transition-all text-sm
+              ${tariffavtale === 'oslo' 
+                ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' 
+                : 'border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'
+              }
+            `}>
+              <input
+                type="radio"
+                name="tariffavtale"
+                value="oslo"
+                checked={tariffavtale === 'oslo'}
+                onChange={(e) => setTariffavtale(e.target.value as Tariffavtale)}
+                className="w-3 h-3 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+              />
+              <span className="font-medium text-gray-900">Oslo</span>
+            </label>
+
+            <label className={`
+              flex items-center justify-center gap-2 p-2 border-2 rounded-lg cursor-pointer transition-all text-sm
+              ${tariffavtale === 'aml'  // Changed from 'ingen'
+                ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' 
+                : 'border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'
+              }
+            `}>
+              <input
+                type="radio"
+                name="tariffavtale"
+                value="aml"  // Changed from 'ingen'
+                checked={tariffavtale === 'aml'}  // Changed from 'ingen'
+                onChange={(e) => setTariffavtale(e.target.value as Tariffavtale)}
+                className="w-3 h-3 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+              />
+              <span className="font-medium text-gray-900">Ingen</span>  {/* Changed from 'Ingen' */}
+            </label>
           </div>
         </div>
-        <p className="mt-2 text-sm text-gray-600">
-          The work percentage for this position (100% = 35.5 hours/week)
-        </p>
-      </div>
 
         {/* Description */}
         <div>

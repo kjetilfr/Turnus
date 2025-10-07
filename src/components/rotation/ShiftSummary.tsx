@@ -4,16 +4,20 @@
 import { useMemo } from 'react'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
+import { Plan } from '@/types/plan'
 import { calculateShiftHours } from '@/lib/utils/shiftCalculations'
 import { 
-  calculateEveningHours, 
-  calculateNightHours, 
-  calculateWeekendHours 
+  calculateEveningHours,
+  calculateWeekendHours,
+  getNightHoursLabel,
+  getNightHoursCalculator 
 } from '@/lib/utils/shiftTimePeriods'
+
 
 interface ShiftSummaryProps {
   rotations: Rotation[]
   shifts: Shift[]
+  plan: Plan
   planType: 'main' | 'helping' | 'year'
 }
 
@@ -26,7 +30,10 @@ interface ShiftStats {
   weekendHours: number
 }
 
-export default function ShiftSummary({ rotations, shifts, planType }: ShiftSummaryProps) {
+export default function ShiftSummary({ rotations, shifts, plan, planType }: ShiftSummaryProps) {
+  const calculateNightHours = getNightHoursCalculator(plan.tariffavtale) // Now uses imported function
+  const nightHoursLabel = getNightHoursLabel(plan.tariffavtale)
+
   // Calculate statistics for each shift
   const shiftStats = useMemo(() => {
     const statsMap = new Map<string, ShiftStats>()
@@ -89,7 +96,7 @@ export default function ShiftSummary({ rotations, shifts, planType }: ShiftSumma
         if (!a.shift.is_default && b.shift.is_default) return 1
         return a.shift.name.localeCompare(b.shift.name)
       })
-  }, [rotations, shifts, planType])
+  }, [rotations, shifts, planType, calculateNightHours])
 
   const defaultShiftStats = shiftStats.filter(s => s.shift.is_default)
   const customShiftStats = shiftStats.filter(s => !s.shift.is_default)
@@ -113,7 +120,9 @@ export default function ShiftSummary({ rotations, shifts, planType }: ShiftSumma
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
       <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
         <h2 className="text-xl font-semibold text-gray-900">Shift Summary</h2>
-        <p className="text-sm text-gray-600 mt-1">Overview of all shifts in this plan</p>
+        <p className="text-sm text-gray-600 mt-1">
+          Overview of all shifts in this plan • Night hours: {nightHoursLabel} ({plan.tariffavtale.toUpperCase()})
+        </p>
       </div>
 
       <div className="overflow-x-auto">
@@ -139,7 +148,7 @@ export default function ShiftSummary({ rotations, shifts, planType }: ShiftSumma
                 Evening
               </th>
               <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Night
+                Night ({nightHoursLabel})
               </th>
               <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Sat/Sun

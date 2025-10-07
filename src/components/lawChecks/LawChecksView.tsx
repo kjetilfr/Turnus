@@ -1,7 +1,7 @@
 // src/components/lawChecks/LawChecksView.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
 import { Plan } from '@/types/plan'
@@ -40,16 +40,27 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
     return initial
   })
 
-  // Filter checks applicable to this plan type
-  const applicableChecks = LAW_CHECKS.filter(check => {
-    // If it's a shared check, verify it applies to this plan type
-    if (check.category === 'shared') {
-      return check.applicableTo?.includes(plan.type as LawCheckCategory) ?? false
-    }
-    
-    // If it's a specific category check, it must match the plan type
-    return check.category === plan.type
-  })
+  // Filter checks applicable to this plan type AND tariffavtale
+  const applicableChecks = useMemo(() => {
+    return LAW_CHECKS.filter(check => {
+      // If it's a shared check, verify it applies to this plan type
+      if (check.category === 'shared') {
+        const appliesToPlanType = check.applicableTo?.includes(plan.type as LawCheckCategory) ?? false
+        if (!appliesToPlanType) return false
+      } else if (check.category !== plan.type) {
+        // If it's a specific category check, it must match the plan type
+        return false
+      }
+
+      // Example of plan not showing for all tariffavtaler
+      // Only show for KS and Oslo tariffavtale
+      //if (check.id === 'three-split-average') {
+      //  return plan.tariffavtale === 'ks' || plan.tariffavtale === 'oslo'
+      //}
+
+      return true
+    })
+  }, [plan.type, plan.tariffavtale])
 
   const handleRunCheck = (checkId: string) => {
     const check = applicableChecks.find(c => c.id === checkId)
@@ -148,6 +159,12 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
               <li><strong>HTA:</strong> Hovedtariffavtalen (Main Collective Agreement)</li>
               <li>Available: {amlCount} AML test{amlCount !== 1 ? 's' : ''}, {htaCount} HTA test{htaCount !== 1 ? 's' : ''}</li>
               <li><strong>Check the box</strong> next to each test to enable it (all enabled by default)</li>
+              <li>Tests are filtered based on your plan&apos;s tariffavtale: <strong>{
+                plan.tariffavtale === 'ks' ? 'KS' :
+                plan.tariffavtale === 'staten' ? 'Staten' :
+                plan.tariffavtale === 'oslo' ? 'Oslo Kommune' :
+                'Ingen (AML only)'
+              }</strong></li>
             </ul>
           </div>
         </div>
@@ -228,7 +245,12 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
               <div className="text-5xl mb-3">📋</div>
               <p className="text-lg font-semibold mb-2">No tests available</p>
               <p className="text-sm">
-                There are no compliance tests configured for {plan.type} plans yet.
+                There are no compliance tests configured for {plan.type} plans with {
+                  plan.tariffavtale === 'ks' ? 'KS' :
+                  plan.tariffavtale === 'staten' ? 'Staten' :
+                  plan.tariffavtale === 'oslo' ? 'Oslo Kommune' :
+                  'Ingen (AML only)'
+                } tariffavtale yet.
               </p>
             </div>
           ) : (
