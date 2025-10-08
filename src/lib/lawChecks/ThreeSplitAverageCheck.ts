@@ -23,15 +23,39 @@ import { getNightHoursCalculator, getNightHoursLabel } from '@/lib/utils/shiftTi
  * Legal Reference: Related to shift work compensation and scheduling requirements
  */
 
+function getWorkWeekConfig(tariffavtale: string): {
+  baseWeeklyHours: number
+  qualifiedWeeklyHours: number
+  minimumWeeklyHours: number
+} {
+  switch (tariffavtale) {
+    case 'aml':
+      return {
+        baseWeeklyHours: 40,      // Base work week for AML
+        qualifiedWeeklyHours: 38, // Qualified for 38h work week (replaces 35.5h)
+        minimumWeeklyHours: 36    // Minimum work week (replaces 33.6h)
+      }
+    case 'ks':
+    case 'staten':
+    case 'oslo':
+    default:
+      return {
+        baseWeeklyHours: 37.5,    // Base work week for tariffavtale
+        qualifiedWeeklyHours: 35.5, // Qualified for 35.5h work week
+        minimumWeeklyHours: 33.6  // Minimum work week
+      }
+  }
+}
+
 export const threeSplitAverageCheck: LawCheck = {
   id: 'three-split-average',
   name: 'Three-Split Average Qualification',
-  description: 'Verifies qualification for reduced work weeks: 35.5h week (night hours OR Sunday work) or 33.6h week (24-hour coverage AND Sunday work AND 25% non-night hours).',
+  description: `Verifies qualification for reduced work weeks: 35.5h week (night hours OR Sunday work) or 33.6h week (24-hour coverage AND Sunday work AND 25% non-night hours).`,
   category: 'shared',
   lawType: 'hta',
   lawReferences: [
     {
-      title: 'HTA § 4.2.2, 4.2.3 og 4.2.4 - Arbeidstid',
+      title: 'HTA (KS) § 4.2.2, 4.2.3 og 4.2.4 - Arbeidstid',
       url: 'https://www.ks.no/globalassets/fagomrader/lonn-og-tariff/tariff-2024/Hovedtariffavtalen-2024-2026-interactive-120924.pdf'
     },
     {
@@ -45,13 +69,25 @@ export const threeSplitAverageCheck: LawCheck = {
     {
       title: 'NOU 2008:17 s. 34',
       url: 'https://www.regjeringen.no/contentassets/a992608586e5422a8ed6530e1e0bf6b3/no/pdfs/nou200820080017000dddpdfs.pdf#page=36'
+    },
+    {
+      title: 'HTA (Oslo) § 8.2.1, 8.2.2 og 8.2.3',
+      url: 'https://www.nito.no/siteassets/dokumenter/lonn-og-arbeidsforhold/tariffavtaler/oslo-kommune/dokument-25-oslo-kommune-2024---2026.pdf'
+    },
+    {
+      title: 'HTA (Staten) § 7.3',
+      url: 'https://www.regjeringen.no/contentassets/652da71ff9c14d87b276480f3845bbf7/no/pdfs/hovedtariffavtalene_2024-26_akademikerne_unio.pdf'
+    },
+    {
+      title: 'AML § 10-4 (6)',
+      url: 'https://lovdata.no/lov/2005-06-17-62/§10-4'
     }
   ],
   applicableTo: ['main', 'helping', 'year'],
   inputs: [
     {
       id: 'requiredNightHoursPerWeek',
-      label: '35.5h: Required Average Night Hours per Week (20:00-06:00)',
+      label: 'Required Average Night Hours per Week (20:00-06:00)',
       type: 'number',
       defaultValue: 1.39,
       min: 0,
@@ -71,7 +107,7 @@ export const threeSplitAverageCheck: LawCheck = {
     },
     {
       id: 'requiredNonNightPercent',
-      label: '33.6h: Required Non-Night Hours Percentage',
+      label: 'Required Non-Night Hours Percentage',
       type: 'number',
       defaultValue: 25,
       min: 0,
@@ -82,13 +118,16 @@ export const threeSplitAverageCheck: LawCheck = {
   ],
   
   run: ({ rotations, shifts, plan, inputs = {} }) => {
-    // Get the appropriate night calculator based on tariffavtale
-    const calculateNightHours = getNightHoursCalculator(plan.tariffavtale)
-    const nightHoursLabel = getNightHoursLabel(plan.tariffavtale)
-    
-    const requiredNightHours = (inputs.requiredNightHoursPerWeek as number) || 1.39
-    const requiredSundayFreq = (inputs.requiredSundayFrequency as number) || 3
-    const requiredNonNightPercent = (inputs.requiredNonNightPercent as number) || 25
+      // Get the appropriate night calculator based on tariffavtale
+      const calculateNightHours = getNightHoursCalculator(plan.tariffavtale)
+      const nightHoursLabel = getNightHoursLabel(plan.tariffavtale)
+      
+      // Get work week configuration based on tariffavtale
+      const workWeekConfig = getWorkWeekConfig(plan.tariffavtale)
+      
+      const requiredNightHours = (inputs.requiredNightHoursPerWeek as number) || 1.39
+      const requiredSundayFreq = (inputs.requiredSundayFrequency as number) || 3
+      const requiredNonNightPercent = (inputs.requiredNonNightPercent as number) || 25
     
     const result: LawCheckResult = {
       status: 'fail',
@@ -273,9 +312,9 @@ export const threeSplitAverageCheck: LawCheck = {
     const avgBonusPerWeek = totalBonusHours / plan.duration_weeks
     
     // Calculate new work week
-    const baseWeeklyHours = 37.5 * (plan.work_percent / 100)
+    const baseWeeklyHours = workWeekConfig.baseWeeklyHours * (plan.work_percent / 100)
     const calculatedWorkWeek = baseWeeklyHours - avgBonusPerWeek
-    const minimumWorkWeek = 33.6 * (plan.work_percent / 100) // Scale minimum by work percent
+    const minimumWorkWeek = workWeekConfig.minimumWeeklyHours * (plan.work_percent / 100)
     const finalWorkWeek = Math.max(minimumWorkWeek, calculatedWorkWeek)
 
     // ============================================================
@@ -301,6 +340,20 @@ export const threeSplitAverageCheck: LawCheck = {
     let hourLimitMessage = ''
     
     if (qualifiesFor33_6) {
+      expectedMaxHours = finalWorkWeek
+      exceedsHourLimit = actualAvgHoursPerWeek > expectedMaxHours
+      if (exceedsHourLimit) {
+        hourLimitMessage = `Actual hours (${actualAvgHoursPerWeek.toFixed(2)}h/week) exceed calculated work week limit (${expectedMaxHours.toFixed(2)}h/week)`
+      }
+    } else if (qualifiesFor35_5) {
+      expectedMaxHours = workWeekConfig.qualifiedWeeklyHours * (plan.work_percent / 100)
+      exceedsHourLimit = actualAvgHoursPerWeek > expectedMaxHours
+      if (exceedsHourLimit) {
+        hourLimitMessage = `Actual hours (${actualAvgHoursPerWeek.toFixed(2)}h/week) exceed ${workWeekConfig.qualifiedWeeklyHours}h work week limit (${expectedMaxHours.toFixed(2)}h for ${plan.work_percent}%)`
+      }
+    }
+    
+    if (qualifiesFor33_6) {
       // For 33.6h qualification, check against calculated work week
       expectedMaxHours = finalWorkWeek
       exceedsHourLimit = actualAvgHoursPerWeek > expectedMaxHours
@@ -324,16 +377,16 @@ export const threeSplitAverageCheck: LawCheck = {
       result.status = 'pass'
       
       if (qualifiesFor33_6) {
-        result.message = `✅ Qualifies for 33.6h work week → Work week: ${finalWorkWeek.toFixed(2)}h/week (currently ${actualAvgHoursPerWeek.toFixed(2)}h/week)`
+        result.message = `✅ Qualifies for ${workWeekConfig.minimumWeeklyHours}h work week → Work week: ${finalWorkWeek.toFixed(2)}h/week (currently ${actualAvgHoursPerWeek.toFixed(2)}h/week)`
         result.details = [
-          '✅ Qualifies for 33.6h work week:',
+          `✅ Qualifies for ${workWeekConfig.minimumWeeklyHours}h work week:`,
           `  ✓ 24-hour coverage: ${has24HourCoverage ? 'YES' : 'NO'}`,
           `  ✓ Sunday work: ${sundaysWorked}/${totalSundays} Sundays (1 in ${sundayWorkRatio.toFixed(1)}, required: 1 in ${requiredSundayFreq})`,
           `  ✓ Non-night hours: ${nonNightPercent.toFixed(1)}% (required: ${requiredNonNightPercent}%)`,
           `  ✓ Actual hours: ${actualAvgHoursPerWeek.toFixed(2)}h/week ≤ ${expectedMaxHours.toFixed(2)}h/week limit`,
           '',
           '📊 Calculated Work Week:',
-          `  Base hours: 37.5h × ${plan.work_percent}% = ${baseWeeklyHours.toFixed(2)}h`,
+          `  Base hours: ${workWeekConfig.baseWeeklyHours}h × ${plan.work_percent}% = ${baseWeeklyHours.toFixed(2)}h`,
           '',
           '  Bonus Hours:',
           `    Night hours ${nightHoursLabel}: ${totalNightHoursTariff.toFixed(2)}h`,
@@ -347,22 +400,22 @@ export const threeSplitAverageCheck: LawCheck = {
           `  Average bonus per week: ${totalBonusHours.toFixed(2)}h ÷ ${plan.duration_weeks} weeks = ${avgBonusPerWeek.toFixed(2)}h`,
           '',
           `  Calculated: ${baseWeeklyHours.toFixed(2)}h - ${avgBonusPerWeek.toFixed(2)}h = ${calculatedWorkWeek.toFixed(2)}h`,
-          `  Minimum: ${minimumWorkWeek.toFixed(2)}h (33.6h × ${plan.work_percent}%)`,
+          `  Minimum: ${minimumWorkWeek.toFixed(2)}h (${workWeekConfig.minimumWeeklyHours}h × ${plan.work_percent}%)`,
           `  → Final work week: ${finalWorkWeek.toFixed(2)}h`,
           '',
-          '35.5h work week qualification:',
+          `${workWeekConfig.qualifiedWeeklyHours}h work week qualification:`,
           `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (20:00-06:00): ${avgNightHoursPerWeek20to6.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
           `  ✓ Sunday work: Already met above`
         ]
       } else {
-        result.message = `✅ Qualifies for 35.5h work week → Work week: ${expectedMaxHours.toFixed(2)}h/week (currently ${actualAvgHoursPerWeek.toFixed(2)}h/week)`
+        result.message = `✅ Qualifies for ${workWeekConfig.qualifiedWeeklyHours}h work week → Work week: ${expectedMaxHours.toFixed(2)}h/week (currently ${actualAvgHoursPerWeek.toFixed(2)}h/week)`
         result.details = [
-          '✅ Qualifies for 35.5h work week:',
+          `✅ Qualifies for ${workWeekConfig.qualifiedWeeklyHours}h work week:`,
           `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (20:00-06:00): ${avgNightHoursPerWeek20to6.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
           `  ${meetsSundayRequirement ? '✓' : '✗'} Sunday work: ${sundaysWorked}/${totalSundays} Sundays (1 in ${sundayWorkRatio.toFixed(1)}, required: 1 in ${requiredSundayFreq})`,
-          `  ✓ Actual hours: ${actualAvgHoursPerWeek.toFixed(2)}h/week ≤ ${expectedMaxHours.toFixed(2)}h/week limit (35.5h × ${plan.work_percent}%)`,
+          `  ✓ Actual hours: ${actualAvgHoursPerWeek.toFixed(2)}h/week ≤ ${expectedMaxHours.toFixed(2)}h/week limit (${workWeekConfig.qualifiedWeeklyHours}h × ${plan.work_percent}%)`,
           '',
-          '33.6h work week qualification:',
+          `${workWeekConfig.minimumWeeklyHours}h work week qualification:`,
           `  ${has24HourCoverage ? '✓' : '✗'} 24-hour coverage: ${has24HourCoverage ? 'YES' : 'NO'}`,
           `  ${meetsSundayRequirement ? '✓' : '✗'} Sunday work: Already checked above`,
           `  ${meetsNonNightRequirement ? '✓' : '✗'} Non-night hours: ${nonNightPercent.toFixed(1)}% (required: ${requiredNonNightPercent}%)`
@@ -373,9 +426,9 @@ export const threeSplitAverageCheck: LawCheck = {
       result.status = 'fail'
       
       if (qualifiesFor33_6) {
-        result.message = `✓ Qualifies for 33.6h work week BUT ✗ EXCEEDS hour limit → Reduce to ${expectedMaxHours.toFixed(2)}h/week (currently ${actualAvgHoursPerWeek.toFixed(2)}h/week)`
+        result.message = `✓ Qualifies for ${workWeekConfig.minimumWeeklyHours}h work week BUT ✗ EXCEEDS hour limit → Reduce to ${expectedMaxHours.toFixed(2)}h/week (currently ${actualAvgHoursPerWeek.toFixed(2)}h/week)`
         result.details = [
-          '✅ QUALIFIES for 33.6h work week (all requirements met):',
+          `✅ QUALIFIES for ${workWeekConfig.minimumWeeklyHours}h work week (all requirements met):`,
           `  ✓ 24-hour coverage: ${has24HourCoverage ? 'YES' : 'NO'}`,
           `  ✓ Sunday work: ${sundaysWorked}/${totalSundays} Sundays (1 in ${sundayWorkRatio.toFixed(1)}, required: 1 in ${requiredSundayFreq})`,
           `  ✓ Non-night hours: ${nonNightPercent.toFixed(1)}% (required: ${requiredNonNightPercent}%)`,
@@ -386,8 +439,8 @@ export const threeSplitAverageCheck: LawCheck = {
           `  Exceeds by: ${(actualAvgHoursPerWeek - expectedMaxHours).toFixed(2)}h/week`,
           `  → Must reduce total hours to ${expectedMaxHours.toFixed(2)}h/week or less`,
           '',
-          '📊 Full Calculation (33.6h work week):',
-          `  Base hours: 37.5h × ${plan.work_percent}% = ${baseWeeklyHours.toFixed(2)}h`,
+          `📊 Full Calculation (${workWeekConfig.minimumWeeklyHours}h work week):`,
+          `  Base hours: ${workWeekConfig.baseWeeklyHours}h × ${plan.work_percent}% = ${baseWeeklyHours.toFixed(2)}h`,
           '',
           '  Bonus Hours:',
           `    Night hours ${nightHoursLabel}: ${totalNightHoursTariff.toFixed(2)}h`,
@@ -401,23 +454,23 @@ export const threeSplitAverageCheck: LawCheck = {
           `  Average bonus per week: ${totalBonusHours.toFixed(2)}h ÷ ${plan.duration_weeks} weeks = ${avgBonusPerWeek.toFixed(2)}h`,
           '',
           `  Calculated: ${baseWeeklyHours.toFixed(2)}h - ${avgBonusPerWeek.toFixed(2)}h = ${calculatedWorkWeek.toFixed(2)}h`,
-          `  Minimum: ${minimumWorkWeek.toFixed(2)}h (33.6h × ${plan.work_percent}%)`,
+          `  Minimum: ${minimumWorkWeek.toFixed(2)}h (${workWeekConfig.minimumWeeklyHours}h × ${plan.work_percent}%)`,
           `  → Work week limit: ${finalWorkWeek.toFixed(2)}h`,
           '',
-          '35.5h work week status:',
+          `${workWeekConfig.qualifiedWeeklyHours}h work week status:`,
           `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (20:00-06:00): ${avgNightHoursPerWeek20to6.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
           `  ✓ Sunday work: Already met above`
         ]
       } else {
-        result.message = `✓ Qualifies for 35.5h work week BUT ✗ EXCEEDS hour limit → Reduce to ${expectedMaxHours.toFixed(2)}h/week (currently ${actualAvgHoursPerWeek.toFixed(2)}h/week)`
+        result.message = `✓ Qualifies for ${workWeekConfig.qualifiedWeeklyHours}h work week BUT ✗ EXCEEDS hour limit → Reduce to ${expectedMaxHours.toFixed(2)}h/week (currently ${actualAvgHoursPerWeek.toFixed(2)}h/week)`
         result.details = [
-          '✅ QUALIFIES for 35.5h work week (met at least one requirement):',
+          `✅ QUALIFIES for ${workWeekConfig.qualifiedWeeklyHours}h work week (met at least one requirement):`,
           `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (20:00-06:00): ${avgNightHoursPerWeek20to6.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
           `  ${meetsSundayRequirement ? '✓' : '✗'} Sunday work: ${sundaysWorked}/${totalSundays} Sundays (1 in ${sundayWorkRatio.toFixed(1)}, required: 1 in ${requiredSundayFreq})`,
           '',
-          '❌ BUT EXCEEDS 35.5h work week hour limit:',
+          `❌ BUT EXCEEDS ${workWeekConfig.qualifiedWeeklyHours}h work week hour limit:`,
           `  Current average: ${actualAvgHoursPerWeek.toFixed(2)}h/week`,
-          `  35.5h limit (scaled by ${plan.work_percent}%): ${expectedMaxHours.toFixed(2)}h/week`,
+          `  ${workWeekConfig.qualifiedWeeklyHours}h limit (scaled by ${plan.work_percent}%): ${expectedMaxHours.toFixed(2)}h/week`,
           `  Exceeds by: ${(actualAvgHoursPerWeek - expectedMaxHours).toFixed(2)}h/week`,
           `  → Must reduce total hours to ${expectedMaxHours.toFixed(2)}h/week or less`,
           '',
@@ -428,7 +481,7 @@ export const threeSplitAverageCheck: LawCheck = {
           `  Sunday hours: ${totalSundayHours.toFixed(2)}h`,
           `  Non-night hours: ${nonNightHours.toFixed(2)}h (${nonNightPercent.toFixed(1)}%)`,
           '',
-          '33.6h work week status:',
+          `${workWeekConfig.minimumWeeklyHours}h work week status:`,
           `  ${has24HourCoverage ? '✓' : '✗'} 24-hour coverage: ${has24HourCoverage ? 'YES' : 'NO'}`,
           `  ${meetsSundayRequirement ? '✓' : '✗'} Sunday work: Already checked above`,
           `  ${meetsNonNightRequirement ? '✓' : '✗'} Non-night hours: ${nonNightPercent.toFixed(1)}% (required: ${requiredNonNightPercent}%)`
@@ -442,15 +495,15 @@ export const threeSplitAverageCheck: LawCheck = {
       }]
     } else {
       result.status = 'fail'
-      result.message = `✗ Does NOT qualify for 35.5h work week AND ✗ Does NOT qualify for 33.6h work week → Remains at standard 37.5h × ${plan.work_percent}% = ${baseWeeklyHours.toFixed(2)}h/week`
+      result.message = `✗ Does NOT qualify for ${workWeekConfig.qualifiedWeeklyHours}h work week AND ✗ Does NOT qualify for ${workWeekConfig.minimumWeeklyHours}h work week → Remains at standard ${workWeekConfig.baseWeeklyHours}h × ${plan.work_percent}% = ${baseWeeklyHours.toFixed(2)}h/week`
       result.details = [
-        '❌ Does NOT qualify for 35.5h work week (must meet at least ONE):',
+        `❌ Does NOT qualify for ${workWeekConfig.qualifiedWeeklyHours}h work week (must meet at least ONE):`,
         `  ${meetsNightHours35 ? '✓' : '✗'} Night hours (20:00-06:00): ${avgNightHoursPerWeek20to6.toFixed(2)}h/week (required: ${requiredNightHours}h/week)`,
         `    ${meetsNightHours35 ? 'MET' : `Need ${(requiredNightHours - avgNightHoursPerWeek20to6).toFixed(2)}h more per week`}`,
         `  ${meetsSundayRequirement ? '✓' : '✗'} Sunday work: ${sundaysWorked}/${totalSundays} Sundays (1 in ${sundayWorkRatio.toFixed(1)}, required: 1 in ${requiredSundayFreq})`,
         `    ${meetsSundayRequirement ? 'MET' : `Need to work ${Math.ceil(totalSundays / requiredSundayFreq) - sundaysWorked} more Sunday${Math.ceil(totalSundays / requiredSundayFreq) - sundaysWorked !== 1 ? 's' : ''}`}`,
         '',
-        '❌ Does NOT qualify for 33.6h work week (must meet ALL three):',
+        `❌ Does NOT qualify for ${workWeekConfig.minimumWeeklyHours}h work week (must meet ALL three):`,
         `  ${has24HourCoverage ? '✓' : '✗'} 24-hour coverage: ${has24HourCoverage ? 'YES' : 'NO'}`,
         `    ${has24HourCoverage ? 'MET' : 'Need shifts covering all 24 hours'}`,
         `  ${meetsSundayRequirement ? '✓' : '✗'} Sunday work: Already checked above`,
@@ -469,8 +522,8 @@ export const threeSplitAverageCheck: LawCheck = {
         `    Night-only hours: ${nightOnlyHours.toFixed(2)}h`,
         `    Non-night hours: ${nonNightHours.toFixed(2)}h (${nonNightPercent.toFixed(1)}% of total)`,
         '',
-        '  Hypothetical 33.6h calculation (if qualified):',
-        `    Base hours: 37.5h × ${plan.work_percent}% = ${baseWeeklyHours.toFixed(2)}h`,
+        `  Hypothetical ${workWeekConfig.minimumWeeklyHours}h calculation (if qualified):`,
+        `    Base hours: ${workWeekConfig.baseWeeklyHours}h × ${plan.work_percent}% = ${baseWeeklyHours.toFixed(2)}h`,
         `    Night bonus: ${totalNightHoursTariff.toFixed(2)}h × 0.25 = ${(totalNightHoursTariff * 0.25).toFixed(2)}h`,
         `    Sunday bonus: ${sundayOnlyHours.toFixed(2)}h × ${(10/60).toFixed(4)} × ${plan.work_percent}% = ${sundayBonusAdjusted.toFixed(2)}h`,
         `    Total bonus: ${totalBonusHours.toFixed(2)}h`,
@@ -481,7 +534,7 @@ export const threeSplitAverageCheck: LawCheck = {
       result.violations = [{
         weekIndex: -1,
         dayOfWeek: -1,
-        description: 'Does not meet requirements for either 35.5h or 33.6h work week'
+        description: `Does not meet requirements for either ${workWeekConfig.qualifiedWeeklyHours}h or ${workWeekConfig.minimumWeeklyHours}h work week`
       }]
     }
 
