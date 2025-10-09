@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Plan, PlanType, Tariffavtale } from '@/types/plan'
+import { Plan, PlanType, Tariffavtale, YearPlanMode } from '@/types/plan'
 
 interface MainPlan {
   id: string
@@ -29,6 +29,7 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
   const [workPercent, setWorkPercent] = useState(plan.work_percent || 100)
   const [tariffavtale, setTariffavtale] = useState<Tariffavtale>(plan.tariffavtale || 'ks') // NEW
   const [loading, setLoading] = useState(false)
+  const [yearPlanMode, setYearPlanMode] = useState<YearPlanMode>(plan.year_plan_mode || 'rotation_based')
   const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,8 +66,9 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
         type,
         date_started: dateStarted,
         work_percent: workPercent,
-        tariffavtale, // NEW
+        tariffavtale,
         base_plan_id: type === 'helping' ? basePlanId : null,
+        year_plan_mode: type === 'year' ? yearPlanMode : null,  // ADD THIS LINE
       }
 
       const { error: updateError } = await supabase
@@ -199,19 +201,81 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
               </div>
             </button>
 
-            {/* Year Plan Card (Disabled) */}
+            {/* Year Plan Card - REPLACE the disabled button with this: */}
             <button
               type="button"
-              disabled
-              className="p-4 border-2 border-gray-200 rounded-lg text-left opacity-50 cursor-not-allowed bg-gray-50"
+              onClick={() => setType('year')}
+              className={`
+                p-4 border-2 rounded-lg text-left transition-all
+                ${type === 'year' 
+                  ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' 
+                  : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50'
+                }
+              `}
             >
-              <div className="font-semibold text-gray-500 mb-1">Year Plan</div>
-              <div className="text-xs text-gray-400">
-                Coming soon
+              <div className="font-semibold text-gray-900 mb-1">Year Plan</div>
+              <div className="text-xs text-gray-600">
+                Annual planning
               </div>
             </button>
           </div>
         </div>
+
+        {/* Year Plan Mode (only for year plans) */}
+        {type === 'year' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Year Plan Mode *
+            </label>
+            <div className="space-y-2">
+              <label className={`
+                flex items-start gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all
+                ${yearPlanMode === 'rotation_based' 
+                  ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' 
+                  : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50'
+                }
+              `}>
+                <input
+                  type="radio"
+                  name="yearPlanMode"
+                  value="rotation_based"
+                  checked={yearPlanMode === 'rotation_based'}
+                  onChange={(e) => setYearPlanMode(e.target.value as YearPlanMode)}
+                  className="mt-0.5 w-4 h-4 text-purple-600 border-gray-300 focus:ring-purple-500"
+                />
+                <div className="flex-1">
+                  <div className="font-semibold text-gray-900">Rotation Based</div>
+                  <div className="text-xs text-gray-600 mt-1">
+                    Creates both rotation schedule and year schedule views
+                  </div>
+                </div>
+              </label>
+
+              <label className={`
+                flex items-start gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all
+                ${yearPlanMode === 'strict_year' 
+                  ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' 
+                  : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50'
+                }
+              `}>
+                <input
+                  type="radio"
+                  name="yearPlanMode"
+                  value="strict_year"
+                  checked={yearPlanMode === 'strict_year'}
+                  onChange={(e) => setYearPlanMode(e.target.value as YearPlanMode)}
+                  className="mt-0.5 w-4 h-4 text-purple-600 border-gray-300 focus:ring-purple-500"
+                />
+                <div className="flex-1">
+                  <div className="font-semibold text-gray-900">Strict Year</div>
+                  <div className="text-xs text-gray-600 mt-1">
+                    Creates only year schedule view (no rotation grid)
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+        )}
 
         {/* Base Plan (only for helping plans) */}
         {type === 'helping' && (

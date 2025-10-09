@@ -3,7 +3,7 @@
 
 import { Plan } from '@/types/plan'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -23,6 +23,48 @@ export default function PlanDetails({
   const [isEditingDate, setIsEditingDate] = useState(false)
   const [newStartDate, setNewStartDate] = useState(plan.date_started)
   const [isSaving, setIsSaving] = useState(false)
+  const [relatedPlan, setRelatedPlan] = useState<{ id: string; name: string } | null>(null)
+  const [loadingRelatedPlan, setLoadingRelatedPlan] = useState(false)
+
+  // Check if this is a rotation-based year plan or its helping plan
+  const isRotationYearPlan = plan.type === 'year' && plan.year_plan_mode === 'rotation_based'
+  const isHelpingPlanOfRotationYear = plan.type === 'helping' && plan.base_plan_id
+
+  useEffect(() => {
+    // Fetch the related plan (helping plan if this is year plan, or base plan if this is helping plan)
+    async function fetchRelatedPlan() {
+      if (isRotationYearPlan) {
+        // This is the rotation year plan - find its helping plan
+        setLoadingRelatedPlan(true)
+        const { data, error } = await supabase
+          .from('plans')
+          .select('id, name')
+          .eq('base_plan_id', plan.id)
+          .eq('type', 'helping')
+          .single()
+
+        if (!error && data) {
+          setRelatedPlan(data)
+        }
+        setLoadingRelatedPlan(false)
+      } else if (isHelpingPlanOfRotationYear && plan.base_plan_id) {
+        // This is the helping plan - check if base plan is rotation-based year plan
+        setLoadingRelatedPlan(true)
+        const { data, error } = await supabase
+          .from('plans')
+          .select('id, name, type, year_plan_mode')
+          .eq('id', plan.base_plan_id)
+          .single()
+
+        if (!error && data && data.type === 'year' && data.year_plan_mode === 'rotation_based') {
+          setRelatedPlan({ id: data.id, name: data.name })
+        }
+        setLoadingRelatedPlan(false)
+      }
+    }
+
+    fetchRelatedPlan()
+  }, [plan.id, plan.type, plan.base_plan_id, plan.year_plan_mode, isRotationYearPlan, isHelpingPlanOfRotationYear, supabase])
 
   const handleSaveDate = async () => {
     setIsSaving(true)
@@ -49,11 +91,44 @@ export default function PlanDetails({
     setIsEditingDate(false)
   }
 
+  const handleSwapPlan = () => {
+    if (relatedPlan) {
+      router.push(`/plans/${relatedPlan.id}`)
+    }
+  }
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">{plan.name}</h2>
+          <div className="flex items-center gap-3 mb-3">
+            <h2 className="text-2xl font-bold text-gray-900">{plan.name}</h2>
+            
+            {/* Swap Button for Rotation-Based Year Plans */}
+            {(isRotationYearPlan || isHelpingPlanOfRotationYear) && relatedPlan && (
+              <button
+                onClick={handleSwapPlan}
+                disabled={loadingRelatedPlan}
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors text-sm disabled:opacity-50"
+                title={`Switch to ${relatedPlan.name}`}
+              >
+                <svg 
+                  className="w-4 h-4" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" 
+                  />
+                </svg>
+                {isRotationYearPlan ? '52 Week View' : 'Rotation View'}
+              </button>
+            )}
+          </div>
           
           {/* Plan Metadata */}
           <div className="flex items-center gap-6 text-sm">
@@ -208,6 +283,40 @@ export default function PlanDetails({
         <div className="mt-4 pt-4 border-t border-gray-200">
           <div className="text-sm text-gray-600 mb-1">Description</div>
           <div className="text-gray-900">{plan.description}</div>
+        </div>
+      )}
+
+      {/* Info about related plan */}
+      {relatedPlan && (
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="flex items-start gap-2 text-sm">
+            <svg 
+              className="w-4 h-4 text-purple-600 flex-shrink-0 mt-0.5" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+              />
+            </svg>
+            <div>
+              <span className="text-gray-600">
+                {isRotationYearPlan 
+                  ? 'This rotation plan has a full year (52 week) view: ' 
+                  : 'This is the full year view of rotation plan: '}
+              </span>
+              <button
+                onClick={handleSwapPlan}
+                className="font-semibold text-purple-600 hover:text-purple-700 underline"
+              >
+                {relatedPlan.name}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

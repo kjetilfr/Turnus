@@ -2,6 +2,7 @@
 
 export type PlanType = 'main' | 'helping' | 'year'
 export type Tariffavtale = 'ks' | 'staten' | 'oslo' | 'aml'
+export type YearPlanMode = 'rotation_based' | 'strict_year'  // ADD THIS LINE
 
 export interface Plan {
   id: string
@@ -14,6 +15,7 @@ export interface Plan {
   date_started: string // Format: YYYY-MM-DD
   work_percent: number // Work percentage (0-100), default 100
   tariffavtale: Tariffavtale // Tariffavtale type
+  year_plan_mode: YearPlanMode | null  // ADD THIS LINE
   created_at: string
   updated_at: string
 }
@@ -31,4 +33,5 @@ export interface CreatePlanData {
   date_started: string
   work_percent?: number
   tariffavtale?: Tariffavtale
+  year_plan_mode?: YearPlanMode  // ADD THIS LINE
 }

@@ -9,6 +9,7 @@ import WeeklyHoursSummary from '@/components/rotation/WeeklyHoursSummary'
 import PlanDetails from '@/components/plan/PlanDetails'
 import ShiftsSummaryCard from '@/components/shift/ShiftsSummaryCard'
 import ManageShiftsButton from '@/components/shift/ManageShiftsButton'
+import ImportRotationButton from '@/components/shift/ImportRotationButton'
 import Link from 'next/link'
 
 interface PageProps {
@@ -131,7 +132,16 @@ export default async function PlanDetailPage({ params }: PageProps) {
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-gray-900">Rotation Schedule</h2>
-              <ManageShiftsButton planId={id} />
+              <div className="flex items-center gap-3">
+                {plan.type === 'helping' && plan.base_plan_id && (
+                  <ImportRotationButton 
+                    planId={id} 
+                    basePlanId={plan.base_plan_id}
+                    planType={plan.type}
+                  />
+                )}
+                <ManageShiftsButton planId={id} />
+              </div>
             </div>
 
             {/* Shifts Summary */}
@@ -164,7 +174,7 @@ export default async function PlanDetailPage({ params }: PageProps) {
           <ShiftSummary 
             rotations={rotations || []} 
             shifts={shifts || []}
-            plan={plan}  // Make sure this line exists
+            plan={plan}
             planType={plan.type}
           />
         </div>

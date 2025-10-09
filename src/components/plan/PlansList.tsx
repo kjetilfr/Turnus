@@ -34,7 +34,7 @@ export default function PlansList({ plans }: PlansListProps) {
       case 'helping':
         return 'bg-green-100 text-green-800'
       case 'year':
-        return 'bg-gray-100 text-gray-500'
+        return 'bg-purple-100 text-purple-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }
@@ -50,6 +50,21 @@ export default function PlansList({ plans }: PlansListProps) {
         return 'Year Plan'
       default:
         return type
+    }
+  }
+
+  const getTariffavtaleLabel = (tariffavtale: string) => {
+    switch (tariffavtale) {
+      case 'ks':
+        return 'KS'
+      case 'staten':
+        return 'Staten'
+      case 'oslo':
+        return 'Oslo'
+      case 'aml':
+        return 'Ingen'
+      default:
+        return tariffavtale
     }
   }
 
@@ -69,6 +84,9 @@ export default function PlansList({ plans }: PlansListProps) {
                 Type
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Tariffavtale
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Duration
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -84,10 +102,7 @@ export default function PlansList({ plans }: PlansListProps) {
           </thead>
           <tbody className="divide-y divide-gray-200">
             {plans.map((plan) => {
-              const isYearPlan = plan.type === 'year'
-              const rowClasses = isYearPlan 
-                ? 'bg-gray-50 opacity-60 cursor-not-allowed' 
-                : 'hover:bg-gray-50 transition-colors'
+              const rowClasses = 'hover:bg-gray-50 transition-colors'
 
               return (
                 <tr key={plan.id} className={rowClasses}>
@@ -108,6 +123,11 @@ export default function PlansList({ plans }: PlansListProps) {
                       {getPlanTypeLabel(plan.type)}
                     </span>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">
+                      {getTariffavtaleLabel(plan.tariffavtale)}
+                    </span>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {plan.duration_weeks} {plan.duration_weeks === 1 ? 'week' : 'weeks'}
                   </td>
@@ -120,24 +140,20 @@ export default function PlansList({ plans }: PlansListProps) {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    {isYearPlan ? (
-                      <span className="text-gray-400 italic">Coming Soon</span>
-                    ) : (
-                      <div className="flex justify-end gap-3">
-                        <Link
-                          href={`/plans/${plan.id}`}
-                          className="text-indigo-600 hover:text-indigo-900 font-medium"
-                        >
-                          View
-                        </Link>
-                        <Link
-                          href={`/plans/${plan.id}/edit`}
-                          className="text-gray-600 hover:text-gray-900 font-medium"
-                        >
-                          Edit
-                        </Link>
-                      </div>
-                    )}
+                    <div className="flex justify-end gap-3">
+                      <Link
+                        href={`/plans/${plan.id}`}
+                        className="text-indigo-600 hover:text-indigo-900 font-medium"
+                      >
+                        View
+                      </Link>
+                      <Link
+                        href={`/plans/${plan.id}/edit`}
+                        className="text-gray-600 hover:text-gray-900 font-medium"
+                      >
+                        Edit
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               )
