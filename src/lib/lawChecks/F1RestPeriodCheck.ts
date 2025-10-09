@@ -90,6 +90,7 @@ export const f1RestPeriodCheck: LawCheck = {
     for (let week = 0; week < plan.duration_weeks; week++) {
       const f1Count = weeklyF1Count[week] || 0
       const weekRotations = weeklyRotations[week] || []
+      const nextWeekRotations = weeklyRotations[week + 1] || []
       
       // Issue 1: Multiple F1 shifts in one week
       if (f1Count > 1) {
@@ -106,6 +107,7 @@ export const f1RestPeriodCheck: LawCheck = {
         weekF1Rotations.forEach(f1Rotation => {
           const restIssue = checkRestPeriod(
             weekRotations,
+            nextWeekRotations,
             shifts,
             f1Rotation.day_of_week,
             minRestHours,
@@ -135,7 +137,8 @@ export const f1RestPeriodCheck: LawCheck = {
         
         if (firstDayWithoutShift !== undefined) {
           const restIssue = checkRestPeriod(
-            weekRotations, 
+            weekRotations,
+            nextWeekRotations,
             shifts, 
             firstDayWithoutShift, 
             minRestHours,
@@ -156,6 +159,7 @@ export const f1RestPeriodCheck: LawCheck = {
         if (f1Rotation) {
           const restIssue = checkRestPeriod(
             weekRotations,
+            nextWeekRotations,
             shifts,
             f1Rotation.day_of_week,
             minRestHours,
@@ -209,6 +213,7 @@ export const f1RestPeriodCheck: LawCheck = {
 // Helper function to check rest period around a specific day
 function checkRestPeriod(
   weekRotations: Rotation[],
+  nextWeekRotations: Rotation[],
   shifts: Shift[],
   f1Day: number,
   minRestHours: number,
@@ -217,29 +222,122 @@ function checkRestPeriod(
   // Find last shift before F1
   let lastShiftEnd: { day: number; time: string } | null = null
   
+  // Search backwards from F1 day, checking for night shifts that might start earlier
   for (let day = f1Day - 1; day >= 0; day--) {
     const rotation = weekRotations.find(r => r.day_of_week === day && r.shift_id)
     
     if (rotation) {
       const shift = shifts.find((s: Shift) => s.id === rotation.shift_id)
       if (shift && shift.end_time) {
-        lastShiftEnd = { day, time: shift.end_time }
+        // Check if this is a night shift (crosses midnight)
+        const parseTime = (time: string) => {
+          const [h, m] = time.split(':').map(Number)
+          return h * 60 + m
+        }
+        
+        const startMinutes = shift.start_time ? parseTime(shift.start_time) : 0
+        const endMinutes = parseTime(shift.end_time)
+        const isNightShift = endMinutes < startMinutes
+        
+        if (isNightShift) {
+          // Night shift - ends on the day AFTER the rotation day
+          // So if rotation is on Friday, night shift ends on Saturday morning
+          lastShiftEnd = { day: day + 1, time: shift.end_time }
+        } else {
+          // Day shift - ends on same day
+          lastShiftEnd = { day, time: shift.end_time }
+        }
         break
       }
     }
   }
 
-  // Find next shift after F1
-  let nextShiftStart: { day: number; time: string } | null = null
+  // Find next shift after F1 - check current week first, then next week
+  let nextShiftStart: { day: number; time: string; actualStartDay: number; isNextWeek: boolean } | null = null
   
+  // First check remaining days in current week
   for (let day = f1Day + 1; day < 7; day++) {
     const rotation = weekRotations.find(r => r.day_of_week === day && r.shift_id)
     
     if (rotation) {
       const shift = shifts.find((s: Shift) => s.id === rotation.shift_id)
       if (shift && shift.start_time) {
-        nextShiftStart = { day, time: shift.start_time }
+        const parseTime = (time: string) => {
+          const [h, m] = time.split(':').map(Number)
+          return h * 60 + m
+        }
+        
+        const startMinutes = parseTime(shift.start_time)
+        const endMinutes = shift.end_time ? parseTime(shift.end_time) : 0
+        const isNightShift = endMinutes < startMinutes
+        
+        if (isNightShift) {
+          // Night shift - actually starts on the day BEFORE the rotation day
+          // So if rotation is on Monday, night shift actually starts Sunday night
+          nextShiftStart = { 
+            day: day, // The day it ends (shown in grid)
+            time: shift.start_time,
+            actualStartDay: day - 1, // The day it actually starts
+            isNextWeek: false
+          }
+        } else {
+          // Day shift - starts on same day
+          nextShiftStart = { 
+            day, 
+            time: shift.start_time,
+            actualStartDay: day,
+            isNextWeek: false
+          }
+        }
         break
+      }
+    }
+  }
+  
+  // If no shift found in current week, check next week (starting from Monday)
+  if (!nextShiftStart && nextWeekRotations.length > 0) {
+    for (let day = 0; day < 7; day++) {
+      const rotation = nextWeekRotations.find(r => r.day_of_week === day && r.shift_id)
+      
+      if (rotation) {
+        const shift = shifts.find((s: Shift) => s.id === rotation.shift_id)
+        if (shift && shift.start_time) {
+          const parseTime = (time: string) => {
+            const [h, m] = time.split(':').map(Number)
+            return h * 60 + m
+          }
+          
+          const startMinutes = parseTime(shift.start_time)
+          const endMinutes = shift.end_time ? parseTime(shift.end_time) : 0
+          const isNightShift = endMinutes < startMinutes
+          
+          if (isNightShift && day === 0) {
+            // Monday night shift in next week - actually starts on Sunday (last day of current week)
+            nextShiftStart = { 
+              day: 6, // Sunday (last day of current week)
+              time: shift.start_time,
+              actualStartDay: 6,
+              isNextWeek: true
+            }
+          } else if (isNightShift) {
+            // Other night shift in next week
+            nextShiftStart = { 
+              day: day + 7, // Add 7 to indicate next week
+              time: shift.start_time,
+              actualStartDay: day - 1 + 7,
+              isNextWeek: true
+            }
+          } else {
+            // Day shift in next week
+            nextShiftStart = { 
+              day: day + 7,
+              time: shift.start_time,
+              actualStartDay: day + 7,
+              isNextWeek: true
+            }
+          }
+          break
+        }
       }
     }
   }
@@ -254,16 +352,20 @@ function checkRestPeriod(
     const lastEndMinutes = parseTime(lastShiftEnd.time)
     const nextStartMinutes = parseTime(nextShiftStart.time)
     
-    const daysBetween = nextShiftStart.day - lastShiftEnd.day
+    // Calculate days between (using actual start day for night shifts)
+    const daysBetween = nextShiftStart.actualStartDay - lastShiftEnd.day
     const restMinutes = (daysBetween * 24 * 60) - lastEndMinutes + nextStartMinutes
     const restHours = restMinutes / 60
 
     if (restHours < minRestHours) {
       const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+      const lastShiftDayName = dayNames[lastShiftEnd.day]
+      const nextShiftDayName = dayNames[nextShiftStart.actualStartDay % 7]
+      
       if (isAssumedF1) {
         return `Insufficient rest period: ${restHours.toFixed(1)}h (tested as if ${dayNames[f1Day]} was F1) - requires ${minRestHours}h`
       } else {
-        return `Insufficient rest period: ${restHours.toFixed(1)}h - requires ${minRestHours}h`
+        return `Insufficient rest period: ${restHours.toFixed(1)}h (from ${lastShiftDayName} end to ${nextShiftDayName} start) - requires ${minRestHours}h`
       }
     }
   }
