@@ -1,5 +1,3 @@
-// src/lib/utils/norwegianHolidays.ts
-
 /**
  * Calculate Easter Sunday for a given year using the Anonymous Gregorian algorithm
  */
@@ -32,74 +30,33 @@ export function getNorwegianHolidays(year: number): Array<{
 }> {
   const easter = getEasterSunday(year)
   
-  // Helper to format date as YYYY-MM-DD
+  // Safe local formatter: uses local date components (avoids toISOString timezone shift)
   const formatDate = (date: Date): string => {
-    return date.toISOString().split('T')[0]
+    const y = date.getFullYear()
+    const m = String(date.getMonth() + 1).padStart(2, '0')
+    const d = String(date.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
   }
   
-  // Helper to add days to a date
   const addDays = (date: Date, days: number): Date => {
     const result = new Date(date)
     result.setDate(result.getDate() + days)
     return result
   }
-  
+
   const holidays = [
-    {
-      date: `${year}-01-01`,
-      name: "New Year's Day",
-      localName: "Nyttårsdag"
-    },
-    {
-      date: formatDate(addDays(easter, -3)), // Maundy Thursday
-      name: "Maundy Thursday",
-      localName: "Skjærtorsdag"
-    },
-    {
-      date: formatDate(addDays(easter, -2)), // Good Friday
-      name: "Good Friday",
-      localName: "Langfredag"
-    },
-    {
-      date: formatDate(easter), // Easter Sunday
-      name: "Easter Sunday",
-      localName: "Påskedag"
-    },
-    {
-      date: formatDate(addDays(easter, 1)), // Easter Monday
-      name: "Easter Monday",
-      localName: "Andre påskedag"
-    },
-    {
-      date: `${year}-05-01`,
-      name: "Labour Day",
-      localName: "Arbeidernes dag"
-    },
-    {
-      date: `${year}-05-17`,
-      name: "Constitution Day",
-      localName: "Grunnlovsdag"
-    },
-    {
-      date: formatDate(addDays(easter, 39)), // Ascension Day (39 days after Easter)
-      name: "Ascension Day",
-      localName: "Kristi himmelfartsdag"
-    },
-    {
-      date: formatDate(addDays(easter, 50)), // Whit Monday (50 days after Easter)
-      name: "Whit Monday",
-      localName: "Pinse"
-    },
-    {
-      date: `${year}-12-25`,
-      name: "Christmas Day",
-      localName: "Juledag"
-    },
-    {
-      date: `${year}-12-26`,
-      name: "St. Stephen's Day",
-      localName: "Andre juledag"
-    }
+    { date: formatDate(new Date(year, 0, 1)), name: "New Year's Day", localName: "Nyttårsdag" },
+    { date: formatDate(addDays(easter, -3)), name: "Maundy Thursday", localName: "Skjærtorsdag" },
+    { date: formatDate(addDays(easter, -2)), name: "Good Friday", localName: "Langfredag" },
+    { date: formatDate(easter), name: "Easter Sunday", localName: "Første påskedag" },
+    { date: formatDate(addDays(easter, 1)), name: "Easter Monday", localName: "Andre påskedag" },
+    { date: formatDate(new Date(year, 4, 1)), name: "Labour Day", localName: "Arbeidernes dag" },
+    { date: formatDate(new Date(year, 4, 17)), name: "Constitution Day", localName: "Grunnlovsdag" },
+    { date: formatDate(addDays(easter, 39)), name: "Ascension Day", localName: "Kristi himmelfartsdag" },
+    { date: formatDate(addDays(easter, 49)), name: "Whit Sunday", localName: "Første pinsedag" },
+    { date: formatDate(addDays(easter, 50)), name: "Whit Monday", localName: "Andre pinsedag" },
+    { date: formatDate(new Date(year, 11, 25)), name: "Christmas Day", localName: "Første juledag" },
+    { date: formatDate(new Date(year, 11, 26)), name: "St. Stephen's Day", localName: "Andre juledag" }
   ]
   
   return holidays

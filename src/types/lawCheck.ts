@@ -42,9 +42,9 @@ export interface LawCheck {
   name: string
   description: string
   category: LawCheckCategory
-  lawType: LawCheckLawType // 'aml' or 'hta'
-  lawReferences?: LawReference[] // Array of external law/regulation sources
-  applicableTo?: LawCheckCategory[] // For shared tests: which plan types apply
+  lawType: LawCheckLawType
+  lawReferences?: LawReference[]
+  applicableTo?: LawCheckCategory[]
   inputs?: LawCheckInput[]
   
   // Function to run the check
@@ -53,5 +53,7 @@ export interface LawCheck {
     shifts: Shift[]
     plan: Plan
     inputs?: Record<string, number | string | boolean>
+    basePlanRotations?: Rotation[] // ADD THIS LINE
+    basePlanShifts?: Shift[] // ADD THIS LINE
   }) => LawCheckResult
 }

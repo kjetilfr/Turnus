@@ -7,6 +7,7 @@ import { f1RestPeriodCheck } from './F1RestPeriodCheck'
 import { averageWorkHoursCheck } from './AverageWorkHoursCheck'
 import { compensatingRestCheck } from './CompensatingRestCheck'
 import { threeSplitAverageCheck } from './ThreeSplitAverageCheck'
+import { f3HolidayCompensationCheck } from './F3HolidayCompensationCheck'
 
 /**
  * All law checks
@@ -17,6 +18,7 @@ export const LAW_CHECKS: LawCheck[] = [
   averageWorkHoursCheck,
   compensatingRestCheck,
   threeSplitAverageCheck,
+  f3HolidayCompensationCheck
   // Add more checks here as you create them
 ]
 

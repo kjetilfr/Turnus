@@ -3,8 +3,8 @@
 import { LawCheck, LawCheckResult } from '@/types/lawCheck'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
-import { getSundayTimeZones, HolidayTimeZone } from '@/lib/utils/norwegianHolidayTimeZones'
-import { getNightHoursCalculator, getNightHoursLabel } from '@/lib/utils/shiftTimePeriods'
+import { getHolidayTimeZones, HolidayTimeZone } from '@/lib/utils/norwegianHolidayTimeZones'
+import { getNightHoursCalculator, getNightHoursLabel, } from '@/lib/utils/shiftTimePeriods'
 
 /**
  * Three-Split Average Check
@@ -117,6 +117,8 @@ export const threeSplitAverageCheck: LawCheck = {
     }
   ],
   
+
+  
   run: ({ rotations, shifts, plan, inputs = {} }) => {
       // Get the appropriate night calculator based on tariffavtale
       const calculateNightHours = getNightHoursCalculator(plan.tariffavtale)
@@ -156,16 +158,14 @@ export const threeSplitAverageCheck: LawCheck = {
     const avgNightHoursPerWeek20to6 = totalNightHours20to6 / plan.duration_weeks
 
     // 2. Sunday work for both qualifications
-    const sundayZones = getSundayTimeZones(
-      new Date(plan.date_started).getFullYear(),
-      plan.date_started,
-      plan.duration_weeks
-    )
+    const start = new Date(plan.date_started)
+    const year = start.getFullYear()
+    const holidayZones = getHolidayTimeZones(year)
 
     let sundaysWorked = 0
-    const totalSundays = sundayZones.length
+    const totalSundays = holidayZones.length
 
-    sundayZones.forEach((zone, index) => {
+    holidayZones.forEach((zone, index) => {
       const weekIndex = Math.floor(index)
       
       const saturdayRotation = rotations.find((r: Rotation) => 
@@ -689,15 +689,32 @@ function calculateSundayHoursForRotation(
   const isNightShift = endMinutes < startMinutes
 
   // Get Sunday zones
-  const sundayZones = getSundayTimeZones(
-    new Date(planStartDate).getFullYear(),
-    planStartDate,
-    durationWeeks
-  )
+  const start = new Date(planStartDate)
+  const year = start.getFullYear()
+  const holidayZones = getHolidayTimeZones(year)
 
-  // Find the Sunday zone for this rotation's week
-  const zone = sundayZones[rotation.week_index]
-  if (!zone) return 0
+
+  const weekStart = new Date(planStartDate)
+  weekStart.setDate(weekStart.getDate() + rotation.week_index * 7)
+
+  // Find the Saturday (day before Sunday)
+  const saturday = new Date(weekStart)
+  saturday.setDate(weekStart.getDate() + 5)
+
+  // Find the Sunday
+  const sunday = new Date(weekStart)
+  sunday.setDate(weekStart.getDate() + 6)
+
+  // Sunday zone: Saturday 18:00 → Sunday 22:00
+  const zone = {
+    holidayName: 'Sunday',
+    localName: 'Søndag',
+    startDateTime: new Date(saturday.getFullYear(), saturday.getMonth(), saturday.getDate(), 18, 0, 0, 0),
+    endDateTime: new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate(), 22, 0, 0, 0),
+    type: 'standard' as const
+  }
+
+  if (!zone) return 0 // optional, always defined
 
   // Calculate actual shift DateTime range
   const planStart = new Date(planStartDate)
@@ -757,6 +774,21 @@ function calculateSundayHoursForRotation(
   return 0
 }
 
+function getSundayZoneForDate(date: Date): { start: Date; end: Date } {
+  const day = date.getDay()
+  const sunday = new Date(date)
+  if (day !== 0) sunday.setDate(sunday.getDate() + (7 - day)) // next Sunday if not Sunday
+  const saturday = new Date(sunday)
+  saturday.setDate(sunday.getDate() - 1)
+
+  const start = new Date(saturday)
+  start.setHours(18, 0, 0, 0)
+  const end = new Date(sunday)
+  end.setHours(22, 0, 0, 0)
+
+  return { start, end }
+}
+
 /**
  * Calculate hours that are BOTH night (21:00-06:00) AND Sunday
  * These hours should only get the higher bonus (15 minutes per hour)
@@ -779,14 +811,31 @@ function calculateNightSundayOverlap(
   const isNightShift = endMinutes < startMinutes
 
   // Get Sunday zones
-  const sundayZones = getSundayTimeZones(
-    new Date(planStartDate).getFullYear(),
-    planStartDate,
-    durationWeeks
-  )
+  // --- Replace old sundayZones lookup with dynamic Sunday zone generation ---
 
-  const zone = sundayZones[rotation.week_index]
-  if (!zone) return 0
+// Calculate the Sunday zone for this rotation's week using the new "standard" rule
+  const weekStart = new Date(planStartDate)
+  weekStart.setDate(weekStart.getDate() + rotation.week_index * 7)
+
+  // Find the Saturday (day before Sunday)
+  const saturday = new Date(weekStart)
+  saturday.setDate(weekStart.getDate() + 5)
+
+  // Find the Sunday
+  const sunday = new Date(weekStart)
+  sunday.setDate(weekStart.getDate() + 6)
+
+  // Sunday zone: Saturday 18:00 → Sunday 22:00
+  const zone = {
+    holidayName: 'Sunday',
+    localName: 'Søndag',
+    startDateTime: new Date(saturday.getFullYear(), saturday.getMonth(), saturday.getDate(), 18, 0, 0, 0),
+    endDateTime: new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate(), 22, 0, 0, 0),
+    type: 'standard' as const
+  }
+
+  if (!zone) return 0 // optional, always defined
+
 
   // Calculate actual shift DateTime range
   const planStart = new Date(planStartDate)

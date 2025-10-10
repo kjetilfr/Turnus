@@ -13,9 +13,11 @@ interface LawChecksViewProps {
   rotations: Rotation[]
   shifts: Shift[]
   plan: Plan
+  basePlanRotations?: Rotation[] // ADD THIS
+  basePlanShifts?: Shift[] // ADD THIS
 }
 
-export default function LawChecksView({ rotations, shifts, plan }: LawChecksViewProps) {
+export default function LawChecksView({ rotations, shifts, plan, basePlanRotations, basePlanShifts }: LawChecksViewProps) {
   const [checkResults, setCheckResults] = useState<Record<string, LawCheckResult>>({})
   const [runningChecks, setRunningChecks] = useState<Record<string, boolean>>({})
   const [checkInputs, setCheckInputs] = useState<Record<string, Record<string, number | string | boolean>>>(() => {
@@ -74,7 +76,9 @@ export default function LawChecksView({ rotations, shifts, plan }: LawChecksView
         rotations,
         shifts,
         plan,
-        inputs: checkInputs[checkId] || {}
+        inputs: checkInputs[checkId] || {},
+        basePlanRotations,
+        basePlanShifts
       })
 
       setCheckResults(prev => ({ ...prev, [checkId]: result }))
