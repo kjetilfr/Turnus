@@ -13,7 +13,8 @@ export interface HolidayTimeZone {
  */
 const HOLIDAY_CATEGORIES = {
   MAY: ['Labour Day', 'Constitution Day'],
-  SPECIAL: ['Easter Sunday', 'Whit Sunday', 'Christmas Day']
+  SPECIAL: ['Easter Sunday', 'Whit Sunday', 'Christmas Day'],
+  SECOND_DAY: ['Easter Monday', 'Whit Monday', "St. Stephen's Day"]
 } as const satisfies Record<string, readonly string[]>
 
 /**
@@ -80,32 +81,6 @@ export function getHolidayTimeZones(year: number): HolidayTimeZone[] {
 
   return timeZones
 }
-
-//Legacy for ThreeSplitAverage (dont use going forward maybe try replace the one in ThreeSplitAverage as well)
-export function getSundayTimeZones(year: number): HolidayTimeZone[] {
-  const zones: HolidayTimeZone[] = []
-  const start = new Date(year, 0, 1)
-  const end = new Date(year + 1, 0, 1)
-
-  while (start < end) {
-    if (start.getDay() === 0) { // Sunday
-      const sunday = new Date(start)
-      const saturday = new Date(start)
-      saturday.setDate(saturday.getDate() - 1)
-      zones.push({
-        holidayName: 'Sunday',
-        localName: 'Søndag',
-        startDateTime: new Date(saturday.getFullYear(), saturday.getMonth(), saturday.getDate(), 18, 0),
-        endDateTime: new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate(), 22, 0),
-        type: 'standard'
-      })
-    }
-    start.setDate(start.getDate() + 1)
-  }
-
-  return zones
-}
-
 
 /**
  * Helper for debug output
