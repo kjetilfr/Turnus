@@ -12,10 +12,23 @@ export interface HolidayTimeZone {
  * Categories according to AML §10-10 (1)
  */
 const HOLIDAY_CATEGORIES = {
-  MAY: ['Labour Day', 'Constitution Day'],
-  SPECIAL: ['Easter Sunday', 'Whit Sunday', 'Christmas Day'],
-  SECOND_DAY: ['Easter Monday', 'Whit Monday', "St. Stephen's Day"]
-} as const satisfies Record<string, readonly string[]>
+  MAY: ['Labour Day', 'Constitution Day'] as const,
+  SPECIAL: ['Easter Sunday', 'Whit Sunday', 'Christmas Day'] as const,
+  SECOND_DAY: ['Easter Monday', 'Whit Monday', "St. Stephen's Day"] as const
+} as const
+
+// Create a type-safe helper to check if a holiday name is in a category
+type HolidayName = 
+  | typeof HOLIDAY_CATEGORIES.MAY[number]
+  | typeof HOLIDAY_CATEGORIES.SPECIAL[number]
+  | typeof HOLIDAY_CATEGORIES.SECOND_DAY[number]
+
+function isInCategory(
+  holidayName: string,
+  category: readonly string[]
+): holidayName is HolidayName {
+  return category.includes(holidayName)
+}
 
 /**
  * Helper: make local Date safely (avoids UTC shift)
@@ -50,12 +63,12 @@ export function getHolidayTimeZones(year: number): HolidayTimeZone[] {
     let end: Date
     let type: HolidayTimeZone['type']
 
-    if (HOLIDAY_CATEGORIES.MAY.includes(h.name as any)) {
+    if (isInCategory(h.name, HOLIDAY_CATEGORIES.MAY)) {
       // 22:00 day before → 22:00 day of
       start = addHours(dayBefore, 22, 0)
       end = addHours(date, 22, 0)
       type = 'may'
-    } else if (HOLIDAY_CATEGORIES.SPECIAL.includes(h.name as any)) {
+    } else if (isInCategory(h.name, HOLIDAY_CATEGORIES.SPECIAL)) {
       // 15:00 day before → 22:00 day of
       start = addHours(dayBefore, 15, 0)
       end = addHours(date, 22, 0)
