@@ -56,12 +56,23 @@ export default async function LawChecksPage({ params }: PageProps) {
     console.error('Error fetching shifts:', shiftsError)
   }
 
-  // NEW: Fetch base plan data if this is a helping plan
+  // Fetch base plan data if this is a helping plan
   let basePlanRotations = undefined
   let basePlanShifts = undefined
+  let basePlan = undefined  // ADDED: the full base plan object
   let basePlanName = null
 
   if (plan.type === 'helping' && plan.base_plan_id) {
+    // ADDED: Fetch the full base plan object first
+    const { data: basePlanData } = await supabase
+      .from('plans')
+      .select('*')
+      .eq('id', plan.base_plan_id)
+      .single()
+    
+    basePlan = basePlanData || undefined
+    basePlanName = basePlanData?.name || null
+
     // Fetch base plan rotations
     const { data: baseRotations } = await supabase
       .from('rotations')
@@ -79,15 +90,6 @@ export default async function LawChecksPage({ params }: PageProps) {
       .eq('plan_id', plan.base_plan_id)
     
     basePlanShifts = baseShifts || undefined
-
-    // Fetch base plan name for display
-    const { data: basePlan } = await supabase
-      .from('plans')
-      .select('name')
-      .eq('id', plan.base_plan_id)
-      .single()
-    
-    basePlanName = basePlan?.name || null
   }
 
   return (
@@ -123,13 +125,14 @@ export default async function LawChecksPage({ params }: PageProps) {
             activePage="lawChecks"
           />
 
-          {/* Law Checks View - NOW WITH BASE PLAN DATA */}
+          {/* Law Checks View - NOW WITH FULL BASE PLAN */}
           <LawChecksView 
             rotations={rotations || []}
             shifts={shifts || []}
             plan={plan}
             basePlanRotations={basePlanRotations}
             basePlanShifts={basePlanShifts}
+            basePlan={basePlan}
           />
         </div>
       </main>

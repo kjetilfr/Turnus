@@ -3,6 +3,7 @@
 import { LawCheck, LawCheckResult } from '@/types/lawCheck'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
+import { Plan } from '@/types/plan'
 import { getHolidayTimeZones, HolidayTimeZone } from '@/lib/utils/norwegianHolidayTimeZones'
 
 /**
@@ -11,22 +12,21 @@ import { getHolidayTimeZones, HolidayTimeZone } from '@/lib/utils/norwegianHolid
  * Checks that helping plans properly use F3 shifts for holiday compensation.
  * F3 represents mandatory rest following work on holidays (søn- og helgedager).
  * 
- * This check analyzes the BASE (main) plan to see which holiday TIME ZONES were worked,
- * then verifies the helping plan has appropriate F3 compensation shifts.
+ * This check analyzes which weeks of the BASE PLAN ROTATION are worked during
+ * the helping plan period, accounting for rotation wrapping. Then verifies
+ * the helping plan has appropriate F3 compensation shifts.
  * 
- * Holiday time zones are defined by AML § 10-10:
- * - Standard: Saturday 18:00 → Sunday 22:00
- * - Special (Easter/Whit/Christmas): Saturday 15:00 → Sunday 22:00  
- * - May 1st/17th: Saturday 22:00 → Sunday 22:00
+ * Example: 12-week rotation, helping plan weeks 4-7
+ * - Helping week 1 = Base rotation week 4
+ * - Helping week 2 = Base rotation week 5
+ * - etc.
  * 
  * Legal Reference: AML § 10-10 - Søn- og helgedagsarbeid
- * "Arbeidstaker som har utført søn- og helgedagsarbeid skal ha arbeidsfri 
- * følgende søn- og helgedagsdøgn uten trekk i lønn"
  */
 export const f3HolidayCompensationCheck: LawCheck = {
   id: 'f3-holiday-compensation',
   name: 'F3 Holiday Compensation (Helping Plans)',
-  description: 'Verifies that F3 shifts are properly placed after work on holidays. Analyzes the BASE (main) plan to find holiday time zones worked (including Sundays), then checks F3 placement in the helping plan.',
+  description: 'Verifies that F3 shifts are properly placed after work on holidays. Analyzes which weeks of the BASE ROTATION are worked during the helping plan, then checks F3 placement.',
   category: 'helping',
   lawType: 'aml',
   lawReferences: [
@@ -37,13 +37,22 @@ export const f3HolidayCompensationCheck: LawCheck = {
   ],
   inputs: [],
   
-  run: ({ rotations, shifts, plan, basePlanRotations, basePlanShifts }) => {
+  run: ({ rotations, shifts, plan, basePlanRotations, basePlanShifts, basePlan }) => {
     const result: LawCheckResult = {
       status: 'pass',
       message: '',
       details: [],
       violations: []
     }
+
+    // DEBUG: Log what we received
+    console.log('=== F3 CHECK DEBUG ===')
+    console.log('basePlan received:', basePlan)
+    console.log('basePlan type:', typeof basePlan)
+    console.log('basePlanRotations received:', basePlanRotations ? 'YES' : 'NO')
+    console.log('basePlanShifts received:', basePlanShifts ? 'YES' : 'NO')
+    console.log('plan.base_plan_id:', plan.base_plan_id)
+    console.log('plan.type:', plan.type)
 
     // Only applies to helping plans
     if (plan.type !== 'helping') {
@@ -83,31 +92,82 @@ export const f3HolidayCompensationCheck: LawCheck = {
       }
     }
 
-    // IMPORTANT: We need to infer the base plan's start date
-    // Since we have the helping plan and know the base_plan_id,
-    // we need to fetch it from the database OR infer it from the structure
-    // For rotation-based year plans: base plan has same start date as helping plan
-    // For other helping plans: we need to pass the base plan's start date
-    
-    // TODO: This needs to be refactored to pass the full base Plan object
-    // For now, we'll assume the base plan has the same start date as the helping plan
-    // This is a TEMPORARY solution and should be fixed by passing basePlan through
-    const basePlanStartDate = new Date(plan.date_started)
-    
-    // Calculate base plan duration from rotations
+    // Calculate base plan rotation length
     const maxWeek = Math.max(...basePlanRotations.map(r => r.week_index))
-    const basePlanDurationWeeks = maxWeek + 1
+    const basePlanRotationLength = maxWeek + 1
     
-    // Get date range for time zones
-    const startYear = basePlanStartDate.getFullYear()
-    const basePlanEndDate = new Date(basePlanStartDate)
-    basePlanEndDate.setDate(basePlanEndDate.getDate() + (basePlanDurationWeeks * 7))
-    const endYear = basePlanEndDate.getFullYear()
+    console.log('=== F3 Holiday Compensation Check ===')
+    console.log('Helping Plan:', plan.name)
+    console.log('Base Plan Rotation Length:', basePlanRotationLength, 'weeks')
+    console.log('Helping Plan Duration:', plan.duration_weeks, 'weeks')
     
-    // Use helping plan dates for context
+    // CRITICAL: Calculate week offset to map helping plan weeks to base plan rotation weeks
+    // This determines which week of the base plan rotation each helping plan week corresponds to
+    
+    let weekOffset = 0
+    
+    if (basePlan) {
+      // We have the full base plan - calculate proper offset using the SAME logic as ImportRotationModal
+      const basePlanStartDate = new Date(basePlan.date_started)
+      const helpingPlanStartDate = new Date(plan.date_started)
+      
+      // Calculate difference in days
+      const diffTime = helpingPlanStartDate.getTime() - basePlanStartDate.getTime()
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+      
+      // Convert to weeks (can be negative if helping plan starts before base plan)
+      const diffWeeks = Math.floor(diffDays / 7)
+      
+      // Calculate offset (wrapping around base plan's duration)
+      // This matches the logic in ImportRotationModal exactly
+      weekOffset = diffWeeks % basePlanRotationLength
+      if (weekOffset < 0) {
+        weekOffset += basePlanRotationLength
+      }
+      
+      console.log('Base Plan Start:', basePlan.date_started)
+      console.log('Helping Plan Start:', plan.date_started)
+      console.log('Days Difference:', diffDays)
+      console.log('Weeks Difference:', diffWeeks)
+      console.log('Week Offset:', weekOffset, '(helping week 1 = base rotation week', weekOffset + 1, ')')
+    } else {
+      // No base plan object - fall back to default
+      console.log('WARNING: No base plan object provided, using offset 0')
+      console.log('Week Offset:', weekOffset, '(helping week 1 = base rotation week 1)')
+    }
+    
     const helpingPlanStartDate = new Date(plan.date_started)
+
+    // Create a virtual "effective rotations" array that maps helping plan weeks
+    // to the correct base plan rotation weeks with wrapping
+    const effectiveRotations: Rotation[] = []
+    
+    for (let helpingWeek = 0; helpingWeek < plan.duration_weeks; helpingWeek++) {
+      // Calculate which base rotation week this corresponds to
+      const baseRotationWeek = (helpingWeek + weekOffset) % basePlanRotationLength
+      
+      // Get all rotations from that base week
+      const baseWeekRotations = basePlanRotations.filter(r => r.week_index === baseRotationWeek)
+      
+      // Create virtual rotations that map to the helping plan's timeline
+      baseWeekRotations.forEach(baseRotation => {
+        effectiveRotations.push({
+          ...baseRotation,
+          week_index: helpingWeek, // Map to helping plan week
+          plan_id: plan.id // Use helping plan ID
+        })
+      })
+    }
+    
+    console.log('Effective Rotations Created:', effectiveRotations.length)
+    console.log('Sample mapping: Helping Week 1 uses Base Rotation Week', (0 + weekOffset) % basePlanRotationLength + 1)
+
+    // Now analyze holiday time zones using the helping plan's actual date range
     const helpingPlanEndDate = new Date(helpingPlanStartDate)
     helpingPlanEndDate.setDate(helpingPlanEndDate.getDate() + (plan.duration_weeks * 7))
+    
+    const startYear = helpingPlanStartDate.getFullYear()
+    const endYear = helpingPlanEndDate.getFullYear()
     
     // Get all holiday time zones for relevant years
     const allTimeZones: HolidayTimeZone[] = []
@@ -115,29 +175,20 @@ export const f3HolidayCompensationCheck: LawCheck = {
       allTimeZones.push(...getHolidayTimeZones(year))
     }
     
-    // Add Sunday time zones using standard definition (Saturday 18:00 → Sunday 22:00)
-    const sundayZones = createSundayTimeZones(basePlanStartDate, basePlanEndDate)
+    // Add Sunday time zones
+    const sundayZones = createSundayTimeZones(helpingPlanStartDate, helpingPlanEndDate)
     allTimeZones.push(...sundayZones)
     
-    // Filter to only zones within the BASE plan's date range
+    // Filter to only zones within the HELPING plan's date range
     const relevantTimeZones = allTimeZones.filter(zone => {
-      return zone.startDateTime < basePlanEndDate && zone.endDateTime > basePlanStartDate
+      return zone.startDateTime < helpingPlanEndDate && zone.endDateTime > helpingPlanStartDate
     })
     
-    // Sort by start time
     relevantTimeZones.sort((a, b) => a.startDateTime.getTime() - b.startDateTime.getTime())
 
-    console.log('=== F3 Holiday Compensation Check ===')
-    console.log('Helping Plan:', plan.name)
-    console.log('Analyzing BASE PLAN (main plan)')
-    console.log('Base Plan Start Date:', basePlanStartDate.toISOString().split('T')[0])
-    console.log('Base Plan Duration:', basePlanDurationWeeks, 'weeks')
-    console.log('Base Plan End Date:', basePlanEndDate.toISOString().split('T')[0])
-    console.log('Helping Plan Start Date:', plan.date_started)
-    console.log('All time zones:', allTimeZones.length)
-    console.log('Relevant time zones (within base plan dates):', relevantTimeZones.length)
+    console.log('Relevant time zones (within helping plan dates):', relevantTimeZones.length)
 
-    // Analyze BASE PLAN for work in holiday time zones
+    // Analyze EFFECTIVE ROTATIONS (mapped from base plan) for work in holiday time zones
     const zonesWorked: Array<{
       zone: typeof relevantTimeZones[0]
       overlapHours: number
@@ -152,19 +203,19 @@ export const f3HolidayCompensationCheck: LawCheck = {
       let totalOverlapHours = 0
       const rotationsInZone: Array<{ rotation: Rotation; shift: Shift; hours: number }> = []
 
-      // Check each base plan rotation for overlap with this zone
-      basePlanRotations.forEach(rotation => {
+      // Check each EFFECTIVE rotation (which represents base plan work during helping plan period)
+      effectiveRotations.forEach(rotation => {
         if (!rotation.shift_id) return
         
         const shift = basePlanShifts.find(s => s.id === rotation.shift_id)
         if (!shift || shift.is_default || !shift.start_time || !shift.end_time) return
 
-        // Calculate actual DateTime for this rotation
+        // Calculate overlap using HELPING PLAN's start date and the rotation's week index
         const overlapHours = calculateTimeZoneOverlap(
           rotation,
           shift,
           zone,
-          basePlanStartDate  // Use BASE plan start date, not helping plan!
+          helpingPlanStartDate // Use HELPING plan start date for date calculations
         )
 
         if (overlapHours > 0) {
@@ -182,7 +233,7 @@ export const f3HolidayCompensationCheck: LawCheck = {
       }
     })
 
-    console.log('\n=== Holiday Time Zones Worked in BASE PLAN ===')
+    console.log('\n=== Holiday Time Zones Worked ===')
     console.log(`Found ${zonesWorked.length} zones with work`)
     zonesWorked.forEach((zw, index) => {
       console.log(
@@ -202,9 +253,10 @@ export const f3HolidayCompensationCheck: LawCheck = {
 
     // Build result
     result.details = [
-      `Analyzing BASE PLAN for holiday/Sunday work`,
-      `Base Plan period: ${basePlanStartDate.toISOString().split('T')[0]} to ${basePlanEndDate.toISOString().split('T')[0]} (${basePlanDurationWeeks} weeks)`,
-      `Helping Plan period: ${plan.date_started} to ${helpingPlanEndDate.toISOString().split('T')[0]} (${plan.duration_weeks} weeks)`,
+      `Analyzing BASE PLAN ROTATION during helping plan period`,
+      `Base rotation length: ${basePlanRotationLength} weeks`,
+      `Helping plan period: ${plan.date_started} to ${helpingPlanEndDate.toISOString().split('T')[0]} (${plan.duration_weeks} weeks)`,
+      `Week offset: ${weekOffset} (helping week 1 = base rotation week ${weekOffset + 1})`,
       `Holiday/Sunday time zones worked: ${zonesWorked.length}`,
       `Total hours in zones: ${zonesWorked.reduce((sum, zw) => sum + zw.overlapHours, 0).toFixed(2)}h`,
       `F3 compensation shifts in helping plan: ${f3Rotations.length}`,
@@ -212,7 +264,7 @@ export const f3HolidayCompensationCheck: LawCheck = {
     ]
 
     if (zonesWorked.length > 0) {
-      result.details.push('Holiday/Sunday Time Zones Worked in BASE PLAN:')
+      result.details.push('Holiday/Sunday Time Zones Worked:')
       zonesWorked.forEach((zw, index) => {
         const zoneStart = formatDateTime(zw.zone.startDateTime)
         const zoneEnd = formatDateTime(zw.zone.endDateTime)
@@ -223,13 +275,14 @@ export const f3HolidayCompensationCheck: LawCheck = {
         
         zw.rotations.forEach(r => {
           const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+          const baseRotationWeek = (r.rotation.week_index + weekOffset) % basePlanRotationLength
           result.details?.push(
-            `     • Week ${r.rotation.week_index + 1}, ${dayNames[r.rotation.day_of_week]}: ${r.shift.name} (${r.hours.toFixed(2)}h overlap)`
+            `     • Helping Week ${r.rotation.week_index + 1} (Base Week ${baseRotationWeek + 1}), ${dayNames[r.rotation.day_of_week]}: ${r.shift.name} (${r.hours.toFixed(2)}h overlap)`
           )
         })
       })
     } else {
-      result.details.push('No holiday/Sunday time zones worked in base plan')
+      result.details.push('No holiday/Sunday time zones worked during helping plan period')
     }
 
     if (f3Rotations.length > 0) {

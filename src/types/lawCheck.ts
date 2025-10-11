@@ -53,7 +53,8 @@ export interface LawCheck {
     shifts: Shift[]
     plan: Plan
     inputs?: Record<string, number | string | boolean>
-    basePlanRotations?: Rotation[] // ADD THIS LINE
-    basePlanShifts?: Shift[] // ADD THIS LINE
+    basePlanRotations?: Rotation[]
+    basePlanShifts?: Shift[]
+    basePlan?: Plan  // ADD THIS - the full base plan object
   }) => LawCheckResult
 }

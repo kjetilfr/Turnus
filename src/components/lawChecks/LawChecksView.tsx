@@ -13,11 +13,26 @@ interface LawChecksViewProps {
   rotations: Rotation[]
   shifts: Shift[]
   plan: Plan
-  basePlanRotations?: Rotation[] // ADD THIS
-  basePlanShifts?: Shift[] // ADD THIS
+  basePlanRotations?: Rotation[]
+  basePlanShifts?: Shift[]
+  basePlan?: Plan  // ADDED: the full base plan object
 }
 
-export default function LawChecksView({ rotations, shifts, plan, basePlanRotations, basePlanShifts }: LawChecksViewProps) {
+export default function LawChecksView({ 
+  rotations, 
+  shifts, 
+  plan, 
+  basePlanRotations, 
+  basePlanShifts,
+  basePlan  // ADDED
+}: LawChecksViewProps) {
+  // DEBUG: Log what we received
+  console.log('=== LawChecksView DEBUG ===')
+  console.log('basePlan received:', basePlan)
+  console.log('basePlan type:', typeof basePlan)
+  console.log('basePlanRotations:', basePlanRotations ? `YES (${basePlanRotations.length})` : 'NO')
+  console.log('basePlanShifts:', basePlanShifts ? `YES (${basePlanShifts.length})` : 'NO')
+  
   const [checkResults, setCheckResults] = useState<Record<string, LawCheckResult>>({})
   const [runningChecks, setRunningChecks] = useState<Record<string, boolean>>({})
   const [checkInputs, setCheckInputs] = useState<Record<string, Record<string, number | string | boolean>>>(() => {
@@ -54,12 +69,6 @@ export default function LawChecksView({ rotations, shifts, plan, basePlanRotatio
         return false
       }
 
-      // Example of plan not showing for all tariffavtaler
-      // Only show for KS and Oslo tariffavtale
-      //if (check.id === 'three-split-average') {
-      //  return plan.tariffavtale === 'ks' || plan.tariffavtale === 'oslo'
-      //}
-
       return true
     })
   }, [plan.type, plan.tariffavtale])
@@ -78,7 +87,8 @@ export default function LawChecksView({ rotations, shifts, plan, basePlanRotatio
         plan,
         inputs: checkInputs[checkId] || {},
         basePlanRotations,
-        basePlanShifts
+        basePlanShifts,
+        basePlan  // ADDED: pass the full base plan object
       })
 
       setCheckResults(prev => ({ ...prev, [checkId]: result }))
