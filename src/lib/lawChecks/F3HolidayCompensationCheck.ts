@@ -36,7 +36,7 @@ export const f3HolidayCompensationCheck: LawCheck = {
       violations: []
     }
 
-    // Get calculation method from inputs (will be set by LawCheckCard UI)
+    // Get calculation method from inputs
     const calculationMethod = (inputs.calculationMethod as string) || 'hovedregelen'
     
     let methodName: string
@@ -194,7 +194,7 @@ export const f3HolidayCompensationCheck: LawCheck = {
       return shift?.name === 'F3'
     })
 
-    // Build details
+    // Build initial details
     result.details = [
       `Calculation Method: ${methodName}`,
       `Base rotation length: ${basePlanRotationLength} weeks`,
@@ -206,47 +206,140 @@ export const f3HolidayCompensationCheck: LawCheck = {
       ''
     ]
 
-    if (zonesWorked.length > 0) {
-      result.details.push('Holiday/Sunday Time Zones Worked:')
-      zonesWorked.forEach((zw, index) => {
-        result.details?.push(
-          `  ${index + 1}. ${zw.zone.localName}: ${zw.overlapHours.toFixed(2)}h from ${zw.rotations.length} shift(s)`
-        )
-      })
-    }
-
-    if (f3Rotations.length > 0) {
-      result.details?.push('', 'F3 Compensation Shifts:')
-      f3Rotations.forEach(f3r => {
-        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-        result.details?.push(`  Week ${f3r.week_index + 1}, ${dayNames[f3r.day_of_week]}`)
-      })
-    }
-
-    // Categorize zones
-    const shortOverlapZones = zonesWorked.filter(zw => zw.overlapHours < 1)
-    const significantWorkZones = zonesWorked.filter(zw => zw.overlapHours >= 1)
-    
-    // Apply calculation method
+    // HOVUDREGELEN (Annenhver rød dag fri) - NEW IMPLEMENTATION
     if (calculationMethod === 'hovedregelen') {
-      const requiredF3 = Math.ceil(significantWorkZones.length / 2)
-      
-      if (significantWorkZones.length > 0 && f3Rotations.length === 0) {
-        result.status = 'fail'
-        result.message = `Hovudregelen: ${significantWorkZones.length} zone(s) worked but NO F3. Expected ${requiredF3} F3 shift(s).`
-      } else if (f3Rotations.length < requiredF3) {
-        result.status = 'warning'
-        result.message = `Hovudregelen: ${significantWorkZones.length} zone(s) worked, ${f3Rotations.length} F3 shift(s). Expected ${requiredF3}.`
-      } else if (shortOverlapZones.length > 0) {
-        result.status = 'warning'
-        result.message = `Hovudregelen: ${zonesWorked.length} zones (${shortOverlapZones.length} <1h), ${f3Rotations.length} F3 shift(s).`
+      // Split analysis by 26-week periods if plan is longer
+      const periodsToAnalyze: Array<{
+        startWeek: number
+        endWeek: number
+        name: string
+      }> = []
+
+      if (plan.duration_weeks > 26) {
+        // Split into 26-week chunks
+        let currentWeek = 0
+        let periodNum = 1
+        
+        while (currentWeek < plan.duration_weeks) {
+          const remainingWeeks = plan.duration_weeks - currentWeek
+          const periodLength = Math.min(26, remainingWeeks)
+          
+          periodsToAnalyze.push({
+            startWeek: currentWeek,
+            endWeek: currentWeek + periodLength - 1,
+            name: `Period ${periodNum} (Weeks ${currentWeek + 1}-${currentWeek + periodLength})`
+          })
+          
+          currentWeek += periodLength
+          periodNum++
+        }
+      } else {
+        // Single period for plans <= 26 weeks
+        periodsToAnalyze.push({
+          startWeek: 0,
+          endWeek: plan.duration_weeks - 1,
+          name: `Full Plan (Weeks 1-${plan.duration_weeks})`
+        })
+      }
+
+      result.details.push('=== Hovudregelen Analysis ===')
+      result.details.push('')
+
+      let totalViolations = 0
+
+      // Analyze each period
+      periodsToAnalyze.forEach(period => {
+        result.details?.push(`--- ${period.name} ---`)
+        
+        // Get zones worked in this period
+        const periodZonesWorked = zonesWorked.filter(zw => {
+          // Find which week this zone falls in
+          const zoneWeek = Math.floor(
+            (zw.zone.startDateTime.getTime() - helpingPlanStartDate.getTime()) / (1000 * 60 * 60 * 24 * 7)
+          )
+          return zoneWeek >= period.startWeek && zoneWeek <= period.endWeek
+        })
+
+        // Get F3 rotations in this period
+        const periodF3Rotations = f3Rotations.filter(
+          f3r => f3r.week_index >= period.startWeek && f3r.week_index <= period.endWeek
+        )
+
+        // Filter out short overlaps (< 1 hour)
+        const significantZones = periodZonesWorked.filter(zw => zw.overlapHours >= 1)
+        const shortZones = periodZonesWorked.filter(zw => zw.overlapHours < 1)
+
+        result.details?.push(`  Red days worked: ${significantZones.length} (${shortZones.length} < 1h)`)
+        result.details?.push(`  F3 shifts placed: ${periodF3Rotations.length}`)
+
+        // Hovudregelen: every OTHER red day should have F3
+        // So if you work 4 red days, you should have 2 F3s
+        const expectedF3 = Math.ceil(significantZones.length / 2)
+        
+        result.details?.push(`  Expected F3 (every 2nd red day): ${expectedF3}`)
+
+        // Check compliance
+        if (significantZones.length > 0 && periodF3Rotations.length === 0) {
+          result.details?.push(`  ❌ VIOLATION: Worked ${significantZones.length} red day(s) but NO F3 compensation`)
+          totalViolations++
+          
+          result.violations?.push({
+            weekIndex: period.startWeek,
+            dayOfWeek: -1,
+            description: `${period.name}: Worked ${significantZones.length} red day(s) but no F3 compensation`
+          })
+        } else if (periodF3Rotations.length < expectedF3) {
+          result.details?.push(`  ⚠️ WARNING: Expected ${expectedF3} F3 shifts, but only ${periodF3Rotations.length} placed`)
+          totalViolations++
+          
+          result.violations?.push({
+            weekIndex: period.startWeek,
+            dayOfWeek: -1,
+            description: `${period.name}: Expected ${expectedF3} F3 shifts, found ${periodF3Rotations.length}`
+          })
+        } else if (shortZones.length > 0) {
+          result.details?.push(`  ⚠️ NOTE: ${shortZones.length} zone(s) < 1h (may be negotiated away)`)
+        } else {
+          result.details?.push(`  ✅ COMPLIANT`)
+        }
+
+        // List worked zones with sequential numbering
+        if (significantZones.length > 0) {
+          result.details?.push(`  Zones worked (≥1h):`)
+          significantZones.forEach((zw, idx) => {
+            const shouldHaveF3 = (idx + 1) % 2 === 0 // Every 2nd zone
+            const marker = shouldHaveF3 ? '→ F3 expected' : ''
+            result.details?.push(
+              `    ${idx + 1}. ${zw.zone.localName}: ${zw.overlapHours.toFixed(2)}h ${marker}`
+            )
+          })
+        }
+
+        if (periodF3Rotations.length > 0) {
+          result.details?.push(`  F3 shifts placed:`)
+          periodF3Rotations.forEach(f3r => {
+            const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            result.details?.push(`    Week ${f3r.week_index + 1}, ${dayNames[f3r.day_of_week]}`)
+          })
+        }
+
         result.details?.push('')
-        result.details?.push('⚠️ Nokre arbeidsgjevarar og tillitsvalgte har avtalt seg vekk frå korte overlappingar inn i helgedagstidssonar mot andre goder. Sjekk med din tillitsvalgte.')
+      })
+
+      // Set final status
+      if (totalViolations > 0) {
+        result.status = 'fail'
+        result.message = `Hovudregelen: Found ${totalViolations} violation(s) across ${periodsToAnalyze.length} period(s)`
       } else {
         result.status = 'pass'
-        result.message = `Hovudregelen: ${zonesWorked.length} zones worked, ${f3Rotations.length} F3 shift(s). Compliant.`
+        result.message = `Hovudregelen: All periods compliant with every-other-red-day rule`
       }
-    } else if (calculationMethod === 'annenhver') {
+    }
+    // OTHER METHODS - Keep existing implementation for now
+    else if (calculationMethod === 'annenhver') {
+      const shortOverlapZones = zonesWorked.filter(zw => zw.overlapHours < 1)
+      const significantWorkZones = zonesWorked.filter(zw => zw.overlapHours >= 1)
+      
       if (significantWorkZones.length > 0 && f3Rotations.length === 0) {
         result.status = 'fail'
         result.message = `Annenhver: ${significantWorkZones.length} zone(s) worked but NO F3 compensation.`
@@ -262,6 +355,8 @@ export const f3HolidayCompensationCheck: LawCheck = {
     } else if (calculationMethod === 'gjennomsnitt') {
       const totalHoursWorked = zonesWorked.reduce((sum, zw) => sum + zw.overlapHours, 0)
       const avgHoursPerZone = totalHoursWorked / Math.max(zonesWorked.length, 1)
+      const shortOverlapZones = zonesWorked.filter(zw => zw.overlapHours < 1)
+      const significantWorkZones = zonesWorked.filter(zw => zw.overlapHours >= 1)
       
       if (significantWorkZones.length > 0 && f3Rotations.length === 0) {
         result.status = 'fail'
@@ -270,7 +365,7 @@ export const f3HolidayCompensationCheck: LawCheck = {
         result.status = 'warning'
         result.message = `Gjennomsnitt: ${zonesWorked.length} zones, avg ${avgHoursPerZone.toFixed(1)}h/zone, ${f3Rotations.length} F3 shift(s).`
         result.details?.push('')
-        result.details?.push('⚠️ Nokre arbeidsgjevarar og tillitsvalgte har avtalt seg vekk frå korte overlappingar inn i helgedagstidssonar mot andre goder. Sjekk med din tillitsvalgte.')
+        result.details?.push('⚠️ Nokre arbeidsgjevarar og tillitsvaldte har avtalt seg vekk frå korte overlappingar inn i helgedagstidssonar mot andre goder. Sjekk med din tillitsvalgte.')
       } else {
         result.status = 'pass'
         result.message = `Gjennomsnitt: ${zonesWorked.length} zones, avg ${avgHoursPerZone.toFixed(1)}h/zone, ${f3Rotations.length} F3 shift(s).`
