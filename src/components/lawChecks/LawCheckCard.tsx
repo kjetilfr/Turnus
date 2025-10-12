@@ -73,6 +73,10 @@ export default function LawCheckCard({
   const isAverageHoursCheck = check.id === 'average-work-hours'
   const agreementType = inputs.agreementType as string || 'none'
 
+  // Special handling for F3 holiday compensation check
+  const isF3Check = check.id === 'f3-holiday-compensation'
+  const calculationMethod = inputs.calculationMethod as string || 'hovedregelen'
+
   return (
     <div className={`border-2 rounded-lg transition-all ${
       !isEnabled 
@@ -197,6 +201,50 @@ export default function LawCheckCard({
                         className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                       />
                       <span className="text-sm text-gray-700">Type 4: Union Agreement - 14.5h shift max, 54h/week max, no 8-week limit</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* F3 Check - Calculation Method Selection */}
+              {isEnabled && isF3Check && (
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Calculation Method:
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name={`calculation-${check.id}`}
+                        value="hovedregelen"
+                        checked={calculationMethod === 'hovedregelen'}
+                        onChange={() => onInputChange('calculationMethod', 'hovedregelen')}
+                        className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                      />
+                      <span className="text-sm text-gray-700">Hovudregelen (Annenhver rød dag fri) - Main rule: every other red day off</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name={`calculation-${check.id}`}
+                        value="annenhver"
+                        checked={calculationMethod === 'annenhver'}
+                        onChange={() => onInputChange('calculationMethod', 'annenhver')}
+                        className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                      />
+                      <span className="text-sm text-gray-700">Annenhver beregning og fri fordeling - Flexible distribution of compensation</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name={`calculation-${check.id}`}
+                        value="gjennomsnitt"
+                        checked={calculationMethod === 'gjennomsnitt'}
+                        onChange={() => onInputChange('calculationMethod', 'gjennomsnitt')}
+                        className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                      />
+                      <span className="text-sm text-gray-700">Gjennomsnittsberegning - Average calculation based on total hours worked</span>
                     </label>
                   </div>
                 </div>
