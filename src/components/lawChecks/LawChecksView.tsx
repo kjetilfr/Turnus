@@ -26,13 +26,7 @@ export default function LawChecksView({
   basePlanShifts,
   basePlan  // ADDED
 }: LawChecksViewProps) {
-  // DEBUG: Log what we received
-  console.log('=== LawChecksView DEBUG ===')
-  console.log('basePlan received:', basePlan)
-  console.log('basePlan type:', typeof basePlan)
-  console.log('basePlanRotations:', basePlanRotations ? `YES (${basePlanRotations.length})` : 'NO')
-  console.log('basePlanShifts:', basePlanShifts ? `YES (${basePlanShifts.length})` : 'NO')
-  
+
   const [checkResults, setCheckResults] = useState<Record<string, LawCheckResult>>({})
   const [runningChecks, setRunningChecks] = useState<Record<string, boolean>>({})
   const [checkInputs, setCheckInputs] = useState<Record<string, Record<string, number | string | boolean>>>(() => {
