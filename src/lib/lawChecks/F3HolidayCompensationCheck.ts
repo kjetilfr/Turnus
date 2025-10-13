@@ -490,7 +490,7 @@ export const f3HolidayCompensationCheck: LawCheck = {
       // Count consecutive sequences and calculate required F3
       let requiredF3Count = 0
       let currentSequence = 0
-      let sequences: Array<{ start: string; end: string; count: number; f3Required: number }> = []
+      const sequences: Array<{ start: string; end: string; count: number; f3Required: number }> = []
       
       for (let i = 0; i < sortedRedDayDates.length; i++) {
         const currentDate = new Date(sortedRedDayDates[i])
