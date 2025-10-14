@@ -276,6 +276,17 @@ export default function LawCheckCard({
                     .map(input => {
                       const currentValue = (inputs[input.id] ?? input.defaultValue) as number
                       const showWarningF1 = input.id === 'minRestHours' && input.type === 'number' && currentValue < 28
+                      const showWarningShiftLengthType0 = input.id === 'standardMaxShiftHours' && input.type === 'number' && currentValue > 9
+                      const showWarningShiftLengthType1 = input.id === 'type1MaxShiftHours' && input.type === 'number' && currentValue > 10
+                      const showWarningShiftLengthType2 = input.id === 'type2MaxShiftHours' && input.type === 'number' && currentValue > 12.5
+                      const showWarningShiftLengthType3 = input.id === 'type3MaxShiftHours' && input.type === 'number' && currentValue > 13
+                      const showWarningweeklyHoursType0 = input.id === 'standardMaxWeeklyHours"' && input.type === 'number' && currentValue > 40
+                      const showWarningweeklyHoursType1 = input.id === 'type1MaxWeeklyHours' && input.type === 'number' && currentValue > 50
+                      const showWarningweeklyHoursType2 = input.id === 'type2MaxWeeklyHours' && input.type === 'number' && currentValue > 54
+                      const showWarning8weeksHoursType1 = input.id === 'type1Max8WeekHours"' && input.type === 'number' && currentValue > 48
+                      const showWarning8weeksHoursType2 = input.id === 'type2Max8WeekHours' && input.type === 'number' && currentValue > 48
+                      const showWarning8weeksHoursType3 = input.id === 'type3Max8WeekHours' && input.type === 'number' && currentValue > 48
+
                       const showWarningShiftRestPeriod = input.id === 'minShiftRestHours' && input.type === 'number' && !isNaN(currentValue) && currentValue < 8
                       return (
                         <div key={input.id}>
@@ -331,6 +342,141 @@ export default function LawCheckCard({
                               </svg>
                               <span>
                                 Warning: Value below recommended minimum of 28 hours. This may not comply with standard rest period requirements.
+                              </span>
+                            </div>
+                          )}
+                          {showWarningShiftLengthType0 && (
+                            <div className="ml-[192px] mt-1 flex items-start gap-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-2 py-1.5">
+                              <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                                />
+                              </svg>
+                              <span>
+                                Warning: Shift length exceeds the maximum allowed for this agreement type (9 hours).
+                              </span>
+                            </div>
+                          )}
+                          {showWarningShiftLengthType1 && (
+                            <div className="ml-[192px] mt-1 flex items-start gap-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-2 py-1.5">
+                              <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                                />
+                              </svg>
+                              <span>
+                                Warning: Shift length exceeds the maximum allowed for this agreement type (10 hours).
+                              </span>
+                            </div>
+                          )}
+                          {showWarningShiftLengthType2 && (
+                            <div className="ml-[192px] mt-1 flex items-start gap-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-2 py-1.5">
+                              <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                                />
+                              </svg>
+                              <span>
+                                Warning: Shift length exceeds the maximum allowed for this agreement type (12,5 hours).
+                              </span>
+                            </div>
+                          )}
+                          {showWarningShiftLengthType3 && (
+                            <div className="ml-[192px] mt-1 flex items-start gap-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-2 py-1.5">
+                              <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                                />
+                              </svg>
+                              <span>
+                                Warning: Shift length exceeds the maximum allowed for this agreement type (13 hours).
+                              </span>
+                            </div>
+                          )}
+                          {showWarningweeklyHoursType0 && (
+                            <div className="ml-[192px] mt-1 flex items-start gap-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-2 py-1.5">
+                              <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                                />
+                              </svg>
+                              <span>
+                                Warning: Hours weekly exceeds the maximum allowed for this agreement type (35.5 (hta) i turnus, 37,5 (hta) i dagjobb).
+                              </span>
+                            </div>
+                          )}
+                          {showWarningweeklyHoursType1 && (
+                            <div className="ml-[192px] mt-1 flex items-start gap-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-2 py-1.5">
+                              <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                                />
+                              </svg>
+                              <span>
+                                Warning: Hours weekly exceeds the maximum allowed for this agreement type (50t).
+                              </span>
+                            </div>
+                          )}
+                          {showWarning8weeksHoursType1 && (
+                            <div className="ml-[192px] mt-1 flex items-start gap-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-2 py-1.5">
+                              <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                                />
+                              </svg>
+                              <span>
+                                Warning: Hours weekly exceeds the maximum allowed for this agreement type (48t).
+                              </span>
+                            </div>
+                          )}
+                          {showWarning8weeksHoursType2 && (
+                            <div className="ml-[192px] mt-1 flex items-start gap-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-2 py-1.5">
+                              <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                                />
+                              </svg>
+                              <span>
+                                Warning: Hours weekly exceeds the maximum allowed for this agreement type (48t).
+                              </span>
+                            </div>
+                          )}
+                          {showWarning8weeksHoursType3 && (
+                            <div className="ml-[192px] mt-1 flex items-start gap-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-2 py-1.5">
+                              <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                                />
+                              </svg>
+                              <span>
+                                Warning: Hours weekly exceeds the maximum allowed for this agreement type (48t).
                               </span>
                             </div>
                           )}

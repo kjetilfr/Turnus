@@ -236,7 +236,7 @@ export const averageWorkHoursCheck: LawCheck = {
             result.violations?.push({
               weekIndex: rotation.week_index,
               dayOfWeek: rotation.day_of_week,
-              description: `Shift length ${shiftHours.toFixed(1)}h exceeds max ${maxShiftHours}h`
+              description: `Shift length ${shiftHours.toFixed(2)}h exceeds max ${maxShiftHours}h`
             })
           }
           

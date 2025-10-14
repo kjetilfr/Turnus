@@ -31,11 +31,12 @@ export const f5ReplacementDayCheck: LawCheck = {
     }
 
     if (plan.tariffavtale === 'oslo' || plan.tariffavtale === 'staten') {
-      result.status = 'warning'
-      result.message = 'F5 check not applicable to Oslo or Staten tariffavtale'
-      result.details = ['This check is only for KS tariffavtale']
-      return result
+    return {
+        status: 'warning',
+        message: 'F5 check not applicable to Oslo or Staten tariffavtale',
+        details: ['This check is only for KS tariffavtale']
     }
+}
 
     const planStartDate = new Date(plan.date_started)
     const planDurationWeeks = plan.duration_weeks

@@ -29,12 +29,6 @@ export const f3HolidayCompensationCheck: LawCheck = {
   ],
   inputs: [
     {
-      id: 'calculationMethod',
-      label: 'Calculation Method',
-      type: 'text',
-      defaultValue: 'hovedregelen'
-    },
-    {
       id: 'ignoreLessThanOrEqualTo',
       label: 'Ignore Work Less Than or Equal To',
       type: 'number',
