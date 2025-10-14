@@ -1,7 +1,7 @@
 // src/components/plan/EditPlanForm.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Plan, PlanType, Tariffavtale, YearPlanMode } from '@/types/plan'
@@ -27,10 +27,18 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
   const [basePlanId, setBasePlanId] = useState(plan.base_plan_id || '')
   const [dateStarted, setDateStarted] = useState(plan.date_started)
   const [workPercent, setWorkPercent] = useState(plan.work_percent || 100)
-  const [tariffavtale, setTariffavtale] = useState<Tariffavtale>(plan.tariffavtale || 'ks') // NEW
+  const [tariffavtale, setTariffavtale] = useState<Tariffavtale>(plan.tariffavtale || 'ks')
   const [loading, setLoading] = useState(false)
   const [yearPlanMode, setYearPlanMode] = useState<YearPlanMode>(plan.year_plan_mode || 'rotation_based')
   const [error, setError] = useState<string | null>(null)
+  const [f3Days, setF3Days] = useState(plan.f3_days || 0)
+  const [f5Days, setF5Days] = useState(plan.f5_days || 0)
+
+  useEffect(() => {
+    if (type === 'year' && yearPlanMode === 'strict_year') {
+      setDurationWeeks(52)
+    }
+  }, [type, yearPlanMode])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -68,7 +76,9 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
         work_percent: workPercent,
         tariffavtale,
         base_plan_id: type === 'helping' ? basePlanId : null,
-        year_plan_mode: type === 'year' ? yearPlanMode : null,  // ADD THIS LINE
+        year_plan_mode: type === 'year' ? yearPlanMode : null,
+        f3_days: type === 'year' && yearPlanMode === 'strict_year' ? f3Days : null,
+        f5_days: type === 'year' && yearPlanMode === 'strict_year' ? f5Days : null
       }
 
       const { error: updateError } = await supabase
@@ -277,6 +287,55 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
           </div>
         )}
 
+        {/* F3 and F5 input for strict_year_plans */}
+        {type === 'year' && yearPlanMode === 'strict_year' && (
+          <>
+            <div>
+              <label htmlFor="f3Days" className="block text-sm font-medium text-gray-700 mb-2">
+                F3 Days (Holiday Compensation)
+              </label>
+              <input
+                id="f3Days"
+                type="number"
+                min="0"
+                max="365"
+                value={isNaN(f3Days) ? '' : f3Days}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? 0 : parseInt(e.target.value)
+                  setF3Days(val)
+                }}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
+              />
+              <p className="mt-2 text-sm text-gray-600">
+                Number of F3 compensation days for holiday work
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="f5Days" className="block text-sm font-medium text-gray-700 mb-2">
+                F5 Days (Replacement Days)
+              </label>
+              <input
+                id="f5Days"
+                type="number"
+                min="0"
+                max="365"
+                value={isNaN(f5Days) ? '' : f5Days}
+                onChange={(e) => {
+                  const val = e.target.value === '' ? 0 : parseInt(e.target.value)
+                  setF5Days(val)
+                }}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
+              />
+              <p className="mt-2 text-sm text-gray-600">
+                Number of F5 replacement days when F1 falls on a holiday
+              </p>
+            </div>
+          </>
+        )}
+
         {/* Base Plan (only for helping plans) */}
         {type === 'helping' && (
           <div>
@@ -322,7 +381,8 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
               setDurationWeeks(val)
             }}
             required
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
+            disabled={type === 'year' && yearPlanMode === 'strict_year'}  // ADD THIS
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"  // ADD disabled styles
           />
           <p className="mt-2 text-sm text-gray-600">
             How many weeks does this plan cover?
