@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+  const [confirmPassword, setConfirmPassword] = useState('')
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -20,6 +21,15 @@ export default function LoginPage() {
 
     try {
       if (isSignUp) {
+        if (password !== confirmPassword) {
+          setMessage({
+            type: 'error',
+            text: 'Passwords do not match'
+          })
+          setLoading(false)
+          return
+        }
+        
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -42,7 +52,7 @@ export default function LoginPage() {
         
         if (error) throw error
         
-        router.push('/dashboard')
+        router.push('/')
         router.refresh()
       }
     } catch (error) {
@@ -159,6 +169,23 @@ export default function LoginPage() {
               />
             </div>
 
+            {isSignUp && (
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm Password
+                </label>
+                <input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  placeholder="••••••••"
+                />
+              </div>
+            )}
             <button
               type="submit"
               disabled={loading}
