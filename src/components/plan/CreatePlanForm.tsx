@@ -24,7 +24,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
   const [durationWeeks, setDurationWeeks] = useState(1)
   const [type, setType] = useState<PlanType>('main')
   const [basePlanId, setBasePlanId] = useState('')
-  const [dateStarted, setDateStarted] = useState(new Date().toISOString().split('T')[0])
+  const [dateStarted, setDateStarted] = useState('')
   const [workPercent, setWorkPercent] = useState(100)
   const [tariffavtale, setTariffavtale] = useState<Tariffavtale>('ks')
   const [yearPlanMode, setYearPlanMode] = useState<YearPlanMode>('rotation_based')
@@ -32,6 +32,12 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
   const [error, setError] = useState<string | null>(null)
   const [f3Days, setF3Days] = useState(0)
   const [f5Days, setF5Days] = useState(0)
+
+  const isMonday = (dateString: string): boolean => {
+    if (!dateString) return true // Don't show warning if no date selected
+    const date = new Date(dateString)
+    return date.getDay() === 1 // Monday = 1
+  }
 
   useEffect(() => {
     if (type === 'year' && yearPlanMode === 'strict_year') {
@@ -106,16 +112,18 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
           name: helpingPlanName,
           description: description ? `${description} - Full year schedule` : 'Full year schedule',
           duration_weeks: 52,
-          type: 'year' as PlanType,
+          type: 'helping' as PlanType,  // CHANGE THIS
           base_plan_id: rotationYearPlan.id,
           date_started: dateStarted,
           work_percent: workPercent,
-          tariffavtale,
+          tariffavtale
         }
 
         const { error: helpingPlanError } = await supabase
           .from('plans')
           .insert([helpingPlanData])
+          .select()
+          .single()
 
         if (helpingPlanError) throw helpingPlanError
 
@@ -224,6 +232,16 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
             required
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
           />
+          {dateStarted && !isMonday(dateStarted) && (
+            <div className="mt-2 flex items-start gap-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
+              <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span>
+                Warning: Selected date is not a Monday. Plans typically start on Mondays for proper week alignment.
+              </span>
+            </div>
+          )}
           <p className="mt-2 text-sm text-gray-600">
             The date when this rotation plan begins
           </p>

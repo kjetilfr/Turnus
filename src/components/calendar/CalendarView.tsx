@@ -18,6 +18,20 @@ interface CalendarViewProps {
   durationWeeks: number
 }
 
+function getRotationDate(planStartDate: Date, weekIndex: number, dayOfWeek: number): Date {
+  const d = new Date(planStartDate)
+  const jsDay = d.getDay()
+  const mondayFirstIndex = (jsDay + 6) % 7
+  d.setDate(d.getDate() - mondayFirstIndex)
+  d.setDate(d.getDate() + weekIndex * 7 + dayOfWeek)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function formatDateLocal(date: Date): string {
+  return date.toLocaleDateString('sv-SE', { timeZone: 'Europe/Oslo' })
+}
+
 export default function CalendarView({ 
   rotations, 
   shifts, 
@@ -73,7 +87,7 @@ export default function CalendarView({
         const daysToAdd = rotation.week_index * 7 + rotation.day_of_week
         startDate.setDate(startDate.getDate() + daysToAdd)
 
-        const dateString = startDate.toISOString().split('T')[0]
+        const dateString = formatDateLocal(startDate)
 
         // Determine event color based on shift type
         const color = shift.is_default 
