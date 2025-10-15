@@ -19,6 +19,10 @@ export interface LawCheckInput {
   max?: number
   step?: number
   unit?: string
+  showIf?: {
+    field: string
+    equals: any
+  }
 }
 
 export interface LawCheckResult {

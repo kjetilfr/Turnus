@@ -28,17 +28,31 @@ export const f3HolidayCompensationCheck: LawCheck = {
     }
   ],
   inputs: [
-    {
-      id: 'ignoreLessThanOrEqualTo',
-      label: 'Ignore Work Less Than or Equal To',
-      type: 'number',
-      defaultValue: 1,
-      min: 0,
-      max: 24,
-      step: 0.25,
-      unit: 'hours'
+  {
+    id: 'ignoreLessThanOrEqualTo',
+    label: 'Ignore Work Less Than or Equal To',
+    type: 'number',
+    defaultValue: 1,
+    min: 0,
+    max: 24,
+    step: 0.25,
+    unit: 'hours'
+  },
+  {
+    id: 'averageWeeks',
+    label: 'Weeks to Calculate For (Gjennomsnittsberegning)',
+    type: 'number',
+    defaultValue: 26,
+    min: 4,
+    max: 52,
+    step: 1,
+    unit: 'weeks',
+    showIf: {
+      field: 'calculationMethod',
+      equals: 'gjennomsnitt'
     }
-  ],
+  }
+],
 
   run: ({ rotations, shifts, plan, basePlanRotations, basePlanShifts, basePlan, inputs = {} }) => {
     const result: LawCheckResult = {
@@ -251,6 +265,20 @@ export const f3HolidayCompensationCheck: LawCheck = {
         }
       }
 
+      // --- F3 reduction check ---
+      if (zonesWorked.length > 0) {
+        if (f3ReplacedHours <= 0) {
+          result.details.push(`❌ F3 not reducing hours: F3 reduction ${f3ReplacedHours.toFixed(2)}h`)
+          result.violations?.push({
+            weekIndex: -1,
+            dayOfWeek: -1,
+            description: `F3 shifts not reducing work hours`
+          })
+        } else {
+          result.details.push(`✅ F3 reducing hours by ${f3ReplacedHours.toFixed(2)}h`)
+        }
+      }
+
       // Log summary
       result.details.push('--- Hovudregelen F3 requirements ---');
       violationDetails.forEach(line => result.details?.push(line));
@@ -429,14 +457,13 @@ export const f3HolidayCompensationCheck: LawCheck = {
 
       return result
     } // end annenhver
-
-    // ===================== GJENNOMSNITT (average) =====================
+    // GJENNOMSNITT
     if (calculationMethod === 'gjennomsnitt') {
       result.details.push('=== Gjennomsnittsberegning Analysis ===')
       result.details.push('')
 
-      const shortOverlapZones = zonesWorked.filter(zw => zw.overlapHours <= ignoreLessThanOrEqualTo)
-      const significantWorkZones = zonesWorked.filter(zw => zw.overlapHours > ignoreLessThanOrEqualTo)
+      const shortOverlapZones = zonesWorked.filter(zw => zw.overlapHours > 0 && zw.overlapHours < ignoreLessThanOrEqualTo)
+      const significantWorkZones = zonesWorked.filter(zw => zw.overlapHours >= ignoreLessThanOrEqualTo)
 
       if (significantWorkZones.length === 0) {
         result.status = 'pass'
@@ -447,65 +474,104 @@ export const f3HolidayCompensationCheck: LawCheck = {
         return result
       }
 
-      const significantRedDayDates = new Set<string>()
-      significantWorkZones.forEach(zw => {
-        const zoneEnd = new Date(zw.zone.endDateTime)
-        zoneEnd.setHours(0, 0, 0, 0)
-        significantRedDayDates.add(formatDateLocal(zoneEnd))
-      })
+      const averageWeeksInput = (inputs.averageWeeks as number) ?? 26
+      const useWeeks = plan.duration_weeks > 26 ? averageWeeksInput : plan.duration_weeks
 
-      const sortedRedDayDates = Array.from(significantRedDayDates).sort()
-
-      const totalRedDaysInPeriod = relevantTimeZones.length
-      const maxAllowedWorkDays = Math.floor(totalRedDaysInPeriod / 2)
-      const workedMoreThanHalf = sortedRedDayDates.length > maxAllowedWorkDays
-
-      result.details.push(`Total red days in period: ${totalRedDaysInPeriod}`)
-      result.details.push(`Max allowed work days (50%, rounded down): ${maxAllowedWorkDays}`)
-      result.details.push(`Days actually worked (>${ignoreLessThanOrEqualTo}h): ${sortedRedDayDates.length}`)
+      result.details.push(`Calculation period length: ${useWeeks} weeks`)
+      result.details.push(`(Using input of ${averageWeeksInput} weeks since plan length is ${plan.duration_weeks})`)
       result.details.push('')
 
+      // Filter only timezones inside each rolling segment of `useWeeks`
+      const totalPeriods = Math.ceil(plan.duration_weeks / useWeeks)
       let violationCount = 0
+      let workedMoreThanHalfGlobal = false
 
-      if (workedMoreThanHalf) {
-        result.details.push(`❌ Worked ${sortedRedDayDates.length} red days, maximum allowed is ${maxAllowedWorkDays}`)
-        violationCount++
-        result.violations?.push({
-          weekIndex: -1,
-          dayOfWeek: -1,
-          description: `Worked ${sortedRedDayDates.length} red days, maximum allowed is ${maxAllowedWorkDays} (50% of ${totalRedDaysInPeriod}, rounded down)`
+      for (let periodIndex = 0; periodIndex < totalPeriods; periodIndex++) {
+        const segmentStart = new Date(helpingPlanStartDate)
+        segmentStart.setDate(segmentStart.getDate() + periodIndex * useWeeks * 7)
+        const segmentEnd = new Date(segmentStart)
+        segmentEnd.setDate(segmentEnd.getDate() + useWeeks * 7)
+
+        const segmentZones = relevantTimeZones.filter(
+          z => z.startDateTime >= segmentStart && z.startDateTime < segmentEnd
+        )
+
+        const totalRedDaysInSegment = segmentZones.length
+
+        const workedInSegment = significantWorkZones.filter(
+          zw => zw.zone.startDateTime >= segmentStart && zw.zone.startDateTime < segmentEnd
+        )
+
+        const workedDaysInSegment = new Set<string>()
+        workedInSegment.forEach(zw => {
+          const d = new Date(zw.zone.endDateTime)
+          d.setHours(0, 0, 0, 0)
+          workedDaysInSegment.add(formatDateLocal(d))
         })
-      } else {
-        result.details.push(`✅ Red day work within 50% limit (${sortedRedDayDates.length}/${maxAllowedWorkDays} days used)`)
-      }
 
-      if (sortedRedDayDates.length > 0 && f3ReplacedHours <= 0) {
-        result.details.push(`❌ F3 not reducing hours: F3 reduction ${f3ReplacedHours.toFixed(2)}h`)
-        violationCount++
-        result.violations?.push({
-          weekIndex: -1,
-          dayOfWeek: -1,
-          description: `F3 shifts not reducing work hours`
-        })
-      } else {
-        result.details.push(`✅ F3 reducing hours by ${f3ReplacedHours.toFixed(2)}h`)
-      }
+        const maxAllowedWorkDays = Math.floor(totalRedDaysInSegment / 2)
+        const workedMoreThanHalf = workedDaysInSegment.size > maxAllowedWorkDays
 
-      if (violationCount > 0) {
-        result.status = 'fail'
-        result.message = `Gjennomsnitt: Found ${violationCount} violation(s)`
-      } else {
-        result.status = 'pass'
-        result.message = `Gjennomsnitt: ${sortedRedDayDates.length} of ${totalRedDaysInPeriod} red days worked (within 50% limit), F3 reducing ${f3ReplacedHours.toFixed(2)}h`
-      }
+        result.details.push(`--- Period ${periodIndex + 1} (${formatDateLocal(segmentStart)} → ${formatDateLocal(segmentEnd)}) ---`)
+        result.details.push(`Total red days: ${totalRedDaysInSegment}`)
+        result.details.push(`Worked red days: ${workedDaysInSegment.size}`)
+        result.details.push(`Max allowed (50%): ${maxAllowedWorkDays}`)
 
-      if (shortOverlapZones.length > 0) {
+        if (workedMoreThanHalf) {
+          workedMoreThanHalfGlobal = true
+          result.details.push(`❌ Worked too many red days (${workedDaysInSegment.size} > ${maxAllowedWorkDays})`)
+          result.violations?.push({
+            weekIndex: -1,
+            dayOfWeek: -1,
+            description: `Gjennomsnitt: Period ${periodIndex + 1} exceeded 50% limit (${workedDaysInSegment.size}/${totalRedDaysInSegment})`
+          })
+          violationCount++
+        } else {
+          result.details.push(`✅ Within 50% limit (${workedDaysInSegment.size}/${totalRedDaysInSegment})`)
+        }
+
         result.details.push('')
-        result.details.push(`ℹ️ ${shortOverlapZones.length} zones with work ≤${ignoreLessThanOrEqualTo}h ignored per agreement`)
       }
 
-      return result
+  // F3 reduction check
+  // --- F3 reduction check (only if F3 needed) ---
+  if (significantWorkZones.length > 0) {
+    const f3DaysUsed = f3ReplacedHours > 0
+    const neededF3 = violationCount > 0 // F3 is only needed if we exceeded 50% before F3 reduction
+
+    if (neededF3) {
+      if (!f3DaysUsed) {
+        result.details.push(`❌ F3 required but not reducing hours (0h reduction)`)
+        result.violations?.push({
+          weekIndex: -1,
+          dayOfWeek: -1,
+          description: `F3 needed to meet 50% limit, but no reduction found`
+        })
+        violationCount++
+      } else {
+        result.details.push(`✅ F3 correctly reducing hours by ${f3ReplacedHours.toFixed(2)}h`)
+      }
+    } else {
+      result.details.push(`ℹ️ F3 not required — within 50% limit without reduction`)
     }
+  }
+
+  if (violationCount > 0) {
+    result.status = 'fail'
+    result.message = `Gjennomsnitt: Found ${violationCount} violation(s)`
+  } else {
+    result.status = 'pass'
+    result.message = `Gjennomsnitt: All ${totalPeriods} periods comply with 50% red day limit, F3 reducing ${f3ReplacedHours.toFixed(2)}h`
+  }
+
+  if (shortOverlapZones.length > 0) {
+    result.details.push('')
+    result.details.push(`ℹ️ ${shortOverlapZones.length} zones with work ≤${ignoreLessThanOrEqualTo}h ignored per agreement`)
+  }
+
+  return result
+}
+
 
     // default fallback
     return result

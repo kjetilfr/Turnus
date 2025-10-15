@@ -19,7 +19,7 @@ export const f5ReplacementDayCheck: LawCheck = {
       url: 'https://www.ks.no/fagomrader/lonn-og-tariff/tariffavtaler/'
     }
   ],
-  applicableTo: ['main', 'helping', 'year'],
+  applicableTo: ['helping', 'year'],
   inputs: [],
 
   run: ({ rotations, shifts, plan, basePlanRotations, basePlanShifts, basePlan }) => {

@@ -252,9 +252,15 @@ export default function LawCheckCard({
 
               {/* Input Fields */}
               {isEnabled && check.inputs && check.inputs.length > 0 && (
+                
                 <div className="space-y-3 mb-3">
                   {check.inputs
                     .filter(input => {
+                      //ShowIf check
+                      if (input.showIf) {
+                        const { field, equals } = input.showIf
+                        return inputs[field] === equals
+                      }
                       // Filter inputs based on agreement type for average hours check
                       if (!isAverageHoursCheck) return true
                       if (input.id === 'agreementType') return false // Already handled above
@@ -271,6 +277,7 @@ export default function LawCheckCard({
                       } else if (agreementType === 'type4') {
                         return input.id.startsWith('type4')
                       }
+                      
                       return true
                     })
                     .map(input => {
@@ -553,7 +560,7 @@ export default function LawCheckCard({
           )}
         </div>
       </div>
-
+      
       {/* Expanded Details */}
       {isExpanded && result?.details && result.details.length > 0 && isEnabled && (
         <div className="px-4 pb-4 border-t border-gray-300">
