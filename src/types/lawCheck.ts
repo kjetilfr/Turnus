@@ -21,7 +21,7 @@ export interface LawCheckInput {
   unit?: string
   showIf?: {
     field: string
-    equals: any
+    equals: string
   }
 }
 

@@ -14,8 +14,9 @@ import { getNorwegianHolidays } from '@/lib/utils/norwegianHolidays'
 interface CalendarViewProps {
   rotations: Rotation[]
   shifts: Shift[]
-  planStartDate: string // Format: YYYY-MM-DD
+  planStartDate: string
   durationWeeks: number
+  planType: 'main' | 'helping' | 'year'  // ADD THIS LINE
 }
 
 function getRotationDate(planStartDate: Date, weekIndex: number, dayOfWeek: number): Date {
@@ -36,22 +37,26 @@ export default function CalendarView({
   rotations, 
   shifts, 
   planStartDate,
-  durationWeeks 
+  durationWeeks,
+  planType
 }: CalendarViewProps) {
   const calendarRef = useRef<HTMLDivElement>(null)
   const calendarInstance = useRef<Calendar | null>(null)
   const [currentView, setCurrentView] = useState<'month' | 'week'>('month')
+  const [repeatCount, setRepeatCount] = useState(1)
 
   useEffect(() => {
     if (!calendarRef.current) return
 
     // Create a map of shifts for quick lookup
     const shiftsMap = new Map(shifts.map(shift => [shift.id, shift]))
+    
 
     // Get Norwegian holidays for relevant years
     const startYear = new Date(planStartDate).getFullYear()
     const endYear = new Date(planStartDate)
-    endYear.setDate(endYear.getDate() + (durationWeeks * 7))
+    const totalDisplayWeeks = durationWeeks * repeatCount
+    endYear.setDate(endYear.getDate() + (totalDisplayWeeks * 7))
     const finalYear = endYear.getFullYear()
     
     let holidays: Array<{date: string, name: string, localName: string}> = []
@@ -75,8 +80,18 @@ export default function CalendarView({
       }
     }))
 
+    const repeatedRotations: Rotation[] = []
+    for (let repeat = 0; repeat < repeatCount; repeat++) {
+      rotations.forEach(rotation => {
+        repeatedRotations.push({
+          ...rotation,
+          week_index: rotation.week_index + (repeat * durationWeeks)
+        })
+      })
+    }
+
     // Convert rotations to calendar events
-    const events = rotations
+    const events = repeatedRotations
       .filter(rotation => rotation.shift_id)
       .map(rotation => {
         const shift = shiftsMap.get(rotation.shift_id!)
@@ -121,7 +136,7 @@ export default function CalendarView({
           }
 
           return {
-            id: rotation.id,
+            id: `${rotation.id}-repeat-${Math.floor(rotation.week_index / durationWeeks)}`,
             title: shift.name,
             start: `${actualStartDate}T${shift.start_time}`,
             end: `${actualEndDate}T${shift.end_time}`,
@@ -131,7 +146,8 @@ export default function CalendarView({
               shiftId: shift.id,
               shiftName: shift.name,
               description: shift.description,
-              notes: rotation.notes
+              notes: rotation.notes,
+              repeatCycle: Math.floor(rotation.week_index / durationWeeks)
             }
           }
         }
@@ -242,22 +258,30 @@ export default function CalendarView({
         const date = info.date
         const planStart = new Date(planStartDate)
         
-        // Calculate days difference
-        const diffTime = date.getTime() - planStart.getTime()
+        // Align to Monday (same logic as rotation grid)
+        const jsDay = planStart.getDay()
+        const mondayFirstIndex = (jsDay + 6) % 7
+        const alignedPlanStart = new Date(planStart)
+        alignedPlanStart.setDate(alignedPlanStart.getDate() - mondayFirstIndex)
+        alignedPlanStart.setHours(0, 0, 0, 0)
+        
+        // Calculate days difference from aligned Monday
+        const diffTime = date.getTime() - alignedPlanStart.getTime()
         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
         
         // Calculate rotation week (0-indexed)
         const rotationWeek = Math.floor(diffDays / 7)
         
         // Only show if within the plan duration and not negative
-        if (rotationWeek >= 0 && rotationWeek < durationWeeks) {
-          // Find the week number cell
+        if (rotationWeek >= 0 && rotationWeek < totalDisplayWeeks) {  // CHANGE from durationWeeks
           const weekCell = info.el.closest('tr')?.querySelector('.fc-daygrid-week-number')
           if (weekCell && !weekCell.querySelector('.rotation-week')) {
             const rotationWeekSpan = document.createElement('div')
             rotationWeekSpan.className = 'rotation-week'
             rotationWeekSpan.style.cssText = 'font-size: 0.7em; color: #6366F1; font-weight: 600; margin-top: 2px;'
-            rotationWeekSpan.textContent = `(T${rotationWeek + 1})`
+            
+            const weekInCycle = (rotationWeek % durationWeeks) + 1
+            rotationWeekSpan.textContent = `(T${weekInCycle})`
             weekCell.appendChild(rotationWeekSpan)
           }
         }
@@ -272,15 +296,37 @@ export default function CalendarView({
     return () => {
       calendar.destroy()
     }
-  }, [rotations, shifts, planStartDate, durationWeeks])
+  }, [rotations, shifts, planStartDate, durationWeeks, repeatCount])
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">Shift Calendar</h2>
-        <p className="text-sm text-gray-600">
-          View your rotation schedule in calendar format. Click on any shift to see details.
-        </p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Shift Calendar</h2>
+          <p className="text-sm text-gray-600">
+            View your rotation schedule in calendar format. Click on any shift to see details.
+          </p>
+        </div>
+        
+        {planType === 'main' && (
+          <div className="flex items-center gap-3">
+            <label htmlFor="repeatCount" className="text-sm font-medium text-gray-700">
+              Repeat rotation:
+            </label>
+            <select
+              id="repeatCount"
+              value={repeatCount}
+              onChange={(e) => setRepeatCount(Number(e.target.value))}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+            >
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                <option key={num} value={num}>
+                  {num} {num === 1 ? 'time' : 'times'}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
       
       <div className="calendar-container" ref={calendarRef}></div>
@@ -302,6 +348,11 @@ export default function CalendarView({
             <span className="text-sm text-gray-700">🇳🇴 Norwegian Holidays</span>
           </div>
         </div>
+        {planType === 'main' && repeatCount > 1 && (
+          <div className="mt-3 text-sm text-gray-600">
+            <strong>Note:</strong> Rotation repeated {repeatCount} times. Week labels restart at T1 for each cycle.
+          </div>
+        )}
       </div>
 
       {/* FullCalendar Styles */}

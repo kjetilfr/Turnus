@@ -100,12 +100,12 @@ export default async function CalendarPage({ params }: PageProps) {
                 activePage="calendar"  // <-- This sets Calendar as the active tab
             />
 
-            {/* Calendar View */}
             <CalendarView 
-                rotations={rotations || []} 
-                shifts={shifts || []}
-                planStartDate={plan.date_started}
-                durationWeeks={plan.duration_weeks}
+              rotations={rotations || []} 
+              shifts={shifts || []}
+              planStartDate={plan.date_started}
+              durationWeeks={plan.duration_weeks}
+              planType={plan.type}  // ADD THIS LINE
             />
         </div>
       </main>
