@@ -6,12 +6,7 @@ import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
 import { Plan } from '@/types/plan'
 import { calculateShiftHours } from '@/lib/utils/shiftCalculations'
-import { 
-  calculateEveningHours,
-  calculateWeekendHours,
-  getNightHoursLabel,
-  getNightHoursCalculator 
-} from '@/lib/utils/shiftTimePeriods'
+import { calculateEveningHours, calculateWeekendHours, getNightHoursLabel, getNightHoursCalculator } from '@/lib/utils/shiftTimePeriods'
 
 
 interface ShiftSummaryProps {

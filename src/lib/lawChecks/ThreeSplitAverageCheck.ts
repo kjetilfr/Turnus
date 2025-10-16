@@ -8,6 +8,7 @@ import { getNightHoursCalculator, getNightHoursLabel } from '@/lib/utils/shiftTi
 import { getHolidayTimeZones, HolidayTimeZone } from '@/lib/utils/norwegianHolidayTimeZones'
 import { calculateShiftHours } from '@/lib/utils/shiftCalculations'
 
+
 /**
  * Three-Split Average Check (Simplified)
  * 
@@ -73,10 +74,15 @@ export const threeSplitAverageCheck: LawCheck = {
     }
   ],
   
-  run: ({ rotations, shifts, plan, basePlanRotations, basePlanShifts, basePlan, inputs = {} }) => {
+  run: ({ rotations, shifts, plan, inputs = {} }) => {
     const requiredNightHours = (inputs.requiredNightHoursPerWeek as number) || 1.39
     const requiredSundayFreq = (inputs.requiredSundayFrequency as number) || 3
     const requiredNonNightPercent = (inputs.requiredNonNightPercent as number) || 25
+    const effectiveRotations: Rotation[] = rotations
+    const effectiveShifts: Shift[] = shifts
+
+    console.log()
+    console.log(effectiveRotations + " " + effectiveShifts)
     
     const result: LawCheckResult = {
       status: 'fail',
@@ -84,41 +90,13 @@ export const threeSplitAverageCheck: LawCheck = {
       details: [],
       violations: []
     }
+    console.log('🔍 Running Three-Split Average Check for plan:', plan.name, plan.id)
+    console.log('Plan type:', plan.type, 'Duration weeks:', plan.duration_weeks)
+    console.log('Inputs:', { requiredNightHours, requiredSundayFreq, requiredNonNightPercent })
 
     // Determine which rotations and shifts to use
-    let effectiveRotations: Rotation[] = []
-    let effectiveShifts: Shift[] = []
-    
-    if (plan.type === 'helping' && basePlanRotations && basePlanShifts && basePlan) {
-      // For helping plans, compute effective rotations from base plan
-      const maxWeek = Math.max(...basePlanRotations.map(r => r.week_index))
-      const basePlanRotationLength = maxWeek + 1
-      
-      const basePlanStartDate = new Date(basePlan.date_started)
-      const helpingPlanStartDate = new Date(plan.date_started)
-      const diffTime = helpingPlanStartDate.getTime() - basePlanStartDate.getTime()
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
-      const diffWeeks = Math.floor(diffDays / 7)
-      let weekOffset = diffWeeks % basePlanRotationLength
-      if (weekOffset < 0) weekOffset += basePlanRotationLength
-      
-      for (let helpingWeek = 0; helpingWeek < plan.duration_weeks; helpingWeek++) {
-        const baseRotationWeek = (helpingWeek + weekOffset) % basePlanRotationLength
-        const baseWeekRotations = basePlanRotations.filter(r => r.week_index === baseRotationWeek)
-        baseWeekRotations.forEach(baseRotation => {
-          effectiveRotations.push({
-            ...baseRotation,
-            week_index: helpingWeek,
-            plan_id: plan.id
-          })
-        })
-      }
-      effectiveShifts = basePlanShifts
-    } else {
-      // For main and year plans, use their own rotations
-      effectiveRotations = rotations
-      effectiveShifts = shifts
-    }
+
+
 
     // Get plan dates
     const planStartDate = new Date(plan.date_started)
@@ -180,23 +158,48 @@ export const threeSplitAverageCheck: LawCheck = {
     })
 
     // ============================================================
+    // RED DAY + SUNDAY OVERLAP LOGGING
+    // ============================================================
+    console.log('\n🟥 RED DAY / SUNDAY ZONES')
+    zonesWorked.forEach(zw => {
+      const zoneDate = zw.zone.startDateTime.toISOString().split('T')[0]
+      if (zw.isWorked && zw.overlapHours > 0) {
+        console.log(
+          `  ${zoneDate} | ${zw.zone.holidayName.padEnd(10)} | ${zw.overlapHours.toFixed(2)}h worked`
+        )
+      }
+    })
+
+    // ============================================================
     // Calculate metrics for qualifications
     // ============================================================
 
-    // 1. Night hours (20:00 to 06:00) for 35.5h qualification
-    let totalNightHours20to6 = 0
-    
-    effectiveRotations.forEach((rotation: Rotation) => {
-      if (rotation.shift_id) {
-        const shift = effectiveShifts.find((s: Shift) => s.id === rotation.shift_id)
-        if (shift && shift.start_time && shift.end_time) {
-          const nightHours = calculateNightHours20to6(shift.start_time, shift.end_time)
-          totalNightHours20to6 += nightHours
-        }
-      }
-    })
-    
-    const avgNightHoursPerWeek20to6 = totalNightHours20to6 / plan.duration_weeks
+// ============================================================
+// NIGHT HOURS CALCULATION + DEBUG LOG
+// ============================================================
+
+console.log('\n🌙 NIGHT HOURS CALCULATION (20:00–06:00 for 35.5h check)')
+let totalNightHours20to6 = 0
+
+effectiveRotations.forEach((rotation: Rotation) => {
+  if (!rotation.shift_id) return
+  const shift = effectiveShifts.find((s: Shift) => s.id === rotation.shift_id)
+  if (!shift || !shift.start_time || !shift.end_time) return
+
+  const nightHours = calculateNightHours20to6(shift.start_time, shift.end_time)
+  if (nightHours > 0) {
+    console.log(
+      `  Week ${rotation.week_index + 1}, Day ${rotation.day_of_week}: ${shift.start_time}-${shift.end_time} → ${nightHours.toFixed(2)}h night (20–06)`
+    )
+  }
+  totalNightHours20to6 += nightHours
+})
+
+const avgNightHoursPerWeek20to6 = totalNightHours20to6 / plan.duration_weeks
+console.log(`  → Average per week: ${avgNightHoursPerWeek20to6.toFixed(2)}h`)
+
+
+
 
     // 2. Sunday work frequency
     const sundayZones = zonesWorked.filter(zw => 
@@ -211,28 +214,51 @@ export const threeSplitAverageCheck: LawCheck = {
     const has24HourCoverage = check24HourCoverage(effectiveRotations, effectiveShifts)
 
     // 4. Calculate non-night hours percentage
-    const calculateNightHours = getNightHoursCalculator(plan.tariffavtale)
-    const nightHoursLabel = getNightHoursLabel(plan.tariffavtale)
-    
-    let totalHours = 0
-    let totalNightHoursTariff = 0
-    
-    effectiveRotations.forEach((rotation: Rotation) => {
-      if (rotation.shift_id) {
-        const shift = effectiveShifts.find((s: Shift) => s.id === rotation.shift_id)
-        if (shift && shift.start_time && shift.end_time) {
-          const shiftHours = calculateShiftHours(shift.start_time, shift.end_time)
-          totalHours += shiftHours
-          
-          const nightHours = calculateNightHours(shift.start_time, shift.end_time)
-          totalNightHoursTariff += nightHours
-        }
-      }
-    })
+// ============================================================
+// TARIFF-BASED NIGHT HOURS (used for 33.6h qualification)
+// ============================================================
+console.log(`\n🌙 TARIFF NIGHT HOURS (${plan.tariffavtale.toUpperCase()} – ${getNightHoursLabel(plan.tariffavtale)})`)
+const calculateNightHours = getNightHoursCalculator(plan.tariffavtale)
+const nightHoursLabel = getNightHoursLabel(plan.tariffavtale)
+
+let totalHours = 0
+let totalNightHoursTariff = 0
+
+effectiveRotations.forEach(rotation => {
+  if (!rotation.shift_id) return
+  const shift = effectiveShifts.find(s => s.id === rotation.shift_id)
+  if (!shift || !shift.start_time || !shift.end_time) return
+
+  const shiftHours = calculateShiftHours(shift.start_time, shift.end_time)
+  const tariffNight = calculateNightHours(shift.start_time, shift.end_time)
+  totalHours += shiftHours
+  totalNightHoursTariff += tariffNight
+
+  if (tariffNight > 0) {
+    console.log(
+      `  Week ${rotation.week_index + 1}, Day ${rotation.day_of_week}: ${shift.start_time}-${shift.end_time} → ${tariffNight.toFixed(2)}h night (${nightHoursLabel})`
+    )
+  }
+})
+
+console.log(`  → Total tariff night hours: ${totalNightHoursTariff.toFixed(2)}h`)
     
     const nonNightHours = totalHours - totalNightHoursTariff
     const nonNightPercent = totalHours > 0 ? (nonNightHours / totalHours) * 100 : 0
     const meetsNonNightRequirement = nonNightPercent >= requiredNonNightPercent
+
+    // After non-night calculation:
+    console.log('\n🕒 Hours Summary:')
+    console.log(`  Total hours: ${totalHours.toFixed(2)}h`)
+    console.log(`  Total night hours (${nightHoursLabel}): ${totalNightHoursTariff.toFixed(2)}h`)
+    console.log(`  Non-night %: ${nonNightPercent.toFixed(1)}%`)
+
+    // Before qualification logic:
+    console.log('\n📊 Qualification Metrics:')
+    console.log(`  Avg night hours (20–06): ${avgNightHoursPerWeek20to6.toFixed(2)}h/week`)
+    console.log(`  Sunday work ratio: 1 in ${sundayWorkRatio.toFixed(2)} Sundays`)
+    console.log(`  Has 24-hour coverage: ${has24HourCoverage}`)
+    console.log(`  Non-night %: ${nonNightPercent.toFixed(1)}% (Req ≥ ${requiredNonNightPercent}%)`)
 
     // ============================================================
     // Check qualifications
@@ -262,6 +288,30 @@ export const threeSplitAverageCheck: LawCheck = {
         hourLimitMessage = `Actual hours (${actualAvgHoursPerWeek.toFixed(2)}h/week) exceed 35.5h work week limit (${expectedMaxHours.toFixed(2)}h for ${plan.work_percent}%)`
       }
     }
+
+    // Before result build:
+    console.log('\n✅ Qualification Results:')
+    console.log(`  Qualifies for 35.5h: ${qualifiesFor35_5}`)
+    console.log(`  Qualifies for 33.6h: ${qualifiesFor33_6}`)
+    console.log(`  Avg weekly hours: ${actualAvgHoursPerWeek.toFixed(2)}h/week`)
+    console.log(`  Expected max hours: ${expectedMaxHours.toFixed(2)}h/week`)
+    console.log(`  Exceeds hour limit: ${exceedsHourLimit}`)
+
+
+    console.log('\n📊 FINAL QUALIFICATION SUMMARY')
+console.log({
+  qualifiesFor35_5,
+  qualifiesFor33_6,
+  avgNightHoursPerWeek20to6,
+  sundayWorkRatio,
+  has24HourCoverage,
+  nonNightPercent,
+  actualAvgHoursPerWeek,
+  expectedMaxHours,
+  exceedsHourLimit,
+})
+
+
 
     // ============================================================
     // Build result
