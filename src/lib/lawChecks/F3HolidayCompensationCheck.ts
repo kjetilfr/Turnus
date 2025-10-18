@@ -155,6 +155,8 @@ export const f3HolidayCompensationCheck: LawCheck = {
     )
     relevantTimeZones.sort((a, b) => a.startDateTime.getTime() - b.startDateTime.getTime())
 
+    
+
     const zonesWorked: Array<{
       zone: HolidayTimeZone
       overlapHours: number
@@ -181,8 +183,8 @@ export const f3HolidayCompensationCheck: LawCheck = {
     })
 
     const f3Rotations = rotations.filter(r => {
-      const shift = shifts.find(s => s.id === r.shift_id)
-      return shift?.name === 'F3'
+      const overlayShift = shifts.find(s => s.id === r.overlay_shift_id)
+      return overlayShift?.name === 'F3' && r.overlay_type === 'f3_compensation'
     })
 
     result.details = [

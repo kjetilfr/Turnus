@@ -1,7 +1,8 @@
-// src/components/rotation/ShiftSelectorModal.tsx
 'use client'
 
+import { useState } from 'react'
 import { DAY_NAMES_SHORT } from '@/types/rotation'
+import { Rotation, OverlayType } from '@/types/rotation'
 
 interface Shift {
   id: string
@@ -15,45 +16,60 @@ interface Shift {
 interface ShiftSelectorModalProps {
   shifts: Shift[]
   currentShiftId: string | null
+  currentRotation?: Rotation // NEW — full rotation object passed in
   weekIndex: number
   dayOfWeek: number
   planType: 'main' | 'helping' | 'year'
   onSelect: (shiftId: string | null) => void
+  onSelectOverlay?: (shiftId: string | null, overlayType: OverlayType) => void // NEW
+  onRemoveOverlay?: () => void // NEW
   onClose: () => void
 }
 
 export default function ShiftSelectorModal({
   shifts,
   currentShiftId,
+  currentRotation,
   weekIndex,
   dayOfWeek,
   planType,
   onSelect,
+  onSelectOverlay,
+  onRemoveOverlay,
   onClose
 }: ShiftSelectorModalProps) {
+  const [mode, setMode] = useState<'replace' | 'overlay'>('replace')
+  const [overlayType, setOverlayType] = useState<OverlayType>('f3_compensation')
+
   const defaultShifts = shifts.filter(s => s.is_default)
   const customShifts = shifts.filter(s => !s.is_default)
 
-  const handleShiftClick = (shiftId: string, shiftName: string) => {
-    // Prevent selecting F3-F5 in main plans
-    if (planType === 'main' && ['F3', 'F4', 'F5'].includes(shiftName)) {
-      return
+  const hasOriginalShift = currentRotation?.shift_id && !currentRotation?.overlay_shift_id
+  const hasOverlay = currentRotation?.overlay_shift_id
+
+  const handleShiftSelection = (shiftId: string, shiftName: string) => {
+    if (planType === 'main' && ['F3', 'F4', 'F5'].includes(shiftName)) return
+
+    if (mode === 'overlay' && hasOriginalShift && onSelectOverlay) {
+      onSelectOverlay(shiftId, overlayType)
+    } else {
+      onSelect(shiftId)
     }
-    onSelect(shiftId)
   }
 
-  const handleRemoveShift = () => {
-    onSelect(null)
-  }
+  const handleRemoveShift = () => onSelect(null)
+  const handleRemoveOverlay = () => onRemoveOverlay && onRemoveOverlay()
+  const originalShift = currentRotation?.shift_id 
+  ? shifts.find(s => s.id === currentRotation.shift_id)
+  : null
 
-  const formatTime = (time: string | null) => {
-    if (!time) return ''
-    return time.substring(0, 5)
-  }
+const overlayShift = currentRotation?.overlay_shift_id 
+  ? shifts.find(s => s.id === currentRotation.overlay_shift_id)
+  : null
 
-  const isShiftDisabled = (shift: Shift) => {
-    return planType === 'main' && shift.is_default && ['F3', 'F4', 'F5'].includes(shift.name)
-  }
+  const formatTime = (time: string | null) => time?.substring(0, 5) || ''
+  const isShiftDisabled = (shift: Shift) =>
+    planType === 'main' && shift.is_default && ['F3', 'F4', 'F5'].includes(shift.name)
 
   return (
     <div 
@@ -82,7 +98,66 @@ export default function ShiftSelectorModal({
           </button>
         </div>
 
-        {/* Content */}
+        {/* Overlay Toggle Section */}
+        {hasOriginalShift && (
+          <div className="p-4 border-b border-gray-200 bg-gray-50">
+            <div className="flex gap-4 mb-3">
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  checked={mode === 'replace'}
+                  onChange={() => setMode('replace')}
+                  className="text-indigo-600"
+                />
+                <span className="text-sm font-medium">Replace Shift</span>
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  checked={mode === 'overlay'}
+                  onChange={() => setMode('overlay')}
+                  className="text-indigo-600"
+                />
+                <span className="text-sm font-medium">Add Overlay (Keep Original)</span>
+              </label>
+            </div>
+
+            {mode === 'overlay' && (
+              <select
+                value={overlayType}
+                onChange={(e) => setOverlayType(e.target.value as OverlayType)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              >
+                <option value="f3_compensation">F3 - Holiday Compensation</option>
+                <option value="f5_replacement">F5 - Replacement Day</option>
+                <option value="vacation">Vacation</option>
+                <option value="other">Other</option>
+              </select>
+            )}
+          </div>
+        )}
+
+        {/* Remove Overlay Section */}
+        {hasOverlay && (
+          <div className="p-4 bg-yellow-50 border-b border-yellow-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-yellow-900">Current Overlay</div>
+                <div className="text-sm text-yellow-700">
+                  ({originalShift?.name}) {overlayShift?.name}
+                </div>
+              </div>
+              <button
+                onClick={handleRemoveOverlay}
+                className="px-3 py-1.5 bg-red-600 text-white rounded text-sm font-medium hover:bg-red-700"
+              >
+                Remove Overlay
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Shift List (same as before) */}
         <div className="p-4 overflow-y-auto max-h-[calc(85vh-140px)]">
           {shifts.length === 0 ? (
             <div className="text-center py-12">
@@ -100,7 +175,7 @@ export default function ShiftSelectorModal({
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Current Shift & Remove Option */}
+              {/* Current Shift */}
               {currentShiftId && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <div className="flex items-center justify-between">
@@ -146,7 +221,7 @@ export default function ShiftSelectorModal({
                       return (
                         <button
                           key={shift.id}
-                          onClick={() => handleShiftClick(shift.id, shift.name)}
+                          onClick={() => handleShiftSelection(shift.id, shift.name)}
                           disabled={disabled}
                           className={`
                             p-2 border-2 rounded-lg text-left transition-all
@@ -183,7 +258,7 @@ export default function ShiftSelectorModal({
                     {customShifts.map((shift) => (
                       <button
                         key={shift.id}
-                        onClick={() => handleShiftClick(shift.id, shift.name)}
+                        onClick={() => handleShiftSelection(shift.id, shift.name)}
                         className={`
                           p-2 border-2 rounded-lg text-left transition-all
                           ${currentShiftId === shift.id 

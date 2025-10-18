@@ -1,7 +1,7 @@
 // src/components/rotation/RotationGrid.tsx
 'use client'
 
-import { Rotation, DAY_NAMES_SHORT, RotationGridData } from '@/types/rotation'
+import { Rotation, DAY_NAMES_SHORT, RotationGridData, OverlayType } from '@/types/rotation'
 import { Shift } from '@/types/shift'
 import { useMemo, useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -131,42 +131,67 @@ export default function RotationGrid({ rotations, durationWeeks, planId, planTyp
     })
   }
 
-  const handleShiftSelect = async (shiftId: string | null) => {
-    if (!selectedCell) return
+const handleShiftSelect = async (
+  shiftId: string | null,
+  overlayData?: { overlayType?: OverlayType }
+) => {
+  if (!selectedCell) return
 
-    try {
-      const rotation = gridData[selectedCell.week]?.[selectedCell.day]
+  try {
+    const rotation = gridData[selectedCell.week]?.[selectedCell.day]
+
+    if (overlayData?.overlayType && rotation?.shift_id) {
+      // 🟣 Apply as overlay (keeping the original shift)
+      const updateData = {
+        overlay_shift_id: shiftId,
+        overlay_type: overlayData.overlayType
+      }
+
+      const { error } = await supabase
+        .from('rotations')
+        .update(updateData)
+        .eq('id', rotation.id)
+
+      if (error) throw error
+    } else {
+      // 🔵 Replace or clear shift (normal assignment)
+      const updateData = {
+        shift_id: shiftId,
+        overlay_shift_id: null,
+        overlay_type: null
+      }
 
       if (rotation) {
         // Update existing rotation
         const { error } = await supabase
           .from('rotations')
-          .update({ shift_id: shiftId })
+          .update(updateData)
           .eq('id', rotation.id)
 
         if (error) throw error
       } else {
-        // Create new rotation
+        // Create new rotation record
         const { error } = await supabase
           .from('rotations')
           .insert({
             plan_id: planId,
             week_index: selectedCell.week,
             day_of_week: selectedCell.day,
-            shift_id: shiftId
+            ...updateData
           })
 
         if (error) throw error
       }
-
-      // Refresh the page to show updated data
-      router.refresh()
-      setSelectedCell(null)
-    } catch (error) {
-      console.error('Error updating rotation:', error)
-      alert('Failed to update shift')
     }
+
+    // ✅ Refresh to reflect updates
+    router.refresh()
+    setSelectedCell(null)
+  } catch (error) {
+    console.error('Error updating rotation:', error)
+    alert('Failed to update shift')
   }
+}
 
   // Get shift by ID
   const getShiftById = (shiftId: string | null) => {
@@ -212,10 +237,35 @@ export default function RotationGrid({ rotations, durationWeeks, planId, planTyp
                 </td>
                 {Array.from({ length: 7 }, (_, dayIndex) => {
                   const rotation = gridData[weekIndex]?.[dayIndex]
-                  const shift = rotation?.shift_id ? getShiftById(rotation.shift_id) : null
+                  const originalShift = rotation?.shift_id ? getShiftById(rotation.shift_id) : null
+                  const overlayShift = rotation?.overlay_shift_id ? getShiftById(rotation.overlay_shift_id) : null
                   const isSelected = selectedCell?.week === weekIndex && selectedCell?.day === dayIndex
-                  const crossesMidnight = shift ? shiftCrossesMidnight(shift.start_time, shift.end_time) : false
-                  
+
+                  const getShiftDisplay = () => {
+                    if (overlayShift && originalShift) {
+                      return {
+                        text: `(${originalShift.name}) ${overlayShift.name}`,
+                        hasOverlay: true,
+                        isF3: overlayShift.name === 'F3',
+                        isF5: overlayShift.name === 'F5',
+                        isVacation: rotation.overlay_type === 'vacation'
+                      }
+                    } else if (overlayShift) {
+                      return {
+                        text: overlayShift.name,
+                        hasOverlay: false
+                      }
+                    } else if (originalShift) {
+                      return {
+                        text: originalShift.name,
+                        hasOverlay: false
+                      }
+                    }
+                    return null
+                  }
+
+                  const shiftDisplay = getShiftDisplay()
+
                   return (
                     <td 
                       key={dayIndex}
@@ -224,38 +274,40 @@ export default function RotationGrid({ rotations, durationWeeks, planId, planTyp
                         border border-gray-300 px-3 py-4 text-center text-sm cursor-pointer
                         transition-all hover:bg-blue-50 hover:shadow-inner
                         ${isSelected ? 'bg-blue-100 ring-2 ring-blue-500 ring-inset' : 'bg-white'}
-                        ${shift ? 'bg-green-50 hover:bg-green-100' : ''}
+                        ${shiftDisplay?.hasOverlay ? 'bg-purple-50' : ''}
+                        ${shiftDisplay?.isVacation ? 'bg-green-50' : ''}
                       `}
                     >
-                      {shift ? (
+                      {shiftDisplay ? (
                         <div>
-                          <div className={`font-semibold ${shift.is_default ? 'text-gray-800' : 'text-indigo-800'}`}>
-                            {shift.name}
-                            {crossesMidnight && (
-                              <span className="ml-1 text-xs text-purple-600" title="This shift crosses midnight">
-                                🌙
-                              </span>
-                            )}
+                          <div
+                            className={`
+                              font-semibold 
+                              ${shiftDisplay.hasOverlay ? 'text-purple-800' : ''}
+                              ${originalShift?.is_default ? 'text-gray-800' : 'text-indigo-800'}
+                            `}
+                          >
+                            {shiftDisplay.text}
                           </div>
-                          {!shift.is_default && shift.start_time && shift.end_time && (
+
+                          {!originalShift?.is_default && originalShift?.start_time && originalShift?.end_time && !shiftDisplay.hasOverlay && (
                             <div className="text-xs text-gray-600 mt-1">
-                              {shift.start_time.substring(0, 5)} - {shift.end_time.substring(0, 5)}
+                              {originalShift.start_time.substring(0, 5)} - {originalShift.end_time.substring(0, 5)}
                             </div>
                           )}
-                          {crossesMidnight && (
+
+                          {shiftDisplay.hasOverlay && (
                             <div className="text-xs text-purple-600 mt-1">
-                              Starts: {dayIndex === 0 ? 'Sun' : DAY_NAMES_SHORT[dayIndex - 1]}
+                              {rotation.overlay_type === 'f3_compensation' && '⚖️ Holiday compensation'}
+                              {rotation.overlay_type === 'f5_replacement' && '🔄 Replacement day'}
+                              {rotation.overlay_type === 'vacation' && '🏖️ Vacation'}
+                              {rotation.overlay_type === 'sick_leave' && '🏥 Sick leave'}
                             </div>
                           )}
                         </div>
                       ) : (
                         <div className="text-gray-400 text-xs py-2">
                           Click to assign
-                        </div>
-                      )}
-                      {rotation?.notes && (
-                        <div className="text-xs text-gray-500 mt-1 truncate italic">
-                          {rotation.notes}
                         </div>
                       )}
                     </td>

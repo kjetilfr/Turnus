@@ -94,8 +94,10 @@ export default function CalendarView({
     const events = repeatedRotations
       .filter(rotation => rotation.shift_id)
       .map(rotation => {
-        const shift = shiftsMap.get(rotation.shift_id!)
-        if (!shift) return null
+        const originalShift = rotation.shift_id ? shiftsMap.get(rotation.shift_id) : null
+        const overlayShift = rotation.overlay_shift_id ? shiftsMap.get(rotation.overlay_shift_id) : null
+        const effectiveShift = overlayShift || originalShift
+        if (!effectiveShift) return null
 
         // Calculate the actual date for this rotation
         const startDate = new Date(planStartDate)
@@ -105,14 +107,14 @@ export default function CalendarView({
         const dateString = formatDateLocal(startDate)
 
         // Determine event color based on shift type
-        const color = shift.is_default 
+        const color = effectiveShift.is_default 
           ? '#6B7280' // gray for default shifts
           : '#4F46E5' // indigo for custom shifts
 
         // For shifts with time, create timed events
-        if (shift.start_time && shift.end_time) {
-          const [startHour, startMin] = shift.start_time.split(':').map(Number)
-          const [endHour, endMin] = shift.end_time.split(':').map(Number)
+        if (effectiveShift.start_time && effectiveShift.end_time) {
+          const [startHour, startMin] = effectiveShift.start_time.split(':').map(Number)
+          const [endHour, endMin] = effectiveShift.end_time.split(':').map(Number)
           
           const startMinutes = startHour * 60 + startMin
           const endMinutes = endHour * 60 + endMin
@@ -137,34 +139,38 @@ export default function CalendarView({
 
           return {
             id: `${rotation.id}-repeat-${Math.floor(rotation.week_index / durationWeeks)}`,
-            title: shift.name,
-            start: `${actualStartDate}T${shift.start_time}`,
-            end: `${actualEndDate}T${shift.end_time}`,
+            title: effectiveShift.name,
+            start: `${actualStartDate}T${effectiveShift.start_time}`,
+            end: `${actualEndDate}T${effectiveShift.end_time}`,
             backgroundColor: color,
             borderColor: color,
             extendedProps: {
-              shiftId: shift.id,
-              shiftName: shift.name,
-              description: shift.description,
+              shiftId: effectiveShift.id,
+              shiftName: effectiveShift.name,
+              description: effectiveShift.description,
               notes: rotation.notes,
               repeatCycle: Math.floor(rotation.week_index / durationWeeks)
             }
           }
         }
 
+        let title = effectiveShift.name
+        if (overlayShift && originalShift) {
+          title = `(${originalShift.name}) ${overlayShift.name}`
+        }
+
         // For default shifts without time, create all-day events
         return {
           id: rotation.id,
-          title: shift.name,
+          title: title,
           start: dateString,
-          allDay: true,
           backgroundColor: color,
-          borderColor: color,
+          borderColor: overlayShift ? '#000' : color,
+          borderStyle: overlayShift ? 'dashed' : 'solid',
           extendedProps: {
-            shiftId: shift.id,
-            shiftName: shift.name,
-            description: shift.description,
-            notes: rotation.notes
+            hasOverlay: !!overlayShift,
+            originalShiftName: originalShift?.name,
+            overlayType: rotation.overlay_type
           }
         }
       })

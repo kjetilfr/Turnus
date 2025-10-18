@@ -3,13 +3,21 @@
 export interface Rotation {
   id: string
   plan_id: string
-  day_of_week: number // 0 = Monday, 6 = Sunday
+  day_of_week: number
   week_index: number
-  shift_id: string | null
+  shift_id: string | null          // Original planned shift
+  overlay_shift_id: string | null   // Replacement/overlay shift
+  overlay_type: string | null       // Type of overlay
   notes: string | null
   created_at: string
   updated_at: string
 }
+
+export type OverlayType = 
+  | 'f3_compensation'
+  | 'f5_replacement'
+  | 'vacation'
+  | 'other'
 
 export interface RotationGridData {
   [weekIndex: number]: {
