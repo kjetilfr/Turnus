@@ -10,7 +10,7 @@ import { calculateShiftHours } from '@/lib/utils/shiftCalculations'
 export const f5ReplacementDayCheck: LawCheck = {
   id: 'f5-replacement-day',
   name: 'F5 Replacement Day (Erstatningsfridag)',
-  description: 'Ensures F5 shifts cover holidays that fall on F1 and correctly reduce total hours in helping plan compared to base plan.',
+  description: 'Ensures F5 shifts cover holidays that fall on F1 and shows hours impact.',
   category: 'shared',
   lawType: 'hta',
   lawReferences: [
@@ -31,12 +31,12 @@ export const f5ReplacementDayCheck: LawCheck = {
     }
 
     if (plan.tariffavtale === 'oslo' || plan.tariffavtale === 'staten') {
-    return {
+      return {
         status: 'warning',
         message: 'F5 check not applicable to Oslo or Staten tariffavtale',
         details: ['This check is only for KS tariffavtale']
+      }
     }
-}
 
     const planStartDate = new Date(plan.date_started)
     const planDurationWeeks = plan.duration_weeks
@@ -44,6 +44,8 @@ export const f5ReplacementDayCheck: LawCheck = {
     let rotationsToCheck: Rotation[] = []
     let shiftsToCheck: Shift[] = []
     let weekOffset = 0
+    let effectiveBaseHours = 0
+    let helpingHours = 0
 
     // --- Helping plan: compute effective rotations & week offset ---
     if (plan.type === 'helping') {
@@ -63,8 +65,25 @@ export const f5ReplacementDayCheck: LawCheck = {
       const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7))
       weekOffset = ((diffWeeks % basePlanRotationLength) + basePlanRotationLength) % basePlanRotationLength
 
-      rotationsToCheck = rotations // helping plan rotations for F5
-      shiftsToCheck = shifts       // helping plan shifts
+      // Calculate effective base hours
+      const effectiveRotations: Rotation[] = []
+      for (let helpingWeek = 0; helpingWeek < plan.duration_weeks; helpingWeek++) {
+        const baseRotationWeek = (helpingWeek + weekOffset) % basePlanRotationLength
+        const baseWeekRotations = basePlanRotations.filter(r => r.week_index === baseRotationWeek)
+        baseWeekRotations.forEach(baseRotation => {
+          effectiveRotations.push({
+            ...baseRotation,
+            week_index: helpingWeek,
+            plan_id: plan.id
+          })
+        })
+      }
+      
+      effectiveBaseHours = calculateTotalWorkHours(effectiveRotations, basePlanShifts)
+      helpingHours = calculateTotalWorkHours(rotations, shifts)
+
+      rotationsToCheck = rotations
+      shiftsToCheck = shifts
 
       result.details = [
         `Plan type: helping`,
@@ -73,6 +92,9 @@ export const f5ReplacementDayCheck: LawCheck = {
         `Checking F1 from base plan and F5 from helping plan`
       ]
     } else {
+      effectiveBaseHours = calculateTotalWorkHours(rotations, shifts)
+      helpingHours = effectiveBaseHours // Same for non-helping plans
+      
       rotationsToCheck = rotations
       shiftsToCheck = shifts
       result.details = [
@@ -118,7 +140,12 @@ export const f5ReplacementDayCheck: LawCheck = {
 
     // --- Prepare F5 rotations in helping plan ---
     const f5Rotations = rotationsToCheck
-      .filter(r => r.shift_id === f5Shift!.id)
+      .filter(r => {
+        // Check both regular shift_id and overlay_shift_id
+        if (r.shift_id === f5Shift!.id) return true
+        if (r.overlay_shift_id === f5Shift!.id && r.overlay_type === 'f5_replacement') return true
+        return false
+      })
       .map(r => ({
         rotation: r,
         date: getRotationDate(planStartDate, r.week_index, r.day_of_week)
@@ -150,15 +177,12 @@ export const f5ReplacementDayCheck: LawCheck = {
       const holidayOnF1 = allHolidays.find(h => formatDateLocal(h.date) === formatDateLocal(f1Date))
       if (!holidayOnF1) return
 
-      // Check if ANY F5 exists anywhere in helping plan
       const f5Present = f5Rotations.length > 0
 
-      // Check if ANY F5 replaces a base shift (anywhere in the plan)
       let f5ReplacesWork = false
       if (plan.type === 'helping' && basePlanRotations && basePlanShifts && f5Present) {
         const baseWeekLength = Math.max(...basePlanRotations.map(r => r.week_index)) + 1
         
-        // Check all F5s to see if any replace work
         f5ReplacesWork = f5Rotations.some(f5r => {
           const baseWeek = (f5r.rotation.week_index + weekOffset) % baseWeekLength
           const baseWeekRotations = basePlanRotations.filter(r => r.week_index === baseWeek)
@@ -166,7 +190,7 @@ export const f5ReplacementDayCheck: LawCheck = {
           const replacedRotation = baseWeekRotations.find(r => 
             r.day_of_week === f5r.rotation.day_of_week && 
             r.shift_id &&
-            !basePlanShifts.find(s => s.id === r.shift_id)?.is_default // Must replace actual work, not F shifts
+            !basePlanShifts.find(s => s.id === r.shift_id)?.is_default
           )
           return !!replacedRotation
         })
@@ -180,10 +204,31 @@ export const f5ReplacementDayCheck: LawCheck = {
       })
     })
 
+    // --- Calculate F5 hours impact ---
+    let f5ReplacedHours = 0
+    if (plan.type === 'helping' && basePlanRotations && basePlanShifts) {
+      const baseWeekLength = Math.max(...basePlanRotations.map(r => r.week_index)) + 1
+      
+      f5Rotations.forEach(f5r => {
+        const baseWeek = (f5r.rotation.week_index + weekOffset) % baseWeekLength
+        const baseWeekRotations = basePlanRotations.filter(r => r.week_index === baseWeek)
+        
+        const replacedBaseRotation = baseWeekRotations.find(r => 
+          r.day_of_week === f5r.rotation.day_of_week && r.shift_id
+        )
+        
+        if (replacedBaseRotation) {
+          const baseShift = basePlanShifts.find(s => s.id === replacedBaseRotation.shift_id)
+          if (baseShift && !baseShift.is_default && baseShift.start_time && baseShift.end_time) {
+            f5ReplacedHours += calculateShiftHours(baseShift.start_time, baseShift.end_time)
+          }
+        }
+      })
+    }
+
     // --- Build results ---
     result.details.push('--- F1 on Holidays Analysis ---')
     
-    // List all F1s on holidays
     casesNeedingF5.forEach(c => {
       const dateStr = formatDateLocal(c.f1Date)
       result.details?.push(`  ${c.holidayName} (${dateStr})`)
@@ -191,6 +236,15 @@ export const f5ReplacementDayCheck: LawCheck = {
     
     result.details?.push('')
     result.details?.push(`Total F1s on holidays: ${casesNeedingF5.length}`)
+
+    // --- Hours comparison ---
+    if (plan.type === 'helping') {
+      result.details?.push('')
+      result.details?.push('=== F5 Hours Impact ===')
+      result.details?.push(`Hours before F5 overlays: ${effectiveBaseHours.toFixed(2)}h`)
+      result.details?.push(`Hours after F5 overlays: ${helpingHours.toFixed(2)}h`)
+      result.details?.push(`Hours reduced by F5: ${f5ReplacedHours.toFixed(2)}h`)
+    }
 
     // Validate each F5 placement and count valid ones
     let validF5Count = 0
@@ -227,12 +281,11 @@ export const f5ReplacementDayCheck: LawCheck = {
             })
           } else {
             result.details?.push(`  ✅ Week ${f5r.rotation.week_index + 1}, Day ${f5r.rotation.day_of_week}: F5 replaces ${baseShift?.name || 'work shift'}`)
-            validF5Count++ // Count this as a valid F5
+            validF5Count++
           }
         }
       })
       
-      // Check if count matches
       result.details?.push('')
       result.details?.push(`Valid F5 count: ${validF5Count}`)
       
@@ -281,4 +334,21 @@ function getRotationDate(planStartDate: Date, weekIndex: number, dayOfWeek: numb
 
 function formatDateLocal(date: Date): string {
   return date.toLocaleDateString('sv-SE', { timeZone: 'Europe/Oslo' })
+}
+
+function calculateTotalWorkHours(rotations: Rotation[], shifts: Shift[]): number {
+  let totalHours = 0
+
+  rotations.forEach((rotation: Rotation) => {
+    if (rotation.shift_id) {
+      const shift = shifts.find((s: Shift) => s.id === rotation.shift_id)
+      // Skip F5 shifts - they represent time off, not work
+      if (shift && shift.name !== 'F5' && shift.start_time && shift.end_time) {
+        const shiftHours = calculateShiftHours(shift.start_time, shift.end_time)
+        totalHours += shiftHours
+      }
+    }
+  })
+
+  return totalHours
 }

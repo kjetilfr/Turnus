@@ -18,7 +18,7 @@ import { calculateShiftHours } from '@/lib/utils/shiftCalculations'
 export const f3HolidayCompensationCheck: LawCheck = {
   id: 'f3-holiday-compensation',
   name: 'F3 Holiday Compensation (Helping Plans)',
-  description: 'Verifies F3 shifts are properly placed on actual red days (not just in time zone) after work on holidays, and that they reduce total work hours.',
+  description: 'Verifies F3 shifts are properly placed on actual red days and fully cover the timezone (no work conflicts).',
   category: 'helping',
   lawType: 'aml',
   lawReferences: [
@@ -28,31 +28,37 @@ export const f3HolidayCompensationCheck: LawCheck = {
     }
   ],
   inputs: [
-  {
-    id: 'ignoreLessThanOrEqualTo',
-    label: 'Ignore Work Less Than or Equal To',
-    type: 'number',
-    defaultValue: 1,
-    min: 0,
-    max: 24,
-    step: 0.25,
-    unit: 'hours'
-  },
-  {
-    id: 'averageWeeks',
-    label: 'Weeks to Calculate For (Gjennomsnittsberegning)',
-    type: 'number',
-    defaultValue: 26,
-    min: 4,
-    max: 52,
-    step: 1,
-    unit: 'weeks',
-    showIf: {
-      field: 'calculationMethod',
-      equals: 'gjennomsnitt'
+    {
+      id: 'ignoreLessThanOrEqualTo',
+      label: 'Ignore Work Less Than or Equal To',
+      type: 'number',
+      defaultValue: 1,
+      min: 0,
+      max: 24,
+      step: 0.25,
+      unit: 'hours'
+    },
+    {
+      id: 'calculationMethod',
+      label: 'Calculation Method',
+      type: 'text',
+      defaultValue: 'hovedregelen'
+    },
+    {
+      id: 'averageWeeks',
+      label: 'Weeks to Calculate For (Gjennomsnittsberegning)',
+      type: 'number',
+      defaultValue: 26,
+      min: 4,
+      max: 52,
+      step: 1,
+      unit: 'weeks',
+      showIf: {
+        field: 'calculationMethod',
+        equals: 'gjennomsnitt'
+      }
     }
-  }
-],
+  ],
 
   run: ({ rotations, shifts, plan, basePlanRotations, basePlanShifts, basePlan, inputs = {} }) => {
     const result: LawCheckResult = {
@@ -155,8 +161,6 @@ export const f3HolidayCompensationCheck: LawCheck = {
     )
     relevantTimeZones.sort((a, b) => a.startDateTime.getTime() - b.startDateTime.getTime())
 
-    
-
     const zonesWorked: Array<{
       zone: HolidayTimeZone
       overlapHours: number
@@ -223,90 +227,104 @@ export const f3HolidayCompensationCheck: LawCheck = {
     if (f3ReplacedHours <= 0) result.details.push(`⚠️ WARNING: F3 shifts not reducing hours!`)
     result.details.push('')
 
-    // ===================== HOVUDREGELEN (fixed for F3 chain) =====================
+    // ===================== HOVUDREGELEN =====================
     if (calculationMethod === 'hovedregelen') {
-      result.details.push('=== Hovudregelen Analysis ===\n');
+      result.details.push('=== Hovudregelen Analysis ===\n')
 
-      // Build map of ALL red days, including those with zero overlap
       const redDayDates: string[] = relevantTimeZones.map(zone => {
-        const d = new Date(zone.endDateTime);
-        d.setHours(0, 0, 0, 0);
-        return formatDateLocal(d);
-      }).sort();
+        const d = new Date(zone.endDateTime)
+        d.setHours(0, 0, 0, 0)
+        return formatDateLocal(d)
+      }).sort()
 
-      result.details.push(`All red days in period: ${redDayDates.join(', ')}`);
+      result.details.push(`All red days in period: ${redDayDates.join(', ')}`)
 
-      // Mark which red days are actually worked (over ignore threshold)
-      const workedRedDayFlags: Record<string, boolean> = {};
+      const workedRedDayFlags: Record<string, boolean> = {}
       redDayDates.forEach(date => {
         const worked = zonesWorked.some(
           zw => formatDateLocal(new Date(zw.zone.endDateTime)) === date &&
                 zw.overlapHours > ignoreLessThanOrEqualTo
-        );
-        workedRedDayFlags[date] = worked;
-      });
+        )
+        workedRedDayFlags[date] = worked
+      })
 
-      result.details.push('Initial worked red day flags: ' + JSON.stringify(workedRedDayFlags));
+      let requiredF3Count = 0
+      const violationDetails: string[] = []
 
-      let requiredF3Count = 0;
-      const violationDetails: string[] = [];
-
-      // Iterate over red days
       for (let i = 0; i < redDayDates.length - 1; i++) {
-        const today = redDayDates[i];
-        const nextDay = redDayDates[i + 1];
+        const today = redDayDates[i]
+        const nextDay = redDayDates[i + 1]
 
-        // Only trigger F3 if today and nextDay are worked
         if (workedRedDayFlags[today] && workedRedDayFlags[nextDay]) {
-          requiredF3Count++;
-
-          // Mark next day as compensated (off now)
-          workedRedDayFlags[nextDay] = false;
-
-          violationDetails.push(`F3 required on ${nextDay} after working ${today}`);
+          requiredF3Count++
+          workedRedDayFlags[nextDay] = false
+          violationDetails.push(`F3 required on ${nextDay} after working ${today}`)
         }
       }
 
-      // --- F3 reduction check ---
-      if (zonesWorked.length > 0) {
-        if (f3ReplacedHours <= 0) {
-          result.details.push(`❌ F3 not reducing hours: F3 reduction ${f3ReplacedHours.toFixed(2)}h`)
+      result.details.push('--- Hovudregelen F3 requirements ---')
+      violationDetails.forEach(line => result.details?.push(line))
+      result.details.push(`Total F3 required: ${requiredF3Count}`)
+      result.details.push(`F3 shifts in plan: ${f3Rotations.length}`)
+
+      // Hours impact info
+      result.details.push('')
+      result.details.push('=== F3 Hours Impact ===')
+      result.details.push(`Hours before F3 overlays: ${effectiveBaseHours.toFixed(2)}h`)
+      result.details.push(`Hours after F3 overlays: ${helpingHours.toFixed(2)}h`)
+      result.details.push(`Hours reduced by F3: ${f3ReplacedHours.toFixed(2)}h`)
+      
+      // Check if F3 properly covers timezones
+      result.details.push('')
+      result.details.push('--- F3 Timezone Coverage Check ---')
+      f3Rotations.forEach(f3r => {
+        const f3Date = getRotationDate(helpingPlanStartDate, f3r.week_index, f3r.day_of_week)
+        const { covers, conflictDetails } = checkF3CoversTimezone(
+          f3Date,
+          effectiveRotations,
+          basePlanShifts,
+          helpingPlanStartDate,
+          relevantTimeZones,
+          rotations,
+          shifts
+        )
+        
+        const f3DateStr = formatDateLocal(f3Date)
+        if (!covers) {
+          result.details?.push(`❌ F3 on ${f3DateStr} does NOT fully cover timezone:`)
+          conflictDetails.forEach(detail => {
+            result.details?.push(`  - ${detail}`)
+          })
           result.violations?.push({
-            weekIndex: -1,
-            dayOfWeek: -1,
-            description: `F3 shifts not reducing work hours`
+            weekIndex: f3r.week_index,
+            dayOfWeek: f3r.day_of_week,
+            description: `F3 on ${f3DateStr} doesn't cover entire timezone - work shifts still present`
           })
         } else {
-          result.details.push(`✅ F3 reducing hours by ${f3ReplacedHours.toFixed(2)}h`)
+          result.details?.push(`✅ F3 on ${f3DateStr} properly covers timezone`)
         }
-      }
-
-      // Log summary
-      result.details.push('--- Hovudregelen F3 requirements ---');
-      violationDetails.forEach(line => result.details?.push(line));
-      result.details.push(`Total F3 required: ${requiredF3Count}`);
-      result.details.push(`F3 shifts in plan: ${f3Rotations.length}`);
+      })
 
       if (f3Rotations.length < requiredF3Count) {
-        result.status = 'fail';
-        result.message = `Hovudregelen: Not enough F3 shifts (${f3Rotations.length} provided, ${requiredF3Count} required)`;
+        result.status = 'fail'
+        result.message = `Hovudregelen: Not enough F3 shifts (${f3Rotations.length} provided, ${requiredF3Count} required)`
         result.violations?.push({
           weekIndex: -1,
           dayOfWeek: -1,
           description: `Need ${requiredF3Count} F3 shifts but only ${f3Rotations.length} provided`
-        });
+        })
       } else {
-        result.status = 'pass';
-        result.message = `Hovudregelen: F3 shifts properly applied (${requiredF3Count})`;
+        result.status = 'pass'
+        result.message = `Hovudregelen: F3 shifts properly applied (${requiredF3Count})`
       }
 
-      return result;
-}
-    // ===================== ANNENHVER MED GJENNOMSNITT LOGIC (fixed) =====================
+      return result
+    }
+
+    // ===================== ANNENHVER =====================
     if (calculationMethod === 'annenhver') {
       result.details.push('=== Annenhver Beregning Analysis ===\n')
 
-      // Build map of ALL red days, including those with zero overlap
       const redDayDates: Set<string> = new Set()
       relevantTimeZones.forEach(zone => {
         const d = new Date(zone.endDateTime)
@@ -318,7 +336,6 @@ export const f3HolidayCompensationCheck: LawCheck = {
       result.details.push(`Red days in period: ${sortedRedDayDates.join(', ')}`)
       result.details.push('')
 
-      // Count consecutive worked sequences to determine F3 required
       let requiredF3Count = 0
       let currentSequence: string[] = []
       const sequenceDetails: string[] = []
@@ -347,7 +364,6 @@ export const f3HolidayCompensationCheck: LawCheck = {
         }
       }
 
-      // Handle last sequence if it ended at the end of the array
       if (currentSequence.length > 0) {
         const earned = Math.floor(currentSequence.length / 2)
         if (earned > 0) {
@@ -362,13 +378,11 @@ export const f3HolidayCompensationCheck: LawCheck = {
         requiredF3Count += earned
       }
 
-      // Log summary
       result.details.push('--- Sequence breakdown ---')
       sequenceDetails.forEach(line => result.details?.push(line))
       result.details.push(`Total F3 required: ${requiredF3Count}`)
       result.details.push('')
 
-      // Calculate worked red days set for reporting
       const workedRedDays = sortedRedDayDates.filter(date =>
         zonesWorked.some(zw => formatDateLocal(new Date(zw.zone.endDateTime)) === date && zw.overlapHours > ignoreLessThanOrEqualTo)
       )
@@ -415,17 +429,12 @@ export const f3HolidayCompensationCheck: LawCheck = {
         result.details.push(`✅ Red day work within 50% limit`)
       }
 
-      if (requiredF3Count > 0 && f3ReplacedHours <= 0) {
-        result.details.push(`❌ F3 not reducing hours: F3 reduction ${f3ReplacedHours.toFixed(2)}h`)
-        violationCount++
-        result.violations?.push({
-          weekIndex: -1,
-          dayOfWeek: -1,
-          description: `F3 shifts not reducing work hours`
-        })
-      } else {
-        result.details.push(`✅ F3 reducing hours by ${f3ReplacedHours.toFixed(2)}h`)
-      }
+      // Hours impact info
+      result.details.push('')
+      result.details.push('=== F3 Hours Impact ===')
+      result.details.push(`Hours before F3 overlays: ${effectiveBaseHours.toFixed(2)}h`)
+      result.details.push(`Hours after F3 overlays: ${helpingHours.toFixed(2)}h`)
+      result.details.push(`Hours reduced by F3: ${f3ReplacedHours.toFixed(2)}h`)
 
       // Check for F3 placed on non-red days
       const f3Dates = f3Rotations.map(f3r =>
@@ -445,6 +454,38 @@ export const f3HolidayCompensationCheck: LawCheck = {
           })
         })
       }
+      
+      // Check if F3 properly covers the timezone (no work conflicts)
+      result.details.push('')
+      result.details.push('--- F3 Timezone Coverage Check ---')
+      f3Rotations.forEach(f3r => {
+        const f3Date = getRotationDate(helpingPlanStartDate, f3r.week_index, f3r.day_of_week)
+        const { covers, conflictDetails } = checkF3CoversTimezone(
+          f3Date,
+          effectiveRotations,
+          basePlanShifts,
+          helpingPlanStartDate,
+          relevantTimeZones,
+          rotations,
+          shifts
+        )
+        
+        const f3DateStr = formatDateLocal(f3Date)
+        if (!covers) {
+          result.details?.push(`❌ F3 on ${f3DateStr} does NOT fully cover timezone:`)
+          conflictDetails.forEach(detail => {
+            result.details?.push(`  - ${detail}`)
+            violationCount++
+          })
+          result.violations?.push({
+            weekIndex: f3r.week_index,
+            dayOfWeek: f3r.day_of_week,
+            description: `F3 on ${f3DateStr} doesn't cover entire timezone - work shifts still present`
+          })
+        } else {
+          result.details?.push(`✅ F3 on ${f3DateStr} properly covers timezone`)
+        }
+      })
 
       if (violationCount > 0) {
         result.status = 'fail'
@@ -458,8 +499,9 @@ export const f3HolidayCompensationCheck: LawCheck = {
       }
 
       return result
-    } // end annenhver
-    // GJENNOMSNITT
+    }
+
+    // ===================== GJENNOMSNITT =====================
     if (calculationMethod === 'gjennomsnitt') {
       result.details.push('=== Gjennomsnittsberegning Analysis ===')
       result.details.push('')
@@ -483,10 +525,8 @@ export const f3HolidayCompensationCheck: LawCheck = {
       result.details.push(`(Using input of ${averageWeeksInput} weeks since plan length is ${plan.duration_weeks})`)
       result.details.push('')
 
-      // Filter only timezones inside each rolling segment of `useWeeks`
       const totalPeriods = Math.ceil(plan.duration_weeks / useWeeks)
       let violationCount = 0
-      let workedMoreThanHalfGlobal = false
 
       for (let periodIndex = 0; periodIndex < totalPeriods; periodIndex++) {
         const segmentStart = new Date(helpingPlanStartDate)
@@ -520,7 +560,6 @@ export const f3HolidayCompensationCheck: LawCheck = {
         result.details.push(`Max allowed (50%): ${maxAllowedWorkDays}`)
 
         if (workedMoreThanHalf) {
-          workedMoreThanHalfGlobal = true
           result.details.push(`❌ Worked too many red days (${workedDaysInSegment.size} > ${maxAllowedWorkDays})`)
           result.violations?.push({
             weekIndex: -1,
@@ -535,50 +574,70 @@ export const f3HolidayCompensationCheck: LawCheck = {
         result.details.push('')
       }
 
-  // F3 reduction check
-  // --- F3 reduction check (only if F3 needed) ---
-  if (significantWorkZones.length > 0) {
-    const f3DaysUsed = f3ReplacedHours > 0
-    const neededF3 = violationCount > 0 // F3 is only needed if we exceeded 50% before F3 reduction
-
-    if (neededF3) {
-      if (!f3DaysUsed) {
-        result.details.push(`❌ F3 required but not reducing hours (0h reduction)`)
-        result.violations?.push({
-          weekIndex: -1,
-          dayOfWeek: -1,
-          description: `F3 needed to meet 50% limit, but no reduction found`
+      // F3 hours info (only if F3 needed)
+      if (significantWorkZones.length > 0) {
+        result.details.push('')
+        result.details.push('=== F3 Hours Impact ===')
+        result.details.push(`Hours before F3 overlays: ${effectiveBaseHours.toFixed(2)}h`)
+        result.details.push(`Hours after F3 overlays: ${helpingHours.toFixed(2)}h`)
+        result.details.push(`Hours reduced by F3: ${f3ReplacedHours.toFixed(2)}h`)
+        
+        // Check if F3 properly covers timezones
+        result.details.push('')
+        result.details.push('--- F3 Timezone Coverage Check ---')
+        f3Rotations.forEach(f3r => {
+          const f3Date = getRotationDate(helpingPlanStartDate, f3r.week_index, f3r.day_of_week)
+          const { covers, conflictDetails } = checkF3CoversTimezone(
+            f3Date,
+            effectiveRotations,
+            basePlanShifts,
+            helpingPlanStartDate,
+            relevantTimeZones,
+            rotations,
+            shifts
+          )
+          
+          const f3DateStr = formatDateLocal(f3Date)
+          if (!covers) {
+            result.details?.push(`❌ F3 on ${f3DateStr} does NOT fully cover timezone:`)
+            conflictDetails.forEach(detail => {
+              result.details?.push(`  - ${detail}`)
+              violationCount++
+            })
+            result.violations?.push({
+              weekIndex: f3r.week_index,
+              dayOfWeek: f3r.day_of_week,
+              description: `F3 on ${f3DateStr} doesn't cover entire timezone - work shifts still present`
+            })
+          } else {
+            result.details?.push(`✅ F3 on ${f3DateStr} properly covers timezone`)
+          }
         })
-        violationCount++
-      } else {
-        result.details.push(`✅ F3 correctly reducing hours by ${f3ReplacedHours.toFixed(2)}h`)
       }
-    } else {
-      result.details.push(`ℹ️ F3 not required — within 50% limit without reduction`)
+
+      if (violationCount > 0) {
+        result.status = 'fail'
+        result.message = `Gjennomsnitt: Found ${violationCount} violation(s)`
+      } else {
+        result.status = 'pass'
+        result.message = `Gjennomsnitt: All ${totalPeriods} periods comply with 50% red day limit, F3 reducing ${f3ReplacedHours.toFixed(2)}h`
+      }
+
+      if (shortOverlapZones.length > 0) {
+        result.details.push('')
+        result.details.push(`ℹ️ ${shortOverlapZones.length} zones with work ≤${ignoreLessThanOrEqualTo}h ignored per agreement`)
+      }
+
+      return result
     }
-  }
 
-  if (violationCount > 0) {
-    result.status = 'fail'
-    result.message = `Gjennomsnitt: Found ${violationCount} violation(s)`
-  } else {
-    result.status = 'pass'
-    result.message = `Gjennomsnitt: All ${totalPeriods} periods comply with 50% red day limit, F3 reducing ${f3ReplacedHours.toFixed(2)}h`
+    return result
   }
-
-  if (shortOverlapZones.length > 0) {
-    result.details.push('')
-    result.details.push(`ℹ️ ${shortOverlapZones.length} zones with work ≤${ignoreLessThanOrEqualTo}h ignored per agreement`)
-  }
-
-  return result
 }
 
-
-    // default fallback
-    return result
-  } // end run
-} // end export
+// ============================================================
+// Helper Functions
+// ============================================================
 
 /**
  * Calculate total work hours for a plan, excluding F5 shifts to avoid double-counting
@@ -618,7 +677,10 @@ function calculateF3ReplacedHours(
   let f3ReplacedHours = 0
 
   // Find all F3 rotations in helping plan
-  const f3Rotations = helpingRotations.filter(r => r.shift_id === f3ShiftId)
+  const f3Rotations = helpingRotations.filter(r => {
+    const overlayShift = helpingShifts.find(s => s.id === r.overlay_shift_id)
+    return overlayShift?.name === 'F3' && r.overlay_type === 'f3_compensation'
+  })
 
   // For each F3 rotation, find what it replaced in the effective base rotations
   f3Rotations.forEach(f3Rotation => {
@@ -661,45 +723,76 @@ function formatDateLocal(date: Date): string {
 }
 
 /**
- * Check if there's work during an F3 timezone period
+ * Check if F3 properly covers a red day timezone
+ * F3 must cover the ENTIRE timezone period, not just the calendar date
  */
-function checkF3WorkConflict(
+function checkF3CoversTimezone(
   f3Date: Date,
   rotations: Rotation[],
   shifts: Shift[],
   planStartDate: Date,
-  allTimeZones: HolidayTimeZone[]
-): boolean {
+  allTimeZones: HolidayTimeZone[],
+  helpingRotations: Rotation[],
+  helpingShifts: Shift[]
+): { covers: boolean; conflictDetails: string[] } {
   const f3DateStr = formatDateLocal(f3Date)
-
+  
+  // Find the timezone for this F3 date
   const relevantZone = allTimeZones.find(zone => {
     const zoneMainDate = new Date(zone.endDateTime)
     zoneMainDate.setHours(0, 0, 0, 0)
     return formatDateLocal(zoneMainDate) === f3DateStr
   })
-
-  if (!relevantZone) return false
-
+  
+  if (!relevantZone) {
+    return { covers: true, conflictDetails: [] }
+  }
+  
+  // Check if ANY work shifts overlap with this timezone
+  // BUT ignore shifts that have F3 as overlay (they're already compensated)
+  const conflictDetails: string[] = []
+  
   for (const rotation of rotations) {
     if (!rotation.shift_id) continue
-
+    
     const shift = shifts.find(s => s.id === rotation.shift_id)
-
+    
+    // Skip F3 and other default shifts - we only care about work shifts
     if (!shift || shift.is_default || !shift.start_time || !shift.end_time) continue
-
+    
+    // Check if this rotation has F3 as overlay in the helping plan
+    const helpingRotation = helpingRotations.find(
+      hr => hr.week_index === rotation.week_index && hr.day_of_week === rotation.day_of_week
+    )
+    
+    if (helpingRotation?.overlay_shift_id) {
+      const overlayShift = helpingShifts.find(s => s.id === helpingRotation.overlay_shift_id)
+      if (overlayShift?.name === 'F3' && helpingRotation.overlay_type === 'f3_compensation') {
+        // This shift has F3 overlay, so it's compensated - skip it
+        continue
+      }
+    }
+    
     const overlap = calculateTimeZoneOverlap(
       rotation,
       shift,
       relevantZone,
       planStartDate
     )
-
+    
     if (overlap > 0) {
-      return true
+      const rotationDate = getRotationDate(planStartDate, rotation.week_index, rotation.day_of_week)
+      const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+      conflictDetails.push(
+        `Week ${rotation.week_index + 1}, ${dayNames[rotation.day_of_week]}: ${shift.name} (${shift.start_time.substring(0, 5)}-${shift.end_time.substring(0, 5)}) overlaps ${overlap.toFixed(2)}h with ${relevantZone.holidayName} timezone (no F3 compensation)`
+      )
     }
   }
-
-  return false
+  
+  return { 
+    covers: conflictDetails.length === 0, 
+    conflictDetails 
+  }
 }
 
 function createSundayTimeZones(startDate: Date, endDate: Date): HolidayTimeZone[] {

@@ -165,43 +165,6 @@ export default function ShiftSelectorModal({
           </button>
         </div>
 
-        {/* Manual Overlay Toggle Section (only for non-auto-overlay shifts) */}
-        {showManualOverlayOptions && (
-          <div className="p-4 border-b border-gray-200 bg-gray-50">
-            <div className="flex gap-4 mb-3">
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  checked={mode === 'replace'}
-                  onChange={() => setMode('replace')}
-                  className="text-indigo-600"
-                />
-                <span className="text-sm font-medium">Replace Shift</span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  checked={mode === 'overlay'}
-                  onChange={() => setMode('overlay')}
-                  className="text-indigo-600"
-                />
-                <span className="text-sm font-medium">Add Overlay (Keep Original)</span>
-              </label>
-            </div>
-
-            {mode === 'overlay' && (
-              <select
-                value={overlayType}
-                onChange={(e) => setOverlayType(e.target.value as OverlayType)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-              >
-                <option value="vacation">Vacation</option>
-                <option value="other">Other</option>
-              </select>
-            )}
-          </div>
-        )}
-
         {/* Remove Overlay Section */}
         {hasOverlay && (
           <div className="p-4 bg-yellow-50 border-b border-yellow-200">
