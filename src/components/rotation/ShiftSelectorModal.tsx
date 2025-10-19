@@ -41,18 +41,31 @@ export default function ShiftSelectorModal({
   const [mode, setMode] = useState<'replace' | 'overlay'>('replace')
   const [overlayType, setOverlayType] = useState<OverlayType>('f3_compensation')
 
+  console.log('🧩 ShiftSelectorModal Rendered')
+console.log('currentRotation:', currentRotation)
+console.log('currentShiftId:', currentShiftId)
+console.log('weekIndex:', weekIndex, 'dayOfWeek:', dayOfWeek)
+
   const defaultShifts = shifts.filter(s => s.is_default)
   const customShifts = shifts.filter(s => !s.is_default)
 
   const hasOriginalShift = currentRotation?.shift_id && !currentRotation?.overlay_shift_id
   const hasOverlay = currentRotation?.overlay_shift_id
 
+  console.log('hasOriginalShift:', hasOriginalShift)
+console.log('hasOverlay:', hasOverlay)
+console.log('originalShift:', currentRotation?.shift_id)
+console.log('overlayShift:', currentRotation?.overlay_shift_id)
+
   const handleShiftSelection = (shiftId: string, shiftName: string) => {
+    console.log('🧪 handleShiftSelection called', { shiftId, shiftName, mode, hasOriginalShift })
     if (planType === 'main' && ['F3', 'F4', 'F5'].includes(shiftName)) return
 
     if (mode === 'overlay' && hasOriginalShift && onSelectOverlay) {
+      console.log('🧪 Selecting overlay shift', { shiftId, overlayType })
       onSelectOverlay(shiftId, overlayType)
     } else {
+      console.log('🧪 Replacing shift', { shiftId })
       onSelect(shiftId)
     }
   }

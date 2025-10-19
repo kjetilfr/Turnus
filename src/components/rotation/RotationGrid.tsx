@@ -351,10 +351,32 @@ const handleShiftSelect = async (
         <ShiftSelectorModal
           shifts={shifts}
           currentShiftId={gridData[selectedCell.week]?.[selectedCell.day]?.shift_id || null}
+          currentRotation={gridData[selectedCell.week]?.[selectedCell.day]} // ✅ ADD THIS LINE
           weekIndex={selectedCell.week}
           dayOfWeek={selectedCell.day}
           planType={planType}
           onSelect={handleShiftSelect}
+          onSelectOverlay={(shiftId, overlayType) => 
+            handleShiftSelect(shiftId, { overlayType }) // ✅ Hook overlay into existing logic
+          }
+          onRemoveOverlay={async () => {
+            const rotation = gridData[selectedCell.week]?.[selectedCell.day]
+            if (!rotation) return
+
+            try {
+              const { error } = await supabase
+                .from('rotations')
+                .update({ overlay_shift_id: null, overlay_type: null })
+                .eq('id', rotation.id)
+
+              if (error) throw error
+
+              router.refresh()
+              setSelectedCell(null)
+            } catch (err) {
+              console.error('Error removing overlay:', err)
+            }
+          }}
           onClose={() => setSelectedCell(null)}
         />
       )}
