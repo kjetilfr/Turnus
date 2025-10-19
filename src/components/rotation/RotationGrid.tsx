@@ -242,23 +242,32 @@ const handleShiftSelect = async (
                   const isSelected = selectedCell?.week === weekIndex && selectedCell?.day === dayIndex
 
                   const getShiftDisplay = () => {
+                    // Check for overlay shift first
                     if (overlayShift && originalShift) {
                       return {
                         text: `(${originalShift.name}) ${overlayShift.name}`,
                         hasOverlay: true,
                         isF3: overlayShift.name === 'F3',
+                        isF4: overlayShift.name === 'F4',
                         isF5: overlayShift.name === 'F5',
+                        isFE: overlayShift.name === 'FE',
                         isVacation: rotation.overlay_type === 'vacation'
                       }
                     } else if (overlayShift) {
+                      // Overlay without original (shouldn't happen normally)
                       return {
                         text: overlayShift.name,
-                        hasOverlay: false
+                        hasOverlay: false,
+                        isFE: overlayShift.name === 'FE'
                       }
                     } else if (originalShift) {
+                      // Check if this is FE placed as a regular shift
+                      const isFE = originalShift.name === 'FE'
                       return {
                         text: originalShift.name,
-                        hasOverlay: false
+                        hasOverlay: false,
+                        isFE: isFE,
+                        isVacation: isFE // Treat standalone FE as vacation
                       }
                     }
                     return null
@@ -275,7 +284,7 @@ const handleShiftSelect = async (
                         transition-all hover:bg-blue-50 hover:shadow-inner
                         ${isSelected ? 'bg-blue-100 ring-2 ring-blue-500 ring-inset' : 'bg-white'}
                         ${shiftDisplay?.hasOverlay ? 'bg-purple-50' : ''}
-                        ${shiftDisplay?.isVacation ? 'bg-green-50' : ''}
+                        ${shiftDisplay?.isVacation || shiftDisplay?.isFE ? 'bg-green-50' : ''}
                       `}
                     >
                       {shiftDisplay ? (
@@ -284,24 +293,35 @@ const handleShiftSelect = async (
                             className={`
                               font-semibold 
                               ${shiftDisplay.hasOverlay ? 'text-purple-800' : ''}
-                              ${originalShift?.is_default ? 'text-gray-800' : 'text-indigo-800'}
+                              ${shiftDisplay.isFE && !shiftDisplay.hasOverlay ? 'text-green-800' : ''}
+                              ${originalShift?.is_default && !shiftDisplay.isFE ? 'text-gray-800' : 'text-indigo-800'}
                             `}
                           >
                             {shiftDisplay.text}
                           </div>
 
-                          {!originalShift?.is_default && originalShift?.start_time && originalShift?.end_time && !shiftDisplay.hasOverlay && (
+                          {!originalShift?.is_default && originalShift?.start_time && originalShift?.end_time && !shiftDisplay.hasOverlay && !shiftDisplay.isFE && (
                             <div className="text-xs text-gray-600 mt-1">
                               {originalShift.start_time.substring(0, 5)} - {originalShift.end_time.substring(0, 5)}
                             </div>
                           )}
 
+                          {/* Display overlay indicators */}
                           {shiftDisplay.hasOverlay && (
                             <div className="text-xs text-purple-600 mt-1">
                               {rotation.overlay_type === 'f3_compensation' && '⚖️ Holiday compensation'}
+                              {rotation.overlay_type === 'f4_compensation' && '💰 Compensation'}
                               {rotation.overlay_type === 'f5_replacement' && '🔄 Replacement day'}
-                              {rotation.overlay_type === 'vacation' && '🏖️ Vacation'}
-                              {rotation.overlay_type === 'sick_leave' && '🏥 Sick leave'}
+                              {rotation.overlay_type === 'vacation' && overlayShift?.name === 'FE' && '🏖️ Ferie'}
+                              {rotation.overlay_type === 'vacation' && overlayShift?.name !== 'FE' && '🏖️ Vacation'}
+                              {rotation.overlay_type === 'other' && '📝 Other'}
+                            </div>
+                          )}
+                          
+                          {/* Display FE indicator when placed as standalone */}
+                          {shiftDisplay.isFE && !shiftDisplay.hasOverlay && (
+                            <div className="text-xs text-green-600 mt-1">
+                              🏖️ Ferie
                             </div>
                           )}
                         </div>

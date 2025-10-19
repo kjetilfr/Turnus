@@ -15,6 +15,7 @@ export interface Rotation {
 
 export type OverlayType = 
   | 'f3_compensation'
+  | 'f4_compensation'
   | 'f5_replacement'
   | 'vacation'
   | 'other'

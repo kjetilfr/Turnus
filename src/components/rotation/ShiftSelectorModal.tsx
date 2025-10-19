@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { DAY_NAMES_SHORT } from '@/types/rotation'
 import { Rotation, OverlayType } from '@/types/rotation'
+import { AUTO_OVERLAY_SHIFTS } from '@/lib/constants/defaultShifts'
 
 interface Shift {
   id: string
@@ -16,13 +17,13 @@ interface Shift {
 interface ShiftSelectorModalProps {
   shifts: Shift[]
   currentShiftId: string | null
-  currentRotation?: Rotation // NEW — full rotation object passed in
+  currentRotation?: Rotation
   weekIndex: number
   dayOfWeek: number
   planType: 'main' | 'helping' | 'year'
   onSelect: (shiftId: string | null) => void
-  onSelectOverlay?: (shiftId: string | null, overlayType: OverlayType) => void // NEW
-  onRemoveOverlay?: () => void // NEW
+  onSelectOverlay?: (shiftId: string | null, overlayType: OverlayType) => void
+  onRemoveOverlay?: () => void
   onClose: () => void
 }
 
@@ -41,48 +42,101 @@ export default function ShiftSelectorModal({
   const [mode, setMode] = useState<'replace' | 'overlay'>('replace')
   const [overlayType, setOverlayType] = useState<OverlayType>('f3_compensation')
 
-  console.log('🧩 ShiftSelectorModal Rendered')
-console.log('currentRotation:', currentRotation)
-console.log('currentShiftId:', currentShiftId)
-console.log('weekIndex:', weekIndex, 'dayOfWeek:', dayOfWeek)
-
   const defaultShifts = shifts.filter(s => s.is_default)
   const customShifts = shifts.filter(s => !s.is_default)
 
   const hasOriginalShift = currentRotation?.shift_id && !currentRotation?.overlay_shift_id
   const hasOverlay = currentRotation?.overlay_shift_id
 
-  console.log('hasOriginalShift:', hasOriginalShift)
-console.log('hasOverlay:', hasOverlay)
-console.log('originalShift:', currentRotation?.shift_id)
-console.log('overlayShift:', currentRotation?.overlay_shift_id)
+  const originalShift = currentRotation?.shift_id 
+    ? shifts.find(s => s.id === currentRotation.shift_id)
+    : null
+
+  const overlayShift = currentRotation?.overlay_shift_id 
+    ? shifts.find(s => s.id === currentRotation.overlay_shift_id)
+    : null
+
+  // Check if a shift should auto-overlay
+  const isAutoOverlayShift = (shiftName: string) => {
+    return AUTO_OVERLAY_SHIFTS.includes(shiftName as any)
+  }
+
+  // Check if a shift requires an existing base shift
+  const requiresBaseShift = (shiftName: string) => {
+    // F3, F4, F5 require a base shift, but FE (Ferie) doesn't
+    return ['F3', 'F4', 'F5'].includes(shiftName)
+  }
+
+  // Determine overlay type based on shift name
+  const getOverlayTypeForShift = (shiftName: string): OverlayType => {
+    if (shiftName === 'F3') return 'f3_compensation'
+    if (shiftName === 'F4') return 'f4_compensation'
+    if (shiftName === 'F5') return 'f5_replacement'
+    if (shiftName === 'FE') return 'vacation'
+    return 'other'
+  }
 
   const handleShiftSelection = (shiftId: string, shiftName: string) => {
-    console.log('🧪 handleShiftSelection called', { shiftId, shiftName, mode, hasOriginalShift })
-    if (planType === 'main' && ['F3', 'F4', 'F5'].includes(shiftName)) return
+    // Block F3/F4/F5/FE on main plans
+    if (planType === 'main' && ['F3', 'F4', 'F5', 'FE'].includes(shiftName)) return
 
+    // Auto-overlay logic for F3/F4/F5/FE
+    if (isAutoOverlayShift(shiftName)) {
+      // Check if this shift requires a base shift
+      if (requiresBaseShift(shiftName) && !hasOriginalShift && !currentShiftId) {
+        // F3/F4/F5 cannot be placed on empty day
+        alert(`${shiftName} can only be placed on days with existing shifts`)
+        return
+      }
+      
+      // For FE or other auto-overlay shifts with a base shift, apply as overlay
+      if ((shiftName === 'FE' && (hasOriginalShift || currentShiftId)) || 
+          (requiresBaseShift(shiftName) && (hasOriginalShift || currentShiftId))) {
+        if (onSelectOverlay) {
+          const overlayType = getOverlayTypeForShift(shiftName)
+          onSelectOverlay(shiftId, overlayType)
+        }
+      } else if (shiftName === 'FE' && !hasOriginalShift && !currentShiftId) {
+        // FE can be placed on empty days as a regular shift but with vacation overlay type
+        if (onSelectOverlay) {
+          onSelectOverlay(shiftId, 'vacation')
+        } else {
+          onSelect(shiftId)
+        }
+      }
+      return
+    }
+
+    // Regular shift selection logic
     if (mode === 'overlay' && hasOriginalShift && onSelectOverlay) {
-      console.log('🧪 Selecting overlay shift', { shiftId, overlayType })
       onSelectOverlay(shiftId, overlayType)
     } else {
-      console.log('🧪 Replacing shift', { shiftId })
       onSelect(shiftId)
     }
   }
 
   const handleRemoveShift = () => onSelect(null)
   const handleRemoveOverlay = () => onRemoveOverlay && onRemoveOverlay()
-  const originalShift = currentRotation?.shift_id 
-  ? shifts.find(s => s.id === currentRotation.shift_id)
-  : null
-
-const overlayShift = currentRotation?.overlay_shift_id 
-  ? shifts.find(s => s.id === currentRotation.overlay_shift_id)
-  : null
-
+  
   const formatTime = (time: string | null) => time?.substring(0, 5) || ''
-  const isShiftDisabled = (shift: Shift) =>
-    planType === 'main' && shift.is_default && ['F3', 'F4', 'F5'].includes(shift.name)
+  
+  const isShiftDisabled = (shift: Shift) => {
+    // Disable F3/F4/F5/FE on main plans
+    if (planType === 'main' && shift.is_default && ['F3', 'F4', 'F5', 'FE'].includes(shift.name)) {
+      return true
+    }
+    
+    // Disable F3/F4/F5 if there's no base shift (but not FE)
+    if (requiresBaseShift(shift.name) && !hasOriginalShift && !currentShiftId) {
+      return true
+    }
+    
+    return false
+  }
+
+  // Check if manual overlay selection should be shown
+  const showManualOverlayOptions = hasOriginalShift && 
+    !['F3', 'F4', 'F5', 'FE'].includes(originalShift?.name || '')
 
   return (
     <div 
@@ -111,8 +165,8 @@ const overlayShift = currentRotation?.overlay_shift_id
           </button>
         </div>
 
-        {/* Overlay Toggle Section */}
-        {hasOriginalShift && (
+        {/* Manual Overlay Toggle Section (only for non-auto-overlay shifts) */}
+        {showManualOverlayOptions && (
           <div className="p-4 border-b border-gray-200 bg-gray-50">
             <div className="flex gap-4 mb-3">
               <label className="flex items-center gap-2">
@@ -141,8 +195,6 @@ const overlayShift = currentRotation?.overlay_shift_id
                 onChange={(e) => setOverlayType(e.target.value as OverlayType)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
               >
-                <option value="f3_compensation">F3 - Holiday Compensation</option>
-                <option value="f5_replacement">F5 - Replacement Day</option>
                 <option value="vacation">Vacation</option>
                 <option value="other">Other</option>
               </select>
@@ -170,7 +222,7 @@ const overlayShift = currentRotation?.overlay_shift_id
           </div>
         )}
 
-        {/* Shift List (same as before) */}
+        {/* Shift List */}
         <div className="p-4 overflow-y-auto max-h-[calc(85vh-140px)]">
           {shifts.length === 0 ? (
             <div className="text-center py-12">
@@ -216,7 +268,25 @@ const overlayShift = currentRotation?.overlay_shift_id
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div className="text-xs text-amber-900">
-                      <strong>Note:</strong> F3-F5 shifts are only available for helping and year plans.
+                      <strong>Note:</strong> F3-F5 and FE shifts are only available for helping and year plans.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Auto-overlay info */}
+              {(planType === 'helping' || planType === 'year') && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                  <div className="flex gap-2">
+                    <svg className="w-4 h-4 text-purple-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="text-xs text-purple-900">
+                      <strong>Auto-overlay shifts:</strong>
+                      <ul className="mt-1 space-y-0.5">
+                        <li>• F3, F4, F5 automatically overlay on existing shifts (cannot be placed on empty days)</li>
+                        <li>• FE (Ferie) can be placed on any day and will overlay if a shift exists</li>
+                      </ul>
                     </div>
                   </div>
                 </div>
@@ -231,21 +301,32 @@ const overlayShift = currentRotation?.overlay_shift_id
                   <div className="grid grid-cols-3 gap-2">
                     {defaultShifts.map((shift) => {
                       const disabled = isShiftDisabled(shift)
+                      const isAutoOverlay = isAutoOverlayShift(shift.name)
+                      
                       return (
                         <button
                           key={shift.id}
                           onClick={() => handleShiftSelection(shift.id, shift.name)}
                           disabled={disabled}
                           className={`
-                            p-2 border-2 rounded-lg text-left transition-all
+                            p-2 border-2 rounded-lg text-left transition-all relative
                             ${disabled 
                               ? 'border-gray-200 bg-gray-100 opacity-50 cursor-not-allowed' 
                               : currentShiftId === shift.id 
                                 ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' 
-                                : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+                                : isAutoOverlay
+                                  ? 'border-purple-300 hover:border-purple-400 hover:bg-purple-50'
+                                  : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
                             }
                           `}
                         >
+                          {isAutoOverlay && !disabled && (
+                            <div className="absolute -top-1 -right-1">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-purple-600 text-white">
+                                Auto
+                              </span>
+                            </div>
+                          )}
                           <div className={`font-semibold text-sm ${disabled ? 'text-gray-500' : 'text-gray-900'}`}>
                             {shift.name}
                           </div>
