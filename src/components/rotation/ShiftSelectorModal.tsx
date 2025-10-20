@@ -39,8 +39,8 @@ export default function ShiftSelectorModal({
   onRemoveOverlay,
   onClose
 }: ShiftSelectorModalProps) {
-  const [mode, setMode] = useState<'replace' | 'overlay'>('replace')
-  const [overlayType, setOverlayType] = useState<OverlayType>('f3_compensation')
+  const [mode] = useState<'replace' | 'overlay'>('replace')
+  const [overlayType] = useState<OverlayType>('f3_compensation')
 
   const defaultShifts = shifts.filter(s => s.is_default)
   const customShifts = shifts.filter(s => !s.is_default)
@@ -135,7 +135,7 @@ export default function ShiftSelectorModal({
   }
 
   // Check if manual overlay selection should be shown
-  const showManualOverlayOptions = hasOriginalShift && 
+  hasOriginalShift && 
     !['F3', 'F4', 'F5', 'FE'].includes(originalShift?.name || '')
 
   return (

@@ -49,7 +49,7 @@ export const vacationDaysCheck: LawCheck = {
     }
   ],
 
-  run: ({ rotations, shifts, plan, basePlanRotations, basePlanShifts, inputs = {} }) => {
+  run: ({ rotations, shifts, plan, inputs = {} }) => {
     const result: LawCheckResult = {
       status: 'pass',
       message: '',

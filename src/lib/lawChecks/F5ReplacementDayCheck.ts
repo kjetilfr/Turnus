@@ -3,7 +3,6 @@
 import { LawCheck, LawCheckResult } from '@/types/lawCheck'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
-import { Plan } from '@/types/plan'
 import { getHolidayTimeZones, HolidayTimeZone } from '@/lib/utils/norwegianHolidayTimeZones'
 
 export const f5ReplacementDayCheck: LawCheck = {
@@ -192,8 +191,6 @@ export const f5ReplacementDayCheck: LawCheck = {
       const baseWeekLength = Math.max(...basePlanRotations.map(r => r.week_index)) + 1
       
       f5Rotations.forEach(f5r => {
-        const f5DateStr = formatDateLocal(f5r.date)
-        
         // Get the base shift that F5 is replacing
         const baseWeek = (f5r.rotation.week_index + weekOffset) % baseWeekLength
         const baseWeekRotations = basePlanRotations.filter(r => r.week_index === baseWeek)

@@ -121,8 +121,6 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
     }
   }
 
-  const expectedWeeklyHours = (35.5 * workPercent / 100).toFixed(1)
-
   return (
     <div className="bg-white rounded-lg shadow-md p-8">
       <form onSubmit={handleSubmit} className="space-y-6">

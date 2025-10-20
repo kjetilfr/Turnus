@@ -12,7 +12,7 @@ interface ShiftsListProps {
   planId: string
 }
 
-export default function ShiftsList({ shifts, planId }: ShiftsListProps) {
+export default function ShiftsList({ shifts }: ShiftsListProps) {
   const router = useRouter()
   const supabase = createClient()
   const [editingShift, setEditingShift] = useState<Shift | null>(null)

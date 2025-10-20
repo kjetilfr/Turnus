@@ -239,10 +239,6 @@ function checkRestPeriod(
     const shift = shifts.find(s => s.id === rotation.shift_id)
     if (!shift || !shift.start_time || !shift.end_time) continue
 
-    const startM = parseTime(shift.start_time)
-    const endM = parseTime(shift.end_time)
-    const isNight = endM < startM
-
     // CORRECT MAPPING:
     // rotation shown on `day`:
     //  - if night: starts on day-1 and ends on day (morning)

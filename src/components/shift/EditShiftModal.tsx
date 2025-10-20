@@ -2,9 +2,8 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Shift, formatShiftTime } from '@/types/shift'
+import { Shift } from '@/types/shift'
 
 interface EditShiftModalProps {
   shift: Shift
@@ -13,7 +12,6 @@ interface EditShiftModalProps {
 }
 
 export default function EditShiftModal({ shift, onClose, onSuccess }: EditShiftModalProps) {
-  const router = useRouter()
   const supabase = createClient()
   
   const [name, setName] = useState(shift.name)

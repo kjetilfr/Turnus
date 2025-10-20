@@ -174,8 +174,6 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
     }
   }
 
-  const expectedWeeklyHours = (35.5 * workPercent / 100).toFixed(1)
-
   // Calculate what the actual plan names will be for rotation_based year plans
   const rotationYearPlanPreview = type === 'year' && yearPlanMode === 'rotation_based' && name
     ? `${name} (${durationWeeks} weeks)`

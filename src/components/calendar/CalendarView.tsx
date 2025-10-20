@@ -19,16 +19,6 @@ interface CalendarViewProps {
   planType: 'main' | 'helping' | 'year'  // ADD THIS LINE
 }
 
-function getRotationDate(planStartDate: Date, weekIndex: number, dayOfWeek: number): Date {
-  const d = new Date(planStartDate)
-  const jsDay = d.getDay()
-  const mondayFirstIndex = (jsDay + 6) % 7
-  d.setDate(d.getDate() - mondayFirstIndex)
-  d.setDate(d.getDate() + weekIndex * 7 + dayOfWeek)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
 function formatDateLocal(date: Date): string {
   return date.toLocaleDateString('sv-SE', { timeZone: 'Europe/Oslo' })
 }
@@ -42,7 +32,6 @@ export default function CalendarView({
 }: CalendarViewProps) {
   const calendarRef = useRef<HTMLDivElement>(null)
   const calendarInstance = useRef<Calendar | null>(null)
-  const [currentView, setCurrentView] = useState<'month' | 'week'>('month')
   const [repeatCount, setRepeatCount] = useState(1)
 
   useEffect(() => {

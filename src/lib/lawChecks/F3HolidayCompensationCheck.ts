@@ -3,9 +3,7 @@
 import { LawCheck, LawCheckResult } from '@/types/lawCheck'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
-import { Plan } from '@/types/plan'
 import { getHolidayTimeZones, HolidayTimeZone } from '@/lib/utils/norwegianHolidayTimeZones'
-import { calculateShiftHours } from '@/lib/utils/shiftCalculations'
 
 /**
  * F3 Holiday Compensation Check (Helping Plans Only) - ZONE-BASED
@@ -678,7 +676,6 @@ function checkF3CoversTimezone(
   helpingShifts: Shift[],
   ignoreLessThanOrEqualTo: number
 ): { covers: boolean; conflictDetails: string[] } {
-  const f3DateStr = formatDateLocal(f3Date)
   
   // Find zone where the F3 date/time falls *inside* start→end, not just on end date
   const relevantZone = allTimeZones.find(zone => {
@@ -730,7 +727,6 @@ function checkF3CoversTimezone(
     
     // Only flag as conflict if overlap exceeds the ignore threshold
     if (overlap > ignoreLessThanOrEqualTo) {
-      const rotationDate = getRotationDate(planStartDate, rotation.week_index, rotation.day_of_week)
       const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
       conflictDetails.push(
         `Week ${rotation.week_index + 1}, ${dayNames[rotation.day_of_week]}: ${shift.name} (${shift.start_time.substring(0, 5)}-${shift.end_time.substring(0, 5)}) overlaps ${overlap.toFixed(2)}h with ${relevantZone.holidayName} timezone (no F3 compensation)`

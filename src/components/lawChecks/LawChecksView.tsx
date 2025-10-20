@@ -65,7 +65,7 @@ export default function LawChecksView({
 
       return true
     })
-  }, [plan.type, plan.tariffavtale])
+  }, [plan.type])
 
   const handleRunCheck = (checkId: string) => {
     const check = applicableChecks.find(c => c.id === checkId)

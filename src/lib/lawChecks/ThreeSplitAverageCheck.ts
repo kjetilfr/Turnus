@@ -3,7 +3,6 @@
 import { LawCheck, LawCheckResult } from '@/types/lawCheck'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
-import { Plan } from '@/types/plan'
 import { getNightHoursCalculator, getNightHoursLabel } from '@/lib/utils/shiftTimePeriods'
 import { getHolidayTimeZones, HolidayTimeZone } from '@/lib/utils/norwegianHolidayTimeZones'
 import { calculateShiftHours } from '@/lib/utils/shiftCalculations'

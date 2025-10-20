@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Plan } from '@/types/plan'
-import { Rotation } from '@/types/rotation'
 
 interface ImportRotationModalProps {
   planId: string
@@ -220,7 +219,7 @@ export default function ImportRotationModal({ planId, basePlanId, onClose }: Imp
           const batch = newRotations.slice(i, i + batchSize)
           console.log(`Inserting batch ${Math.floor(i / batchSize) + 1}, rows ${i} to ${i + batch.length}`)
           
-          const { data: insertedData, error: insertError } = await supabase
+          const { error: insertError } = await supabase
             .from('rotations')
             .insert(batch)
             .select()
