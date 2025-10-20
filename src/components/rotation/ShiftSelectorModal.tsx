@@ -58,7 +58,7 @@ export default function ShiftSelectorModal({
 
   // Check if a shift should auto-overlay
   const isAutoOverlayShift = (shiftName: string) => {
-    return AUTO_OVERLAY_SHIFTS.includes(shiftName as any)
+    return (AUTO_OVERLAY_SHIFTS as readonly string[]).includes(shiftName)
   }
 
   // Check if a shift requires an existing base shift
