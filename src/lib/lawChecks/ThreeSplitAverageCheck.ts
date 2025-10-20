@@ -46,7 +46,11 @@ export const threeSplitAverageCheck: LawCheck = {
     {
       title: 'Ny tariffbestemmelse om ukentlig arbeidstid for tredelt skift- og turnusarbeid med virkning fra 01.01.2011',
       url: 'https://www.ks.no/contentassets/8f9b17499f234bb8b556c546272be4cc/tredelt-skift-og-turnus-b12_2010.pdf'
-    }
+    },{
+      title: 'Ny tariffbestemmelse om arbeidstid – utfyllende om beregning fordeltidsstillinger',
+      url: 'https://www.ks.no/contentassets/8f9b17499f234bb8b556c546272be4cc/beregning-for-deltid-b-rundskrivnr-1-2011.pdf'
+    },
+
   ],
   applicableTo: ['main', 'helping', 'year'],
   inputs: [

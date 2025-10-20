@@ -4,13 +4,12 @@ import { LawCheck, LawCheckResult } from '@/types/lawCheck'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
 import { Plan } from '@/types/plan'
-import { getNorwegianHolidays } from '@/lib/utils/norwegianHolidays'
-import { calculateShiftHours } from '@/lib/utils/shiftCalculations'
+import { getHolidayTimeZones, HolidayTimeZone } from '@/lib/utils/norwegianHolidayTimeZones'
 
 export const f5ReplacementDayCheck: LawCheck = {
   id: 'f5-replacement-day',
   name: 'F5 Replacement Day (Erstatningsfridag)',
-  description: 'Ensures F5 shifts cover holidays that fall on F1 and shows hours impact.',
+  description: 'Ensures F5 replacement shifts do not overlap with red day timezones (except Saturday before normal Sunday) when F1 falls on a holiday.',
   category: 'shared',
   lawType: 'hta',
   lawReferences: [
@@ -44,8 +43,6 @@ export const f5ReplacementDayCheck: LawCheck = {
     let rotationsToCheck: Rotation[] = []
     let shiftsToCheck: Shift[] = []
     let weekOffset = 0
-    let effectiveBaseHours = 0
-    let helpingHours = 0
 
     // --- Helping plan: compute effective rotations & week offset ---
     if (plan.type === 'helping') {
@@ -65,23 +62,6 @@ export const f5ReplacementDayCheck: LawCheck = {
       const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7))
       weekOffset = ((diffWeeks % basePlanRotationLength) + basePlanRotationLength) % basePlanRotationLength
 
-      // Calculate effective base hours
-      const effectiveRotations: Rotation[] = []
-      for (let helpingWeek = 0; helpingWeek < plan.duration_weeks; helpingWeek++) {
-        const baseRotationWeek = (helpingWeek + weekOffset) % basePlanRotationLength
-        const baseWeekRotations = basePlanRotations.filter(r => r.week_index === baseRotationWeek)
-        baseWeekRotations.forEach(baseRotation => {
-          effectiveRotations.push({
-            ...baseRotation,
-            week_index: helpingWeek,
-            plan_id: plan.id
-          })
-        })
-      }
-      
-      effectiveBaseHours = calculateTotalWorkHours(effectiveRotations, basePlanShifts)
-      helpingHours = calculateTotalWorkHours(rotations, shifts)
-
       rotationsToCheck = rotations
       shiftsToCheck = shifts
 
@@ -92,9 +72,6 @@ export const f5ReplacementDayCheck: LawCheck = {
         `Checking F1 from base plan and F5 from helping plan`
       ]
     } else {
-      effectiveBaseHours = calculateTotalWorkHours(rotations, shifts)
-      helpingHours = effectiveBaseHours // Same for non-helping plans
-      
       rotationsToCheck = rotations
       shiftsToCheck = shifts
       result.details = [
@@ -127,16 +104,27 @@ export const f5ReplacementDayCheck: LawCheck = {
     planEndDate.setDate(planEndDate.getDate() + planDurationWeeks * 7)
     const startYear = planStartDate.getFullYear()
     const endYear = planEndDate.getFullYear()
-    const allHolidays: Array<{ date: Date; name: string; localName: string }> = []
-
+    
+    // Get holiday timezones instead of just dates
+    const allHolidayZones: HolidayTimeZone[] = []
     for (let year = startYear; year <= endYear; year++) {
-      getNorwegianHolidays(year).forEach(h => {
-        const holidayDate = new Date(h.date)
-        if (holidayDate >= planStartDate && holidayDate <= planEndDate) {
-          allHolidays.push({ date: holidayDate, name: h.name, localName: h.localName })
+      getHolidayTimeZones(year).forEach(zone => {
+        if (zone.startDateTime < planEndDate && zone.endDateTime >= planStartDate) {
+          allHolidayZones.push(zone)
         }
       })
     }
+    
+    // Also create Sunday timezones
+    const sundayZones = createSundayTimeZones(planStartDate, planEndDate)
+    const allTimeZones = [...allHolidayZones, ...sundayZones]
+    
+    // Collect actual holiday dates (not Sunday zones) for F1 checking
+    const allHolidays = allHolidayZones.map(zone => ({
+      date: new Date(zone.endDateTime),
+      name: zone.holidayName,
+      localName: zone.localName
+    }))
 
     // --- Prepare F5 rotations in helping plan ---
     const f5Rotations = rotationsToCheck
@@ -159,8 +147,9 @@ export const f5ReplacementDayCheck: LawCheck = {
     result.details.push(
       `Plan period: ${planStartDate.toISOString().split('T')[0]} → ${planEndDate.toISOString().split('T')[0]}`,
       `Total holidays: ${allHolidays.length}`,
+      `Total holiday/Sunday timezones: ${allTimeZones.length}`,
       `Total F1 shifts: ${f1Rotations.length}`,
-      `Total F5 shifts: ${f5Rotations.length}`,
+      `Total F5 replacement shifts: ${f5Rotations.length}`,
       ''
     )
 
@@ -168,8 +157,6 @@ export const f5ReplacementDayCheck: LawCheck = {
     const casesNeedingF5: Array<{
       f1Date: Date
       holidayName: string
-      f5Present: boolean
-      f5ReplacesWork: boolean
     }> = []
 
     f1Rotations.forEach(f1Rotation => {
@@ -177,54 +164,11 @@ export const f5ReplacementDayCheck: LawCheck = {
       const holidayOnF1 = allHolidays.find(h => formatDateLocal(h.date) === formatDateLocal(f1Date))
       if (!holidayOnF1) return
 
-      const f5Present = f5Rotations.length > 0
-
-      let f5ReplacesWork = false
-      if (plan.type === 'helping' && basePlanRotations && basePlanShifts && f5Present) {
-        const baseWeekLength = Math.max(...basePlanRotations.map(r => r.week_index)) + 1
-        
-        f5ReplacesWork = f5Rotations.some(f5r => {
-          const baseWeek = (f5r.rotation.week_index + weekOffset) % baseWeekLength
-          const baseWeekRotations = basePlanRotations.filter(r => r.week_index === baseWeek)
-          
-          const replacedRotation = baseWeekRotations.find(r => 
-            r.day_of_week === f5r.rotation.day_of_week && 
-            r.shift_id &&
-            !basePlanShifts.find(s => s.id === r.shift_id)?.is_default
-          )
-          return !!replacedRotation
-        })
-      }
-
       casesNeedingF5.push({ 
         f1Date, 
-        holidayName: holidayOnF1.localName, 
-        f5Present,
-        f5ReplacesWork
+        holidayName: holidayOnF1.localName
       })
     })
-
-    // --- Calculate F5 hours impact ---
-    let f5ReplacedHours = 0
-    if (plan.type === 'helping' && basePlanRotations && basePlanShifts) {
-      const baseWeekLength = Math.max(...basePlanRotations.map(r => r.week_index)) + 1
-      
-      f5Rotations.forEach(f5r => {
-        const baseWeek = (f5r.rotation.week_index + weekOffset) % baseWeekLength
-        const baseWeekRotations = basePlanRotations.filter(r => r.week_index === baseWeek)
-        
-        const replacedBaseRotation = baseWeekRotations.find(r => 
-          r.day_of_week === f5r.rotation.day_of_week && r.shift_id
-        )
-        
-        if (replacedBaseRotation) {
-          const baseShift = basePlanShifts.find(s => s.id === replacedBaseRotation.shift_id)
-          if (baseShift && !baseShift.is_default && baseShift.start_time && baseShift.end_time) {
-            f5ReplacedHours += calculateShiftHours(baseShift.start_time, baseShift.end_time)
-          }
-        }
-      })
-    }
 
     // --- Build results ---
     result.details.push('--- F1 on Holidays Analysis ---')
@@ -235,27 +179,22 @@ export const f5ReplacementDayCheck: LawCheck = {
     })
     
     result.details?.push('')
-    result.details?.push(`Total F1s on holidays: ${casesNeedingF5.length}`)
+    result.details?.push(`Total F1s on holidays requiring F5: ${casesNeedingF5.length}`)
 
-    // --- Hours comparison ---
-    if (plan.type === 'helping') {
-      result.details?.push('')
-      result.details?.push('=== F5 Hours Impact ===')
-      result.details?.push(`Hours before F5 overlays: ${effectiveBaseHours.toFixed(2)}h`)
-      result.details?.push(`Hours after F5 overlays: ${helpingHours.toFixed(2)}h`)
-      result.details?.push(`Hours reduced by F5: ${f5ReplacedHours.toFixed(2)}h`)
-    }
-
-    // Validate each F5 placement and count valid ones
+    // --- Validate F5 placement ---
     let validF5Count = 0
     
+    result.details?.push('')
+    result.details?.push('--- F5 Replacement Shift Validation ---')
+    
+    // Check if F5s are properly placed as replacement shifts without overlapping red day timezones
     if (plan.type === 'helping' && basePlanRotations && basePlanShifts) {
-      result.details?.push('')
-      result.details?.push('--- Individual F5 Validation ---')
-      
       const baseWeekLength = Math.max(...basePlanRotations.map(r => r.week_index)) + 1
       
       f5Rotations.forEach(f5r => {
+        const f5DateStr = formatDateLocal(f5r.date)
+        
+        // Get the base shift that F5 is replacing
         const baseWeek = (f5r.rotation.week_index + weekOffset) % baseWeekLength
         const baseWeekRotations = basePlanRotations.filter(r => r.week_index === baseWeek)
         
@@ -264,30 +203,62 @@ export const f5ReplacementDayCheck: LawCheck = {
         )
         
         if (!replacedBaseRotation) {
-          result.details?.push(`  ❌ Week ${f5r.rotation.week_index + 1}, Day ${f5r.rotation.day_of_week}: F5 on empty day`)
+          result.details?.push(`  ❌ Week ${f5r.rotation.week_index + 1}, ${getDayName(f5r.date)}: F5 on empty day (no shift to replace)`)
           result.violations?.push({ 
             weekIndex: f5r.rotation.week_index, 
             dayOfWeek: f5r.rotation.day_of_week, 
-            description: `F5 placed on day without base shift` 
+            description: `F5 placed on day without base shift to replace` 
           })
-        } else {
-          const baseShift = basePlanShifts.find(s => s.id === replacedBaseRotation.shift_id)
-          if (baseShift?.is_default) {
-            result.details?.push(`  ❌ Week ${f5r.rotation.week_index + 1}, Day ${f5r.rotation.day_of_week}: F5 replaces ${baseShift.name}`)
-            result.violations?.push({ 
-              weekIndex: f5r.rotation.week_index, 
-              dayOfWeek: f5r.rotation.day_of_week, 
-              description: `F5 replaces ${baseShift.name} instead of work shift` 
-            })
+          return
+        }
+        
+        const baseShift = basePlanShifts.find(s => s.id === replacedBaseRotation.shift_id)
+        if (baseShift?.is_default) {
+          result.details?.push(`  ❌ Week ${f5r.rotation.week_index + 1}, ${getDayName(f5r.date)}: F5 replaces ${baseShift.name} instead of work shift`)
+          result.violations?.push({ 
+            weekIndex: f5r.rotation.week_index, 
+            dayOfWeek: f5r.rotation.day_of_week, 
+            description: `F5 replaces ${baseShift.name} instead of work shift` 
+          })
+          return
+        }
+        
+        // Check if the shift overlaps with any red day timezone
+        if (baseShift && baseShift.start_time && baseShift.end_time) {
+          const overlap = calculateAnyTimeZoneOverlap(
+            f5r.rotation,
+            baseShift,
+            allTimeZones,
+            planStartDate
+          )
+          
+          if (overlap.hasOverlap) {
+            // Check if this is the allowed exception: Saturday before normal Sunday
+            const isAllowedException = checkIfSaturdayBeforeNormalSunday(
+              f5r.date,
+              allTimeZones
+            )
+            
+            if (isAllowedException) {
+              result.details?.push(`  ✅ Week ${f5r.rotation.week_index + 1}, ${getDayName(f5r.date)}: F5 replaces ${baseShift?.name || 'work shift'} (exception: Saturday before normal Sunday)`)
+              validF5Count++
+            } else {
+              result.details?.push(`  ❌ Week ${f5r.rotation.week_index + 1}, ${getDayName(f5r.date)}: F5 shift overlaps with ${overlap.zoneName} timezone`)
+              result.violations?.push({ 
+                weekIndex: f5r.rotation.week_index, 
+                dayOfWeek: f5r.rotation.day_of_week, 
+                description: `F5 shift overlaps with ${overlap.zoneName} timezone` 
+              })
+            }
           } else {
-            result.details?.push(`  ✅ Week ${f5r.rotation.week_index + 1}, Day ${f5r.rotation.day_of_week}: F5 replaces ${baseShift?.name || 'work shift'}`)
+            result.details?.push(`  ✅ Week ${f5r.rotation.week_index + 1}, ${getDayName(f5r.date)}: F5 replaces ${baseShift?.name || 'work shift'}`)
             validF5Count++
           }
         }
       })
       
       result.details?.push('')
-      result.details?.push(`Valid F5 count: ${validF5Count}`)
+      result.details?.push(`Valid F5 replacement shifts: ${validF5Count}`)
       
       if (casesNeedingF5.length > 0) {
         if (validF5Count < casesNeedingF5.length) {
@@ -295,7 +266,7 @@ export const f5ReplacementDayCheck: LawCheck = {
           result.violations?.push({
             weekIndex: 0,
             dayOfWeek: 0,
-            description: `Need ${casesNeedingF5.length} F5s for holidays, but only ${validF5Count} valid F5s found`
+            description: `Need ${casesNeedingF5.length} F5 replacement shifts for holidays, but only ${validF5Count} valid F5s found`
           })
         } else if (validF5Count > casesNeedingF5.length) {
           result.details?.push(`✅ Sufficient F5s: Need ${casesNeedingF5.length}, have ${validF5Count} (${validF5Count - casesNeedingF5.length} extra)`)
@@ -314,7 +285,7 @@ export const f5ReplacementDayCheck: LawCheck = {
       result.message = `✅ No F1s fall on holidays - no F5 compensation needed`
     } else {
       result.status = 'pass'
-      result.message = `✅ All ${casesNeedingF5.length} F1-on-holiday case(s) properly covered with F5 shifts`
+      result.message = `✅ All ${casesNeedingF5.length} F1-on-holiday case(s) properly covered with F5 replacement shifts`
     }
 
     return result
@@ -336,19 +307,155 @@ function formatDateLocal(date: Date): string {
   return date.toLocaleDateString('sv-SE', { timeZone: 'Europe/Oslo' })
 }
 
-function calculateTotalWorkHours(rotations: Rotation[], shifts: Shift[]): number {
-  let totalHours = 0
+function getDayName(date: Date): string {
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const jsDay = date.getDay()
+  const mondayFirstIndex = (jsDay + 6) % 7
+  return days[mondayFirstIndex]
+}
 
-  rotations.forEach((rotation: Rotation) => {
-    if (rotation.shift_id) {
-      const shift = shifts.find((s: Shift) => s.id === rotation.shift_id)
-      // Skip F5 shifts - they represent time off, not work
-      if (shift && shift.name !== 'F5' && shift.start_time && shift.end_time) {
-        const shiftHours = calculateShiftHours(shift.start_time, shift.end_time)
-        totalHours += shiftHours
-      }
+/**
+ * Check if a shift overlaps with any red day timezone
+ */
+function calculateAnyTimeZoneOverlap(
+  rotation: Rotation,
+  shift: Shift,
+  zones: HolidayTimeZone[],
+  planStartDate: Date
+): { hasOverlap: boolean; zoneName: string } {
+  if (!shift.start_time || !shift.end_time) {
+    return { hasOverlap: false, zoneName: '' }
+  }
+
+  const parseTime = (time: string) => {
+    const [h, m] = time.split(':').map(Number)
+    return { hour: h, minute: m }
+  }
+
+  const startTime = parseTime(shift.start_time)
+  const endTime = parseTime(shift.end_time)
+
+  const isNightShift =
+    endTime.hour < startTime.hour ||
+    (endTime.hour === startTime.hour && endTime.minute < startTime.minute)
+
+  const rotationDate = getRotationDate(planStartDate, rotation.week_index, rotation.day_of_week)
+
+  let shiftStartDateTime: Date
+  let shiftEndDateTime: Date
+
+  if (rotation.day_of_week === 6 && isNightShift) {
+    // Sunday night shift - starts Saturday
+    const saturday = new Date(rotationDate)
+    saturday.setDate(saturday.getDate() - 1)
+
+    shiftStartDateTime = new Date(saturday)
+    shiftStartDateTime.setHours(startTime.hour, startTime.minute, 0, 0)
+
+    shiftEndDateTime = new Date(rotationDate)
+    shiftEndDateTime.setHours(endTime.hour, endTime.minute, 0, 0)
+  } else if (isNightShift) {
+    // Regular night shift
+    const prevDay = new Date(rotationDate)
+    prevDay.setDate(prevDay.getDate() - 1)
+
+    shiftStartDateTime = new Date(prevDay)
+    shiftStartDateTime.setHours(startTime.hour, startTime.minute, 0, 0)
+
+    shiftEndDateTime = new Date(rotationDate)
+    shiftEndDateTime.setHours(endTime.hour, endTime.minute, 0, 0)
+  } else {
+    // Day shift
+    shiftStartDateTime = new Date(rotationDate)
+    shiftStartDateTime.setHours(startTime.hour, startTime.minute, 0, 0)
+
+    shiftEndDateTime = new Date(rotationDate)
+    shiftEndDateTime.setHours(endTime.hour, endTime.minute, 0, 0)
+  }
+
+  // Check if shift overlaps with any timezone
+  for (const zone of zones) {
+    const overlapStart = shiftStartDateTime > zone.startDateTime
+      ? shiftStartDateTime
+      : zone.startDateTime
+
+    const overlapEnd = shiftEndDateTime < zone.endDateTime
+      ? shiftEndDateTime
+      : zone.endDateTime
+
+    if (overlapStart < overlapEnd) {
+      return { hasOverlap: true, zoneName: zone.localName }
     }
-  })
+  }
 
-  return totalHours
+  return { hasOverlap: false, zoneName: '' }
+}
+
+/**
+ * Create Sunday time zones (Saturday 18:00 - Sunday 22:00)
+ */
+function createSundayTimeZones(startDate: Date, endDate: Date): HolidayTimeZone[] {
+  const zones: HolidayTimeZone[] = []
+  const current = new Date(startDate)
+
+  // Move to first Sunday on/after startDate
+  while (current.getDay() !== 0) {
+    current.setDate(current.getDate() + 1)
+  }
+
+  while (current <= endDate) {
+    const sunday = new Date(current)
+    const saturday = new Date(current)
+    saturday.setDate(saturday.getDate() - 1)
+
+    const zoneStart = new Date(saturday)
+    zoneStart.setHours(18, 0, 0, 0)
+
+    const zoneEnd = new Date(sunday)
+    zoneEnd.setHours(22, 0, 0, 0)
+
+    if (zoneEnd >= startDate && zoneStart <= endDate) {
+      zones.push({
+        holidayName: 'Sunday',
+        localName: 'Søndag',
+        startDateTime: zoneStart,
+        endDateTime: zoneEnd,
+        type: 'standard'
+      })
+    }
+
+    current.setDate(current.getDate() + 7)
+  }
+
+  return zones
+}
+
+/**
+ * Check if a date is Saturday before a normal Sunday (not a holiday Sunday)
+ * This is allowed for F5 placement
+ */
+function checkIfSaturdayBeforeNormalSunday(
+  date: Date,
+  allTimeZones: HolidayTimeZone[]
+): boolean {
+  // Check if it's a Saturday
+  if (date.getDay() !== 6) return false
+  
+  // Get the Sunday after this Saturday
+  const sunday = new Date(date)
+  sunday.setDate(sunday.getDate() + 1)
+  const sundayStr = formatDateLocal(sunday)
+  
+  // Check if that Sunday is a holiday (not just a normal Sunday)
+  const sundayIsHoliday = allTimeZones.some(zone => {
+    // Only check non-standard Sunday zones (i.e., actual holidays)
+    if (zone.type === 'standard' && zone.holidayName === 'Sunday') {
+      return false
+    }
+    const zoneEndDate = formatDateLocal(new Date(zone.endDateTime))
+    return zoneEndDate === sundayStr
+  })
+  
+  // If Sunday is NOT a holiday, then this Saturday is allowed
+  return !sundayIsHoliday
 }
