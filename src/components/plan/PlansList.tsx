@@ -9,7 +9,20 @@ interface PlansListProps {
 }
 
 export default function PlansList({ plans }: PlansListProps) {
-  if (plans.length === 0) {
+  // Filter out auto-generated helping plans (52-week helping plans created for rotation-based year plans)
+  const filteredPlans = plans.filter(plan => {
+    // If it's a helping plan with a base plan
+    if (plan.type === 'helping' && plan.base_plan_id && plan.base_plan) {
+      // Check if the base plan is a rotation-based year plan
+      if (plan.base_plan.type === 'year' && plan.base_plan.year_plan_mode === 'rotation_based') {
+        // This is an auto-generated 52-week helping plan - hide it
+        return false
+      }
+    }
+    return true
+  })
+
+  if (filteredPlans.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-md p-12 text-center">
         <div className="text-6xl mb-4">📋</div>
@@ -101,7 +114,7 @@ export default function PlansList({ plans }: PlansListProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {plans.map((plan) => {
+            {filteredPlans.map((plan) => {
               const rowClasses = 'hover:bg-gray-50 transition-colors'
 
               return (
