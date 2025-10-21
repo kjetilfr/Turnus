@@ -56,11 +56,11 @@ export default function PlansList({ plans }: PlansListProps) {
   const getPlanTypeLabel = (type: string) => {
     switch (type) {
       case 'main':
-        return 'Main Plan'
+        return 'Grunnturnus'
       case 'helping':
-        return 'Helping Plan'
+        return 'Hjelpeturnus'
       case 'year':
-        return 'Year Plan'
+        return 'Årsturnus'
       default:
         return type
     }
@@ -88,10 +88,10 @@ export default function PlansList({ plans }: PlansListProps) {
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Name
+                Namn
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Start Date
+                Start Dato
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Type
@@ -100,16 +100,16 @@ export default function PlansList({ plans }: PlansListProps) {
                 Tariffavtale
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Duration
+                Varigheit
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Base Plan
+                Grunnturnus
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Description
+                Beskrivelse
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
+                Handling
               </th>
             </tr>
           </thead>
@@ -142,7 +142,7 @@ export default function PlansList({ plans }: PlansListProps) {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {plan.duration_weeks} {plan.duration_weeks === 1 ? 'week' : 'weeks'}
+                    {plan.duration_weeks} {plan.duration_weeks === 1 ? 'Veke' : 'Veker'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {plan.base_plan ? plan.base_plan.name : '-'}
@@ -158,13 +158,13 @@ export default function PlansList({ plans }: PlansListProps) {
                         href={`/plans/${plan.id}`}
                         className="text-indigo-600 hover:text-indigo-900 font-medium"
                       >
-                        View
+                        Sjå
                       </Link>
                       <Link
                         href={`/plans/${plan.id}/edit`}
                         className="text-gray-600 hover:text-gray-900 font-medium"
                       >
-                        Edit
+                        Endre
                       </Link>
                     </div>
                   </td>

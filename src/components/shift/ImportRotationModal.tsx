@@ -253,7 +253,7 @@ export default function ImportRotationModal({ planId, basePlanId, onClose }: Imp
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
           <div className="text-center py-8">
-            <div className="text-gray-500">Loading plan data...</div>
+            <div className="text-gray-500">Laster turnus data...</div>
           </div>
         </div>
       </div>
@@ -272,8 +272,8 @@ export default function ImportRotationModal({ planId, basePlanId, onClose }: Imp
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Import Rotation from Base Plan</h2>
-            <p className="text-sm text-gray-600 mt-1">Copy rotation schedule with automatic week alignment</p>
+            <h2 className="text-xl font-semibold text-gray-900">Importer turnus frå hovudturnus</h2>
+            <p className="text-sm text-gray-600 mt-1">Kopier turnus med automatisk vekeoverføring</p>
           </div>
           <button
             onClick={onClose}
@@ -299,23 +299,23 @@ export default function ImportRotationModal({ planId, basePlanId, onClose }: Imp
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="grid md:grid-cols-2 gap-4 text-sm">
                   <div>
-                    <div className="font-semibold text-blue-900 mb-1">Base Plan (Source)</div>
+                    <div className="font-semibold text-blue-900 mb-1">Hovudturnus</div>
                     <div className="text-blue-800">{basePlan.name}</div>
                     <div className="text-blue-700 text-xs mt-1">
-                      Starts: {new Date(basePlan.date_started).toLocaleDateString('en-GB')}
+                      Startar: {new Date(basePlan.date_started).toLocaleDateString('en-GB')}
                     </div>
                     <div className="text-blue-700 text-xs">
-                      Duration: {basePlan.duration_weeks} weeks
+                      Varigheit: {basePlan.duration_weeks} veker
                     </div>
                   </div>
                   <div>
-                    <div className="font-semibold text-green-900 mb-1">Helping Plan (Target)</div>
+                    <div className="font-semibold text-green-900 mb-1">Hjelpeturnus</div>
                     <div className="text-green-800">{helpingPlan.name}</div>
                     <div className="text-green-700 text-xs mt-1">
-                      Starts: {new Date(helpingPlan.date_started).toLocaleDateString('en-GB')}
+                      Startar: {new Date(helpingPlan.date_started).toLocaleDateString('en-GB')}
                     </div>
                     <div className="text-green-700 text-xs">
-                      Duration: {helpingPlan.duration_weeks} weeks
+                      Varigheit: {helpingPlan.duration_weeks} veker
                     </div>
                   </div>
                 </div>
@@ -338,20 +338,19 @@ export default function ImportRotationModal({ planId, basePlanId, onClose }: Imp
                     />
                   </svg>
                   <div className="flex-1">
-                    <div className="font-semibold text-purple-900 mb-1">Week Alignment</div>
+                    <div className="font-semibold text-purple-900 mb-1">Vekejustering</div>
                     <div className="text-sm text-purple-800">
                       {weekOffset === 0 ? (
-                        <>Both plans start on the same date. Helping plan Week 1 will copy Base plan Week 1.</>
+                        <>Begge turnusar har same start dato. Hjelpeturnus veke 1 kopierer hovudturnus veke 1.</>
                       ) : (
                         <>
-                          Helping plan starts {weekOffset} week{weekOffset !== 1 ? 's' : ''} after base plan. 
-                          Helping plan Week 1 will copy Base plan Week {weekOffset + 1}.
+                          Hjelpeturnusen startar {weekOffset} veke{weekOffset !== 1 ? 's' : ''} etter hovudturnus. 
+                          Hjelpeturnus Veke 1 vil kopiere hovudturnus veke {weekOffset + 1}.
                         </>
                       )}
                     </div>
                     <div className="text-xs text-purple-700 mt-2">
-                      The base plan will wrap around if needed. For example, if base plan has 6 weeks and helping plan has 52 weeks, 
-                      the rotation pattern will repeat cyclically.
+                      Hovudturnusen vil starte på nytt på veke 1 dersom det ikkje er nok veker til å fylle heile turnusen.
                     </div>
                   </div>
                 </div>
@@ -359,20 +358,20 @@ export default function ImportRotationModal({ planId, basePlanId, onClose }: Imp
 
               {/* Preview Mapping */}
               <div>
-                <h3 className="font-semibold text-gray-900 mb-3">Week Mapping Preview</h3>
+                <h3 className="font-semibold text-gray-900 mb-3">Forhandsvisning vekekartlegging</h3>
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-64 overflow-y-auto">
                   <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="font-semibold text-gray-700">Helping Week</div>
-                    <div className="font-semibold text-gray-700">← Base Week</div>
+                    <div className="font-semibold text-gray-700">Hjelpe Veke</div>
+                    <div className="font-semibold text-gray-700">← Hovud Veke</div>
                     {previewMapping.slice(0, 12).map((mapping) => (
                       <div key={mapping.helpingWeek} className="contents">
-                        <div className="text-gray-900">Week {mapping.helpingWeek + 1}</div>
-                        <div className="text-gray-900">← Week {mapping.baseWeek + 1}</div>
+                        <div className="text-gray-900">Veke {mapping.helpingWeek + 1}</div>
+                        <div className="text-gray-900">← Veke {mapping.baseWeek + 1}</div>
                       </div>
                     ))}
                     {previewMapping.length > 12 && (
                       <div className="col-span-2 text-center text-gray-500 text-xs italic mt-2">
-                        ... and {previewMapping.length - 12} more weeks
+                        ... og {previewMapping.length - 12} fleire veker
                       </div>
                     )}
                   </div>
@@ -396,8 +395,8 @@ export default function ImportRotationModal({ planId, basePlanId, onClose }: Imp
                     />
                   </svg>
                   <div className="text-sm text-yellow-900">
-                    <div className="font-semibold mb-1">Warning</div>
-                    <div>This will replace all existing rotations in the helping plan. This action cannot be undone.</div>
+                    <div className="font-semibold mb-1">Advarsel!</div>
+                    <div>Du vil no overksrive heile turnusen. Du kan ikkje angre!</div>
                   </div>
                 </div>
               </div>
@@ -413,14 +412,14 @@ export default function ImportRotationModal({ planId, basePlanId, onClose }: Imp
             disabled={loading}
             className="px-6 py-2 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-colors disabled:opacity-50"
           >
-            Cancel
+            Avbryt
           </button>
           <button
             onClick={handleImport}
             disabled={loading || !helpingPlan || !basePlan}
             className="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Importing...' : 'Import Rotation'}
+            {loading ? 'Importerer...' : 'Importer Turnus'}
           </button>
         </div>
       </div>

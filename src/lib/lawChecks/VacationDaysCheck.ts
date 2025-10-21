@@ -20,9 +20,9 @@ import { calculateShiftHours } from '@/lib/utils/shiftCalculations'
  */
 export const vacationDaysCheck: LawCheck = {
   id: 'vacation-days',
-  name: 'Vacation Days (Ferie)',
+  name: 'Ferie',
   description:
-    'Verifies proper allocation of vacation days for plans: 25 days (AML) + 5 days (HTA) = 177.5 hours expected for full year. Only Monday–Saturday count as vacation days. Sundays with work can be allowed explicitly. Checks for 3+ consecutive weeks and 16h rest rule.',
+    'Verifiserer korrekt tildeling av feriedagar i planane: 25 dagar (AML) + 5 dagar (HTA) = 177,5 timar for eit heilt år. Berre måndag til laurdag vert rekna som feriedagar. Søndagar med arbeid kan tillatast eksplisitt. Kontrollerer òg tre eller fleire samanhengande veker og 16-timars kvileregel. Søndagar er ikkje virkedagar og kan difor ikkje vere feriedagar, men mange har avtalt ein søndag fri per år i sin lokale turnusavtale.',
   category: 'shared',
   lawType: 'hta',
   lawReferences: [
@@ -39,13 +39,13 @@ export const vacationDaysCheck: LawCheck = {
   inputs: [
     {
       id: 'allowedSundayVacationDays',
-      label: 'Allowed Sunday Vacation Days (Sundays with work allowed)',
+      label: 'Søndagar med fri i turnusavtalen',
       type: 'number',
       defaultValue: 0,
       min: 0,
       max: 52,
       step: 1,
-      unit: 'Sundays'
+      unit: 'Søndagar'
     }
   ],
 
@@ -314,13 +314,13 @@ export const vacationDaysCheck: LawCheck = {
     if (result.status !== 'fail' && result.status !== 'warning') {
       if (result.violations && result.violations.length > 0) {
         result.status = 'fail'
-        result.message = `Vacation allocation issues: ${vacationDaysCount.toFixed(1)}/${totalRequiredDays.toFixed(1)} days, ${vacationHoursCount.toFixed(1)}/${expectedHours.toFixed(1)}h`
-      } else if (daysDifference > 0 || hoursDifference > 0.5) {
+        result.message = `Feil i ferietildeling: ${vacationDaysCount.toFixed(1)}/${totalRequiredDays.toFixed(1)} dagar, ${vacationHoursCount.toFixed(1)}/${expectedHours.toFixed(1)}t`
+      } else if (daysDifference > 1 || hoursDifference > 2.5) {
         result.status = 'warning'
-        result.message = `Vacation allocation exceeds requirements: ${vacationDaysCount.toFixed(1)}/${totalRequiredDays.toFixed(1)} days, ${vacationHoursCount.toFixed(1)}/${expectedHours.toFixed(1)}h`
+        result.message = `Ferien er betre enn minimumskravet: ${vacationDaysCount.toFixed(1)}/${totalRequiredDays.toFixed(1)} dagar, ${vacationHoursCount.toFixed(1)}/${expectedHours.toFixed(1)}t`
       } else {
         result.status = 'pass'
-        result.message = `✅ Vacation properly allocated: ${vacationDaysCount.toFixed(1)} days, ${vacationHoursCount.toFixed(1)}h (${plan.work_percent}% position)`
+        result.message = `✅ Ferie korrekt tildelt: ${vacationDaysCount.toFixed(1)} dagar, ${vacationHoursCount.toFixed(1)}t (${plan.work_percent}% stillingsprosent)`
       }
     }
 

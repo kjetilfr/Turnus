@@ -114,9 +114,9 @@ export default function ShiftSummary({ rotations, shifts, plan, planType }: Shif
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
       <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-        <h2 className="text-xl font-semibold text-gray-900">Shift Summary</h2>
+        <h2 className="text-xl font-semibold text-gray-900">Turnus oppsummering</h2>
         <p className="text-sm text-gray-600 mt-1">
-          Overview of all shifts in this plan • Night hours: {nightHoursLabel} ({plan.tariffavtale.toUpperCase()})
+          Oversikt over alle vakter i turnus • Natt timar: {nightHoursLabel} ({plan.tariffavtale.toUpperCase()})
         </p>
       </div>
 
@@ -125,28 +125,28 @@ export default function ShiftSummary({ rotations, shifts, plan, planType }: Shif
           <thead className="bg-gray-100 border-b-2 border-gray-300">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Name
+                Namn
               </th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Description
+                Beskrivelse
               </th>
               <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                From - To (Duration)
+                Frå - Til (Varigheit)
               </th>
               <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Count
+                Tal
               </th>
               <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Total Hours
+                Totale Timar
               </th>
               <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Evening
+                Kveld
               </th>
               <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Night ({nightHoursLabel})
+                Natt ({nightHoursLabel})
               </th>
               <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Sat/Sun
+                Lau/Søn
               </th>
             </tr>
           </thead>
@@ -156,7 +156,7 @@ export default function ShiftSummary({ rotations, shifts, plan, planType }: Shif
               <>
                 <tr className="bg-gray-50">
                   <td colSpan={8} className="px-6 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                    Default Shifts
+                    Forhandsinnstilte vakter
                   </td>
                 </tr>
                 {defaultShiftStats.map((stat) => {
@@ -200,7 +200,7 @@ export default function ShiftSummary({ rotations, shifts, plan, planType }: Shif
               <>
                 <tr className="bg-gray-50">
                   <td colSpan={8} className="px-6 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                    Custom Shifts
+                    Eigendefinerte vakter
                   </td>
                 </tr>
                 {customShiftStats.map((stat) => {
@@ -265,7 +265,7 @@ export default function ShiftSummary({ rotations, shifts, plan, planType }: Shif
 
         {shiftStats.length === 0 && (
           <div className="px-6 py-12 text-center text-gray-500">
-            <p>No shifts found in this plan.</p>
+            <p>Ingen vakter i turnus.</p>
           </div>
         )}
       </div>

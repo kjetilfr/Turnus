@@ -18,8 +18,8 @@ import { getHolidayTimeZones, HolidayTimeZone } from '@/lib/utils/norwegianHolid
  */
 export const f3HolidayCompensationCheck: LawCheck = {
   id: 'f3-holiday-compensation',
-  name: 'F3 Holiday Compensation (Helping Plans)',
-  description: 'Verifies F3 shifts are properly placed on actual red day zones and fully cover the timezone (no work conflicts). Now zone-based: consecutive calendar days in the same timezone count as one zone.',
+  name: 'F3 helgedags fri',
+  description: 'Verifiserer at F3-vakter er korrekt plasserte på faktiske rauddagssoner og dekkjer tidssona fullt ut (ingen arbeidskonfliktar). Dersom du går 50/50 langvakter og vanlege dag/kveld vakter er det naturleg at F3 dagar også reflekterer det. Det er ikkje noko som blir testa. (Grunnlag basert på grunnturnus eller rullerande årsturnus)',
   category: 'helping',
   lawType: 'aml',
   lawReferences: [
@@ -31,29 +31,23 @@ export const f3HolidayCompensationCheck: LawCheck = {
   inputs: [
     {
       id: 'ignoreLessThanOrEqualTo',
-      label: 'Ignore Work Less Than or Equal To',
+      label: 'Ignorer overlapp raud tidssone lik',
       type: 'number',
       defaultValue: 1,
       min: 0,
       max: 24,
       step: 0.25,
-      unit: 'hours'
-    },
-    {
-      id: 'calculationMethod',
-      label: 'Calculation Method',
-      type: 'text',
-      defaultValue: 'hovedregelen'
+      unit: 'timar'
     },
     {
       id: 'averageWeeks',
-      label: 'Weeks to Calculate For (Gjennomsnittsberegning)',
+      label: 'Gjennomsnittsberegning',
       type: 'number',
       defaultValue: 26,
       min: 4,
       max: 52,
       step: 1,
-      unit: 'weeks',
+      unit: 'veker',
       showIf: {
         field: 'calculationMethod',
         equals: 'gjennomsnitt'

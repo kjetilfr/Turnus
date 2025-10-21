@@ -45,3 +45,23 @@ export const DAY_NAMES_SHORT = [
   'Sat',
   'Sun'
 ] as const
+
+export const DAY_NAMES_NORWEGIAN = [
+  'Måndag',
+  'Tysdag', 
+  'Onsdag',
+  'Torsdag',
+  'Fredag',
+  'Laurdag',
+  'Søndag'
+] as const
+
+export const DAY_NAMES_SHORT_NORWEGIAN = [
+  'Mån',
+  'Tys',
+  'Ons',
+  'Tor',
+  'Fre',
+  'Lau',
+  'Søn'
+] as const

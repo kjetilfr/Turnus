@@ -79,7 +79,7 @@ export default function CreateShiftModal({ planId, onClose }: CreateShiftModalPr
           {/* Shift Name */}
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-              Shift Name *
+              Namn *
             </label>
             <input
               id="name"
@@ -95,7 +95,7 @@ export default function CreateShiftModal({ planId, onClose }: CreateShiftModalPr
           {/* Start Time */}
           <div>
             <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 mb-2">
-              Start Time *
+              Start Tidspunkt *
             </label>
             <input
               id="startTime"
@@ -110,7 +110,7 @@ export default function CreateShiftModal({ planId, onClose }: CreateShiftModalPr
           {/* End Time */}
           <div>
             <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 mb-2">
-              End Time *
+              Slutt Tidspunkt *
             </label>
             <input
               id="endTime"
@@ -125,7 +125,7 @@ export default function CreateShiftModal({ planId, onClose }: CreateShiftModalPr
           {/* Description */}
           <div>
             <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-              Description
+              Beskrivelse
             </label>
             <textarea
               id="description"
@@ -144,14 +144,14 @@ export default function CreateShiftModal({ planId, onClose }: CreateShiftModalPr
               disabled={loading}
               className="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Creating...' : 'Create Shift'}
+              {loading ? 'Lager vakt...' : 'Opprett vakt'}
             </button>
             <button
               type="button"
               onClick={onClose}
               className="px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
             >
-              Cancel
+              Avbryt
             </button>
           </div>
         </form>

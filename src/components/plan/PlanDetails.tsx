@@ -133,14 +133,18 @@ export default function PlanDetails({
           {/* Plan Metadata */}
           <div className="flex items-center gap-6 text-sm">
             <div className="flex items-center gap-2">
-              <span className="text-gray-600">Duration:</span>
+              <span className="text-gray-600">Varigheit:</span>
               <span className="font-medium text-gray-900">
-                {plan.duration_weeks} {plan.duration_weeks === 1 ? 'week' : 'weeks'}
+                {plan.duration_weeks} {plan.duration_weeks === 1 ? 'veke' : 'veker'}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-gray-600">Type:</span>
-              <span className="font-medium text-gray-900 capitalize">{plan.type}</span>
+              <span className="font-medium text-gray-900 capitalize">
+                {plan.type === 'main' && 'Grunnturnus'}
+                {plan.type === 'year' && 'Årsturnus'}
+                {plan.type === 'helping' && 'Hjelpeturnus'}
+              </span>
               <div className="flex items-center gap-2">
               <span className="text-gray-600">Tariffavtale:</span>
               <span className="font-medium text-gray-900 capitalize">
@@ -152,7 +156,7 @@ export default function PlanDetails({
             </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-gray-600">Start Date:</span>
+              <span className="text-gray-600">Start Dato:</span>
               {isEditingDate ? (
                 <div className="flex items-center gap-2">
                   <input
@@ -189,14 +193,14 @@ export default function PlanDetails({
                     onClick={() => setIsEditingDate(true)}
                     className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
                   >
-                    Change
+                    Endre
                   </button>
                 </div>
               )}
             </div>
             {basePlanName && (
               <div className="flex items-center gap-2">
-                <span className="text-gray-600">Based On:</span>
+                <span className="text-gray-600">Basert på:</span>
                 <span className="font-medium text-gray-900">{basePlanName}</span>
               </div>
             )}
@@ -226,7 +230,7 @@ export default function PlanDetails({
                 d="M4 6h16M4 10h16M4 14h16M4 18h16" 
               />
             </svg>
-            Rotation
+            Turnus
           </Link>
 
           <Link
@@ -250,7 +254,7 @@ export default function PlanDetails({
                 d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" 
               />
             </svg>
-            Calendar
+            Kalendar
           </Link>
 
           <Link
@@ -274,14 +278,14 @@ export default function PlanDetails({
                 d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" 
               />
             </svg>
-            Law Checks
+            Lovsjekk
           </Link>
         </div>
       </div>
 
       {plan.description && (
         <div className="mt-4 pt-4 border-t border-gray-200">
-          <div className="text-sm text-gray-600 mb-1">Description</div>
+          <div className="text-sm text-gray-600 mb-1">Beskrivelse</div>
           <div className="text-gray-900">{plan.description}</div>
         </div>
       )}

@@ -133,7 +133,7 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
         {/* Plan Name */}
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-            Plan Name *
+            Turnus namn *
           </label>
           <input
             id="name"
@@ -142,14 +142,14 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
             onChange={(e) => setName(e.target.value)}
             required
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
-            placeholder="e.g., Emergency Department Schedule"
+            placeholder="Påsketurnus 2025"
           />
         </div>
 
         {/* Date Started */}
         <div>
           <label htmlFor="dateStarted" className="block text-sm font-medium text-gray-700 mb-2">
-            Start Date *
+            Start Dato *
           </label>
           <input
             id="dateStarted"
@@ -160,14 +160,14 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
           />
           <p className="mt-2 text-sm text-gray-600">
-            The date when this rotation plan begins
+            Datoen turnusen skal starte
           </p>
         </div>
 
         {/* Plan Type - CARD SELECTION */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">
-            Plan Type *
+            Turnus type *
           </label>
           <div className="grid grid-cols-3 gap-4">
             {/* Main Plan Card */}
@@ -185,9 +185,9 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
                 }
               `}
             >
-              <div className="font-semibold text-gray-900 mb-1">Main Plan</div>
+              <div className="font-semibold text-gray-900 mb-1">Grunnturnus</div>
               <div className="text-xs text-gray-600">
-                Primary scheduling plan
+                Roterande Hovudturnus/Grunnturnus
               </div>
             </button>
 
@@ -203,9 +203,9 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
                 }
               `}
             >
-              <div className="font-semibold text-gray-900 mb-1">Helping Plan</div>
+              <div className="font-semibold text-gray-900 mb-1">Hjelpeturnus</div>
               <div className="text-xs text-gray-600">
-                Supplementary plan
+                Hjelpeturnus for jul, påske og sommar m.m.
               </div>
             </button>
 
@@ -221,9 +221,9 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
                 }
               `}
             >
-              <div className="font-semibold text-gray-900 mb-1">Year Plan</div>
+              <div className="font-semibold text-gray-900 mb-1">Årsturnus</div>
               <div className="text-xs text-gray-600">
-                Annual planning
+                Velg mellom to typar årsturnus
               </div>
             </button>
           </div>
@@ -233,7 +233,7 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
         {type === 'year' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Year Plan Mode *
+              Type årsturnus *
             </label>
             <div className="space-y-2">
               <label className={`
@@ -252,9 +252,9 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
                   className="mt-0.5 w-4 h-4 text-purple-600 border-gray-300 focus:ring-purple-500"
                 />
                 <div className="flex-1">
-                  <div className="font-semibold text-gray-900">Rotation Based</div>
+                  <div className="font-semibold text-gray-900">Rotasjonsbasert årsturnus</div>
                   <div className="text-xs text-gray-600 mt-1">
-                    Creates both rotation schedule and year schedule views
+                    Lager ein turnus på ({durationWeeks} veker) så rullerer du denne ut i 52 veker og justerer timetalet (1846t). F3 og F5 blir kalkulert basert på grunnturnus
                   </div>
                 </div>
               </label>
@@ -275,9 +275,9 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
                   className="mt-0.5 w-4 h-4 text-purple-600 border-gray-300 focus:ring-purple-500"
                 />
                 <div className="flex-1">
-                  <div className="font-semibold text-gray-900">Strict Year</div>
+                  <div className="font-semibold text-gray-900">Årsturnus</div>
                   <div className="text-xs text-gray-600 mt-1">
-                    Creates only year schedule view (no rotation grid)
+                    Årsturnus med forhandsbestemt mengde F3 og F5 dagar. Baserar seg ikkje på grunnturnus.
                   </div>
                 </div>
               </label>
@@ -290,7 +290,7 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
           <>
             <div>
               <label htmlFor="f3Days" className="block text-sm font-medium text-gray-700 mb-2">
-                F3 Days (Holiday Compensation)
+                F3 Dagar
               </label>
               <input
                 id="f3Days"
@@ -306,13 +306,13 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
               />
               <p className="mt-2 text-sm text-gray-600">
-                Number of F3 compensation days for holiday work
+                Tal på forhandsbestemte F3 dagar
               </p>
             </div>
 
             <div>
               <label htmlFor="f5Days" className="block text-sm font-medium text-gray-700 mb-2">
-                F5 Days (Replacement Days)
+                F5 Dagar
               </label>
               <input
                 id="f5Days"
@@ -328,7 +328,7 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
               />
               <p className="mt-2 text-sm text-gray-600">
-                Number of F5 replacement days when F1 falls on a holiday
+                Tal på forhandsbestemte F5 dagar
               </p>
             </div>
           </>
@@ -338,7 +338,7 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
         {type === 'helping' && (
           <div>
             <label htmlFor="basePlan" className="block text-sm font-medium text-gray-700 mb-2">
-              Base Plan *
+              Grunnturnus/Hovudturnus *
             </label>
             {mainPlans.length > 0 ? (
               <select
@@ -348,7 +348,7 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
                 required
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
               >
-                <option value="">Select a main plan</option>
+                <option value="">Velg grunnturnus</option>
                 {mainPlans.map((mainPlan) => (
                   <option key={mainPlan.id} value={mainPlan.id}>
                     {mainPlan.name}
@@ -357,7 +357,7 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
               </select>
             ) : (
               <div className="p-4 bg-yellow-50 text-yellow-800 rounded-lg border border-yellow-200">
-                You need to have a main plan to use as a base.
+                Alle hjelpeturnusar er basert på ein grunnturnus. Lag grunnturnus før du lagar hjelpeturnus.
               </div>
             )}
           </div>
@@ -366,7 +366,7 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
         {/* Duration */}
         <div>
           <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-2">
-            Duration (weeks) *
+            Varigheit (veker) *
           </label>
           <input
             id="duration"
@@ -382,15 +382,12 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
             disabled={type === 'year' && yearPlanMode === 'strict_year'}  // ADD THIS
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"  // ADD disabled styles
           />
-          <p className="mt-2 text-sm text-gray-600">
-            How many weeks does this plan cover?
-          </p>
         </div>
 
         {/* Work Percentage */}
         <div>
           <label htmlFor="workPercent" className="block text-sm font-medium text-gray-700 mb-2">
-            Work Percentage *
+            Stillingsprosent *
           </label>
           <div className="flex items-center gap-4">
             <input
@@ -409,12 +406,9 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
             />
             <span className="text-sm text-gray-700">%</span>
             <div className="flex-1 text-sm text-gray-600">
-              Expected weekly hours: <span className="font-semibold text-gray-900">{isNaN(workPercent) ? '-' : (35.5 * workPercent / 100).toFixed(1)}h</span>
+              Forventa timetal per veke: <span className="font-semibold text-gray-900">{isNaN(workPercent) ? '-' : (35.5 * workPercent / 100).toFixed(1)}t</span>
             </div>
           </div>
-          <p className="mt-2 text-sm text-gray-600">
-            The work percentage for this position (100% = 35.5 hours/week)
-          </p>
         </div>
 
         {/* NEW: Tariffavtale Selection - COMPACT */}
@@ -500,7 +494,7 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
         {/* Description */}
         <div>
           <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-            Description
+            Beskrivelse
           </label>
           <textarea
             id="description"
@@ -508,7 +502,7 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
             onChange={(e) => setDescription(e.target.value)}
             rows={4}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
-            placeholder="Add any notes or details about this plan..."
+            placeholder="(Valgfritt) Utdjuping av planen"
           />
         </div>
 
@@ -520,7 +514,7 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
               disabled={loading || (type === 'helping' && mainPlans.length === 0)}
               className="flex-1 bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Saving...' : 'Save Changes'}
+              {loading ? 'Lagrar...' : 'Lagre endringar'}
             </button>
             <button
               type="button"
@@ -528,7 +522,7 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
               disabled={loading}
               className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
-              Cancel
+              Avbryt
             </button>
           </div>
 
@@ -539,7 +533,7 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
             disabled={loading}
             className="w-full px-6 py-3 border-2 border-red-300 text-red-700 rounded-lg font-semibold hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Deleting...' : 'Delete Plan'}
+            {loading ? 'Slettar...' : 'Slett turnus'}
           </button>
         </div>
       </form>

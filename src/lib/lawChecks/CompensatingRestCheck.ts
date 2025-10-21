@@ -3,6 +3,7 @@
 import { LawCheck, LawCheckResult } from '@/types/lawCheck'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
+import { DAY_NAMES_NORWEGIAN } from '@/types/rotation'
 
 /**
  * Compensating Rest Period Check
@@ -14,8 +15,8 @@ import { Shift } from '@/types/shift'
  */
 export const compensatingRestCheck: LawCheck = {
   id: 'compensating-rest-period',
-  name: 'Compensating Rest Period',
-  description: 'Verifies that rest periods between shifts meet minimum requirements (default 11 hours). If a rest period is shorter than 11h, the debt must be compensated in the next rest period by adding the deficit to the 11h base requirement.',
+  name: 'Kompenserande Kvile',
+  description: 'Verifiserer at kviletid mellom vakter oppfyller minimumskravet (standard 11 timar). Dersom ein kviletid er kortare enn 11 timar, må underskotet kompenserast i neste kviletid ved å leggje til mangelen på 11-timarsgrunnlaget.',
   category: 'shared',
   lawType: 'aml',
   lawReferences: [
@@ -28,13 +29,13 @@ export const compensatingRestCheck: LawCheck = {
   inputs: [
     {
       id: 'minShiftRestHours',
-      label: 'Minimum Rest Hours Between Shifts',
+      label: 'Minimum Kvile Mellom Vakter',
       type: 'number',
       defaultValue: 11,
       min: 0,
       max: 24,
       step: 0.5,
-      unit: 'hours'
+      unit: 'timar'
     }
   ],
   
@@ -45,8 +46,8 @@ export const compensatingRestCheck: LawCheck = {
     if (isNaN(minRestHours) || minRestHours < 0) {
       return {
         status: 'warning',
-        message: 'Invalid minimum rest hours configuration',
-        details: ['Please enter a valid number for minimum rest hours between shifts']
+        message: 'Ugyldig konfigurasjon for minimum kviletid',
+        details: ['Vennlegst skriv inn eit gyldig tal for minimum kviletid mellom vakter']
       }
     }
     
@@ -218,15 +219,15 @@ export const compensatingRestCheck: LawCheck = {
     // Build result
     if (hasErrors) {
       result.status = 'fail'
-      result.message = `Found ${violations.length} rest period violation${violations.length !== 1 ? 's' : ''}`
+      result.message = `Fann ${violations.length} brot på kviletid${violations.length !== 1 ? 'er' : ''}`
       result.details = violations
     } else if (hasWarnings) {
       result.status = 'warning'
-      result.message = `Found ${violations.length} warning${violations.length !== 1 ? 's' : ''}`
+      result.message = `Fann ${violations.length} åtvaring${violations.length !== 1 ? 'ar' : ''}`
       result.details = violations
     } else {
       result.status = 'pass'
-      result.message = `All rest periods meet the ${minRestHours}h requirement with proper compensation`
+      result.message = `Alle kviletider oppfyller kravet på ${minRestHours} timar med korrekt kompensasjon.`
       result.details = [
         `Minimum required rest: ${minRestHours}h`,
         'All rest periods are adequate',

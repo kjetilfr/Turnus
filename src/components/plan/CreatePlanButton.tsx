@@ -22,7 +22,7 @@ export default function CreatePlanButton() {
           d="M12 4v16m8-8H4" 
         />
       </svg>
-      Create New Plan
+      Ny Turnus
     </Link>
   )
 }

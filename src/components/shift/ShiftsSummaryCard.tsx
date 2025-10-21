@@ -13,7 +13,7 @@ export default function ShiftsSummaryCard({ defaultShifts, customShifts }: Shift
     <div className="grid md:grid-cols-2 gap-4 mb-4">
       {/* Default Shifts */}
       <div>
-        <h3 className="text-xs font-medium text-gray-700 mb-2">Default Shifts</h3>
+        <h3 className="text-xs font-medium text-gray-700 mb-2">Forhandsinnstilte vakter</h3>
         <div className="flex flex-wrap gap-1.5">
           {defaultShifts.length > 0 ? (
             defaultShifts.map((shift) => (
@@ -25,14 +25,14 @@ export default function ShiftsSummaryCard({ defaultShifts, customShifts }: Shift
               </span>
             ))
           ) : (
-            <p className="text-xs text-gray-500">No default shifts</p>
+            <p className="text-xs text-gray-500">Ingen Forhandsinnstilte vakter</p>
           )}
         </div>
       </div>
 
       {/* Custom Shifts */}
       <div>
-        <h3 className="text-xs font-medium text-gray-700 mb-2">Custom Shifts</h3>
+        <h3 className="text-xs font-medium text-gray-700 mb-2">Eigendefinerte vakter</h3>
         <div className="flex flex-wrap gap-1.5">
           {customShifts.length > 0 ? (
             <>
@@ -47,12 +47,12 @@ export default function ShiftsSummaryCard({ defaultShifts, customShifts }: Shift
               ))}
               {customShifts.length > 5 && (
                 <span className="text-xs text-gray-500 italic self-center">
-                  +{customShifts.length - 5} more
+                  +{customShifts.length - 5} meir
                 </span>
               )}
             </>
           ) : (
-            <p className="text-xs text-gray-500">No custom shifts</p>
+            <p className="text-xs text-gray-500">Ingen eigendefinerte vakter</p>
           )}
         </div>
       </div>

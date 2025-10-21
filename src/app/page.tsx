@@ -52,7 +52,7 @@ export default async function DashboardPage() {
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Nurse Scheduling Dashboard</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Kjetil's Turnus Tester</h1>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">{user.email}</span>
             <LogoutButton />
@@ -66,8 +66,8 @@ export default async function DashboardPage() {
           {/* Header with Create Button */}
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h2 className="text-3xl font-bold text-gray-900">My Plans</h2>
-              <p className="text-gray-600 mt-1">Manage your scheduling plans</p>
+              <h2 className="text-3xl font-bold text-gray-900">Mine turnusar</h2>
+              <p className="text-gray-600 mt-1">Administrer turnusane dine</p>
             </div>
             <CreatePlanButton />
           </div>

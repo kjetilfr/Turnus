@@ -1,7 +1,7 @@
 // src/components/rotation/RotationGrid.tsx
 'use client'
 
-import { Rotation, DAY_NAMES_SHORT, RotationGridData, OverlayType } from '@/types/rotation'
+import { Rotation, DAY_NAMES_SHORT_NORWEGIAN, RotationGridData, OverlayType } from '@/types/rotation'
 import { Shift } from '@/types/shift'
 import { useMemo, useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -202,7 +202,7 @@ const handleShiftSelect = async (
   if (loadingShifts) {
     return (
       <div className="text-center py-12">
-        <div className="text-gray-500">Loading shifts...</div>
+        <div className="text-gray-500">Laster vakter...</div>
       </div>
     )
   }
@@ -214,9 +214,9 @@ const handleShiftSelect = async (
           <thead>
             <tr>
               <th className="sticky left-0 z-10 bg-gray-100 border border-gray-300 px-4 py-3 text-left text-sm font-semibold text-gray-700 min-w-[100px]">
-                Week
+                Veke
               </th>
-              {DAY_NAMES_SHORT.map((day, index) => (
+              {DAY_NAMES_SHORT_NORWEGIAN.map((day, index) => (
                 <th 
                   key={index}
                   className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-gray-700 min-w-[120px]"
@@ -225,7 +225,7 @@ const handleShiftSelect = async (
                 </th>
               ))}
               <th className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold text-indigo-700 min-w-[100px] bg-indigo-50">
-                Weekly Hours
+                Veke timar
               </th>
             </tr>
           </thead>
@@ -233,7 +233,7 @@ const handleShiftSelect = async (
             {Array.from({ length: durationWeeks }, (_, weekIndex) => (
               <tr key={weekIndex}>
                 <td className="sticky left-0 z-10 bg-gray-50 border border-gray-300 px-4 py-3 text-sm font-medium text-gray-900">
-                  Week {weekIndex + 1}
+                  Veke {weekIndex + 1}
                 </td>
                 {Array.from({ length: 7 }, (_, dayIndex) => {
                   const rotation = gridData[weekIndex]?.[dayIndex]

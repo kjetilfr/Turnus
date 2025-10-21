@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { DAY_NAMES_SHORT } from '@/types/rotation'
+import { DAY_NAMES_SHORT_NORWEGIAN } from '@/types/rotation'
 import { Rotation, OverlayType } from '@/types/rotation'
 import { AUTO_OVERLAY_SHIFTS } from '@/lib/constants/defaultShifts'
 
@@ -150,9 +150,9 @@ export default function ShiftSelectorModal({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Select Shift</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Velg vakt</h2>
             <p className="text-xs text-gray-600 mt-0.5">
-              Week {weekIndex + 1} - {DAY_NAMES_SHORT[dayOfWeek]}
+              Veke {weekIndex + 1} - {DAY_NAMES_SHORT_NORWEGIAN[dayOfWeek]}
             </p>
           </div>
           <button
@@ -179,7 +179,7 @@ export default function ShiftSelectorModal({
                 onClick={handleRemoveOverlay}
                 className="px-3 py-1.5 bg-red-600 text-white rounded text-sm font-medium hover:bg-red-700"
               >
-                Remove Overlay
+                Fjern overskrivning
               </button>
             </div>
           </div>
@@ -190,15 +190,15 @@ export default function ShiftSelectorModal({
           {shifts.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-5xl mb-3">⏰</div>
-              <h3 className="text-base font-semibold text-gray-900 mb-2">No Shifts Available</h3>
+              <h3 className="text-base font-semibold text-gray-900 mb-2">Ingen vakter tilgjengeleg</h3>
               <p className="text-sm text-gray-600 mb-4">
-                You need to create shifts before you can assign them to the rotation.
+                Du må lage eller importere vakter før du kan starte.
               </p>
               <button
                 onClick={onClose}
                 className="text-indigo-600 hover:text-indigo-700 font-medium text-sm"
               >
-                Go back
+                Tilbake
               </button>
             </div>
           ) : (
@@ -208,7 +208,7 @@ export default function ShiftSelectorModal({
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-xs font-medium text-blue-900 mb-0.5">Current Shift</div>
+                      <div className="text-xs font-medium text-blue-900 mb-0.5">Gjeldende vakt</div>
                       <div className="text-sm text-blue-700">
                         {shifts.find(s => s.id === currentShiftId)?.name || 'Unknown'}
                       </div>
@@ -217,7 +217,7 @@ export default function ShiftSelectorModal({
                       onClick={handleRemoveShift}
                       className="px-3 py-1.5 bg-red-600 text-white rounded text-xs font-medium hover:bg-red-700 transition-colors"
                     >
-                      Remove
+                      Fjern
                     </button>
                   </div>
                 </div>
@@ -231,7 +231,7 @@ export default function ShiftSelectorModal({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div className="text-xs text-amber-900">
-                      <strong>Note:</strong> F3-F5 and FE shifts are only available for helping and year plans.
+                      <strong>NB:</strong> F3-F5 og FE vakter kan kun brukes på hjelpeturnus og årsturnus.
                     </div>
                   </div>
                 </div>
@@ -245,10 +245,10 @@ export default function ShiftSelectorModal({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div className="text-xs text-purple-900">
-                      <strong>Auto-overlay shifts:</strong>
+                      <strong>Automatisk erstatning:</strong>
                       <ul className="mt-1 space-y-0.5">
-                        <li>• F3, F4, F5 automatically overlay on existing shifts (cannot be placed on empty days)</li>
-                        <li>• FE (Ferie) can be placed on any day and will overlay if a shift exists</li>
+                        <li>• F3, F4, F5 erstatter vakter og blir difor plassert på toppen av vakter og kan difor ikkje brukast på dagar utan vakt.</li>
+                        <li>• FE (Ferie): Dersom det eksisterer vakt blir denne erstatta med FE, men blir også brukt på dagar utan vakt.</li>
                       </ul>
                     </div>
                   </div>
@@ -259,7 +259,7 @@ export default function ShiftSelectorModal({
               {defaultShifts.length > 0 && (
                 <div>
                   <h3 className="text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
-                    Default Shifts
+                    Forhandsinnstilte vakter
                   </h3>
                   <div className="grid grid-cols-3 gap-2">
                     {defaultShifts.map((shift) => {
@@ -286,7 +286,7 @@ export default function ShiftSelectorModal({
                           {isAutoOverlay && !disabled && (
                             <div className="absolute -top-1 -right-1">
                               <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-purple-600 text-white">
-                                Auto
+                                Auto erstatt
                               </span>
                             </div>
                           )}
@@ -309,7 +309,7 @@ export default function ShiftSelectorModal({
               {customShifts.length > 0 && (
                 <div>
                   <h3 className="text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
-                    Custom Shifts
+                    Eigendefinerte vakter
                   </h3>
                   <div className="grid grid-cols-2 gap-2">
                     {customShifts.map((shift) => (
@@ -352,7 +352,7 @@ export default function ShiftSelectorModal({
             onClick={onClose}
             className="px-4 py-1.5 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold text-sm hover:bg-gray-100 transition-colors"
           >
-            Cancel
+            Avbryt
           </button>
         </div>
       </div>

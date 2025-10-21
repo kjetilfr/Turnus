@@ -144,7 +144,7 @@ export default function LawCheckCard({
               {isEnabled && isAverageHoursCheck && (
                 <div className="mb-3">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Agreement Type:
+                    Avtaletype:
                   </label>
                   <div className="space-y-2">
                     <label className="flex items-center gap-2">
@@ -156,7 +156,7 @@ export default function LawCheckCard({
                         onChange={() => onInputChange('agreementType', 'none')}
                         className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                       />
-                      <span className="text-sm text-gray-700">Standard (No Agreement) - 9h shift max, 35.5h/week max</span>
+                      <span className="text-sm text-gray-700">Standard ingen avtale (aml) - 9t vakt, 35.5t/veka</span>
                     </label>
                     <label className="flex items-center gap-2">
                       <input
@@ -167,7 +167,7 @@ export default function LawCheckCard({
                         onChange={() => onInputChange('agreementType', 'type1')}
                         className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                       />
-                      <span className="text-sm text-gray-700">Type 1: Employer-Employee - 10h shift max, 50h/week max, 48h/week 8-week avg</span>
+                      <span className="text-sm text-gray-700">Individuell avtale med arbeidstakar - 10t vakt, 50t/veka, 48t/veka over 8-veker gjennomsnitt</span>
                     </label>
                     <label className="flex items-center gap-2">
                       <input
@@ -178,7 +178,7 @@ export default function LawCheckCard({
                         onChange={() => onInputChange('agreementType', 'type2')}
                         className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                       />
-                      <span className="text-sm text-gray-700">Type 2: Employer-Representative - 12.5h shift max, 54h/week max, 48h/week 8-week avg</span>
+                      <span className="text-sm text-gray-700">Avtale med tillitsvalgte - 12,5t vakt, 54t/veka, 48t/veka over 8-veker gjennomsnitt</span>
                     </label>
                     <label className="flex items-center gap-2">
                       <input
@@ -189,7 +189,7 @@ export default function LawCheckCard({
                         onChange={() => onInputChange('agreementType', 'type3')}
                         className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                       />
-                      <span className="text-sm text-gray-700">Type 3: Arbeidstilsynet - 13h shift max, no weekly max, 48h/week 8-week avg</span>
+                      <span className="text-sm text-gray-700">Arbeidstilsynet - 13t vakt, 48t/veka over 8-veker gjennomsnitt</span>
                     </label>
                     <label className="flex items-center gap-2">
                       <input
@@ -200,7 +200,7 @@ export default function LawCheckCard({
                         onChange={() => onInputChange('agreementType', 'type4')}
                         className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                       />
-                      <span className="text-sm text-gray-700">Type 4: Union Agreement - 14.5h shift max, 54h/week max, no 8-week limit</span>
+                      <span className="text-sm text-gray-700">Forbund sentralt - (ingen begrensningar)</span>
                     </label>
                   </div>
                 </div>
@@ -222,7 +222,7 @@ export default function LawCheckCard({
                         onChange={() => onInputChange('calculationMethod', 'hovedregelen')}
                         className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                       />
-                      <span className="text-sm text-gray-700">Hovudregelen (Annenhver rød dag fri) - Main rule: every other red day off</span>
+                      <span className="text-sm text-gray-700">Hovudregelen (Annakvar raud dag fri)</span>
                     </label>
                     <label className="flex items-center gap-2">
                       <input
@@ -233,7 +233,7 @@ export default function LawCheckCard({
                         onChange={() => onInputChange('calculationMethod', 'annenhver')}
                         className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                       />
-                      <span className="text-sm text-gray-700">Annenhver beregning og fri fordeling - Flexible distribution of compensation</span>
+                      <span className="text-sm text-gray-700">Annakvar beregning og fri fordeling</span>
                     </label>
                     <label className="flex items-center gap-2">
                       <input
@@ -244,7 +244,7 @@ export default function LawCheckCard({
                         onChange={() => onInputChange('calculationMethod', 'gjennomsnitt')}
                         className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                       />
-                      <span className="text-sm text-gray-700">Gjennomsnittsberegning - Average calculation based on total hours worked</span>
+                      <span className="text-sm text-gray-700">Gjennomsnittsberegning</span>
                     </label>
                   </div>
                 </div>
@@ -348,7 +348,7 @@ export default function LawCheckCard({
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                               </svg>
                               <span>
-                                Warning: Value below recommended minimum of 28 hours. This may not comply with standard rest period requirements.
+                                Advarsel: Timar under minimum på 28 timar. Dette kan vere i strid med lovkrava til kviletid.
                               </span>
                             </div>
                           )}
@@ -363,7 +363,7 @@ export default function LawCheckCard({
                                 />
                               </svg>
                               <span>
-                                Warning: Shift length exceeds the maximum allowed for this agreement type (9 hours).
+                                Advarsel: Vakttimar overstig maksimum tillate for denne avtaletypen (9 timar).
                               </span>
                             </div>
                           )}
@@ -378,7 +378,7 @@ export default function LawCheckCard({
                                 />
                               </svg>
                               <span>
-                                Warning: Shift length exceeds the maximum allowed for this agreement type (10 hours).
+                                Advarsel: Vakttimar overstig maksimum tillate for denne avtaletypen (10 timar).
                               </span>
                             </div>
                           )}
@@ -393,7 +393,7 @@ export default function LawCheckCard({
                                 />
                               </svg>
                               <span>
-                                Warning: Shift length exceeds the maximum allowed for this agreement type (12,5 hours).
+                                Advarsel: Vakttimar overstig maksimum tillate for denne avtaletypen (12,5 timar).
                               </span>
                             </div>
                           )}
@@ -408,7 +408,7 @@ export default function LawCheckCard({
                                 />
                               </svg>
                               <span>
-                                Warning: Shift length exceeds the maximum allowed for this agreement type (13 hours).
+                                Advarsel: Vakttimar overstig maksimum tillate for denne avtaletypen (13 timar).
                               </span>
                             </div>
                           )}
@@ -423,7 +423,7 @@ export default function LawCheckCard({
                                 />
                               </svg>
                               <span>
-                                Warning: Hours weekly exceeds the maximum allowed for this agreement type (35.5 (hta) i turnus, 37,5 (hta) i dagjobb).
+                                Advarsel: Timetal per veke overstig maksimum tillate for denne avtaletypen (35,5 (hta) i turnus, 37,5 (hta) i dagjobb).
                               </span>
                             </div>
                           )}
@@ -438,7 +438,7 @@ export default function LawCheckCard({
                                 />
                               </svg>
                               <span>
-                                Warning: Hours weekly exceeds the maximum allowed for this agreement type (50t).
+                                Advarsel: Timetal per veke overstig maksimum tillate for denne avtaletypen (50 t).
                               </span>
                             </div>
                           )}
@@ -453,7 +453,7 @@ export default function LawCheckCard({
                                 />
                               </svg>
                               <span>
-                                Warning: Hours weekly exceeds the maximum allowed for this agreement type (54t).
+                                Advarsel: Timetal per veke overstig maksimum tillate for denne avtaletypen (54 t).
                               </span>
                             </div>
                           )}
@@ -468,7 +468,7 @@ export default function LawCheckCard({
                                 />
                               </svg>
                               <span>
-                                Warning: Hours weekly exceeds the maximum allowed for this agreement type (48t).
+                                Advarsel: Timetal over 8-vekoperioda overstig maksimum tillate for denne avtaletypen (48 t).
                               </span>
                             </div>
                           )}
@@ -483,7 +483,7 @@ export default function LawCheckCard({
                                 />
                               </svg>
                               <span>
-                                Warning: Hours weekly exceeds the maximum allowed for this agreement type (48t).
+                                Advarsel: Timetal over 8-vekoperioda overstig maksimum tillate for denne avtaletypen (48 t).
                               </span>
                             </div>
                           )}
@@ -498,7 +498,7 @@ export default function LawCheckCard({
                                 />
                               </svg>
                               <span>
-                                Warning: Hours weekly exceeds the maximum allowed for this agreement type (48t).
+                                Advarsel: Timetal over 8-vekoperioda overstig maksimum tillate for denne avtaletypen (48 t).
                               </span>
                             </div>
                           )}
@@ -508,7 +508,7 @@ export default function LawCheckCard({
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                               </svg>
                               <span>
-                                Warning: Value below recommended minimum of 8 hours. This may not comply with standard rest period requirements.
+                                Advarsel: Timetal under minimum på 8 timar. Dette kan vere i strid med lovkrava til kviletid.
                               </span>
                             </div>
                           )}
@@ -531,7 +531,7 @@ export default function LawCheckCard({
                       onClick={() => setIsExpanded(!isExpanded)}
                       className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
                     >
-                      {isExpanded ? 'Hide' : 'Show'} Details
+                      {isExpanded ? 'Vis' : 'Sjul'} Detaljar
                       <svg 
                         className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                         fill="none" 
@@ -560,7 +560,7 @@ export default function LawCheckCard({
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Running...
+                  Kjørar...
                 </>
               ) : (
                 <>
@@ -568,7 +568,7 @@ export default function LawCheckCard({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  Run Test
+                  Kjør lovsjekk
                 </>
               )}
             </button>
@@ -580,7 +580,7 @@ export default function LawCheckCard({
       {isExpanded && result?.details && result.details.length > 0 && isEnabled && (
         <div className="px-4 pb-4 border-t border-gray-300">
           <div className="mt-4 space-y-2">
-            <h4 className="text-sm font-semibold text-gray-900 mb-2">Details:</h4>
+            <h4 className="text-sm font-semibold text-gray-900 mb-2">Detaljar:</h4>
             <ul className="space-y-1">
               {result.details.map((detail, index) => (
                 <li key={index} className="text-sm text-gray-700 flex items-start gap-2">
@@ -596,7 +596,7 @@ export default function LawCheckCard({
       {/* Disabled Overlay Message */}
       {!isEnabled && (
         <div className="px-4 pb-3">
-          <p className="text-xs text-gray-500 italic">This test is disabled. Check the box to enable and run.</p>
+          <p className="text-xs text-gray-500 italic">Denne testen er ikkje aktivert, aktiver for å kjøre.</p>
         </div>
       )}
     </div>

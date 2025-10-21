@@ -7,8 +7,8 @@ import { getHolidayTimeZones, HolidayTimeZone } from '@/lib/utils/norwegianHolid
 
 export const f5ReplacementDayCheck: LawCheck = {
   id: 'f5-replacement-day',
-  name: 'F5 Replacement Day (Erstatningsfridag)',
-  description: 'Ensures F5 replacement shifts do not overlap with red day timezones (except Saturday before normal Sunday) when F1 falls on a holiday.',
+  name: 'F5 Erstatningsfridag',
+  description: 'Dersom F1 dagen din er på ein raud dag har du rett på F5. F5 dagen din kan bli utbetalt i staden for å plasserast i turnus. Utbetaling er lik ei dagslønn. (Grunnlag basert på grunnturnus eller rullerande årsturnus)',
   category: 'shared',
   lawType: 'hta',
   lawReferences: [

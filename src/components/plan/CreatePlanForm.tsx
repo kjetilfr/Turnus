@@ -195,7 +195,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
         {/* Plan Name */}
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-            Plan Name *
+            Turnus namn *
           </label>
           <input
             id="name"
@@ -204,23 +204,14 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
             onChange={(e) => setName(e.target.value)}
             required
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
-            placeholder="e.g., Emergency Department Schedule"
+            placeholder="Påsketurnus 2025"
           />
-          {rotationYearPlanPreview && (
-            <div className="mt-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-              <p className="text-xs font-semibold text-purple-900 mb-1">Plans to be created:</p>
-              <ul className="text-xs text-purple-800 space-y-1">
-                <li>• Rotation plan: <span className="font-semibold">{rotationYearPlanPreview}</span></li>
-                <li>• Full year plan: <span className="font-semibold">{helpingPlanPreview}</span></li>
-              </ul>
-            </div>
-          )}
         </div>
 
         {/* Date Started */}
         <div>
           <label htmlFor="dateStarted" className="block text-sm font-medium text-gray-700 mb-2">
-            Start Date *
+            Start Dato *
           </label>
           <input
             id="dateStarted"
@@ -236,19 +227,19 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
               <span>
-                Warning: Selected date is not a Monday. Plans typically start on Mondays for proper week alignment.
+                Advarsel: Du har valgt ein dato som ikkje er mandag. Dette er høgst uvanleg og kan gjere at nokon lovsjekkar ikkje fungerar optimalt.
               </span>
             </div>
           )}
           <p className="mt-2 text-sm text-gray-600">
-            The date when this rotation plan begins
+            Datoen turnusen skal starte
           </p>
         </div>
 
         {/* Plan Type - CARD SELECTION */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">
-            Plan Type *
+            Turnus type *
           </label>
           <div className="grid grid-cols-3 gap-4">
             {/* Main Plan Card */}
@@ -266,9 +257,9 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
                 }
               `}
             >
-              <div className="font-semibold text-gray-900 mb-1">Main Plan</div>
+              <div className="font-semibold text-gray-900 mb-1">Hovudturnus</div>
               <div className="text-xs text-gray-600">
-                Primary scheduling plan
+                Roterande Hovudturnus/Grunnturnus
               </div>
             </button>
 
@@ -284,9 +275,9 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
                 }
               `}
             >
-              <div className="font-semibold text-gray-900 mb-1">Helping Plan</div>
+              <div className="font-semibold text-gray-900 mb-1">Hjelpeturnus</div>
               <div className="text-xs text-gray-600">
-                Supplementary plan
+                Hjelpeturnus for jul, påske og sommar m.m.
               </div>
             </button>
 
@@ -302,9 +293,9 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
                 }
               `}
             >
-              <div className="font-semibold text-gray-900 mb-1">Year Plan</div>
+              <div className="font-semibold text-gray-900 mb-1">Årsturnus</div>
               <div className="text-xs text-gray-600">
-                Annual planning
+                Velg mellom to typar årsturnus
               </div>
             </button>
           </div>
@@ -314,7 +305,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
         {type === 'year' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Year Plan Mode *
+              Type årsturnus *
             </label>
             <div className="space-y-2">
               <label className={`
@@ -333,9 +324,9 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
                   className="mt-0.5 w-4 h-4 text-purple-600 border-gray-300 focus:ring-purple-500"
                 />
                 <div className="flex-1">
-                  <div className="font-semibold text-gray-900">Rotation Based</div>
+                  <div className="font-semibold text-gray-900">Rotasjonsbasert årsturnus</div>
                   <div className="text-xs text-gray-600 mt-1">
-                    Creates rotation plan ({durationWeeks} weeks) + full year helping plan (52 weeks)
+                    Lager ein turnus på ({durationWeeks} veker) så rullerer du denne ut i 52 veker og justerer timetalet (1846t). F3 og F5 blir kalkulert basert på grunnturnus
                   </div>
                 </div>
               </label>
@@ -356,9 +347,9 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
                   className="mt-0.5 w-4 h-4 text-purple-600 border-gray-300 focus:ring-purple-500"
                 />
                 <div className="flex-1">
-                  <div className="font-semibold text-gray-900">Strict Year</div>
+                  <div className="font-semibold text-gray-900">Årsturnus</div>
                   <div className="text-xs text-gray-600 mt-1">
-                    Creates only year schedule view (no rotation grid)
+                    Årsturnus med forhandsbestemt mengde F3 og F5 dagar. Baserar seg ikkje på grunnturnus.
                   </div>
                 </div>
               </label>
@@ -371,7 +362,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
           <>
             <div>
               <label htmlFor="f3Days" className="block text-sm font-medium text-gray-700 mb-2">
-                F3 Days (Holiday Compensation)
+                F3 Dagar
               </label>
               <input
                 id="f3Days"
@@ -387,13 +378,13 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
               />
               <p className="mt-2 text-sm text-gray-600">
-                Number of F3 compensation days for holiday work
+                Tal på forhandsbestemte F3 dagar
               </p>
             </div>
 
             <div>
               <label htmlFor="f5Days" className="block text-sm font-medium text-gray-700 mb-2">
-                F5 Days (Replacement Days)
+                F5 dagar
               </label>
               <input
                 id="f5Days"
@@ -409,7 +400,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
               />
               <p className="mt-2 text-sm text-gray-600">
-                Number of F5 replacement days when F1 falls on a holiday
+                Tal på forhandsbestemte F5 dagar
               </p>
             </div>
           </>
@@ -419,7 +410,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
         {type === 'helping' && (
           <div>
             <label htmlFor="basePlan" className="block text-sm font-medium text-gray-700 mb-2">
-              Base Plan *
+              Grunnturnus/Hovudturnus *
             </label>
             {mainPlans.length > 0 ? (
               <select
@@ -429,7 +420,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
                 required
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
               >
-                <option value="">Select a main plan</option>
+                <option value="">Velg grunnturnus</option>
                 {mainPlans.map((plan) => (
                   <option key={plan.id} value={plan.id}>
                     {plan.name}
@@ -438,7 +429,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
               </select>
             ) : (
               <div className="p-4 bg-yellow-50 text-yellow-800 rounded-lg border border-yellow-200">
-                You need to create a main plan first before you can create a helping plan.
+                Alle hjelpeturnusar er basert på ein grunnturnus. Lag grunnturnus før du lagar hjelpeturnus.
               </div>
             )}
           </div>
@@ -447,7 +438,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
         {/* Duration */}
         <div>
           <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-2">
-            Duration (weeks) *
+            Varigheit (veker) *
           </label>
           <input
             id="duration"
@@ -465,8 +456,8 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
           />
           <p className="mt-2 text-sm text-gray-600">
             {type === 'year' && yearPlanMode === 'rotation_based' 
-              ? `Rotation cycle length (full year plan will be 52 weeks)`
-              : `How many weeks does this plan cover?`
+              ? `Over kor mange veker er turnusen?`
+              : `Over kor mange veker er turnusen?`
             }
           </p>
         </div>
@@ -474,7 +465,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
         {/* Work Percentage */}
         <div>
           <label htmlFor="workPercent" className="block text-sm font-medium text-gray-700 mb-2">
-            Work Percentage *
+            Stillingsprosent *
           </label>
           <div className="flex items-center gap-4">
             <input
@@ -493,12 +484,9 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
             />
             <span className="text-sm text-gray-700">%</span>
             <div className="flex-1 text-sm text-gray-600">
-              Expected weekly hours: <span className="font-semibold text-gray-900">{isNaN(workPercent) ? '-' : (35.5 * workPercent / 100).toFixed(1)}h</span>
+              Forventa timetal per veke: <span className="font-semibold text-gray-900">{isNaN(workPercent) ? '-' : (35.5 * workPercent / 100).toFixed(1)}t</span>
             </div>
           </div>
-          <p className="mt-2 text-sm text-gray-600">
-            The work percentage for this position (100% = 35.5 hours/week)
-          </p>
         </div>
 
         {/* Tariffavtale Selection - COMPACT */}
@@ -584,7 +572,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
         {/* Description */}
         <div>
           <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-            Description
+            Beskrivelse
           </label>
           <textarea
             id="description"
@@ -592,7 +580,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
             onChange={(e) => setDescription(e.target.value)}
             rows={4}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
-            placeholder="Add any notes or details about this plan..."
+            placeholder="(Valgfritt) Utdjuping av planen"
           />
         </div>
 
@@ -603,16 +591,16 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
             disabled={loading || (type === 'helping' && mainPlans.length === 0)}
             className="flex-1 bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Creating...' : 
-             type === 'year' && yearPlanMode === 'rotation_based' ? 'Create Plans' : 
-             'Create Plan'}
+            {loading ? 'Lagar turnus...' : 
+             type === 'year' && yearPlanMode === 'rotation_based' ? 'Opprett turnus' : 
+             'Opprett turnus'}
           </button>
           <button
             type="button"
             onClick={() => router.back()}
             className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
           >
-            Cancel
+            Avbryt
           </button>
         </div>
       </form>

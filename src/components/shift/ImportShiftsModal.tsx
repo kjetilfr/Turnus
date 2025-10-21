@@ -170,8 +170,8 @@ export default function ImportShiftsModal({ currentPlanId, onClose }: ImportShif
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Import Shifts</h2>
-            <p className="text-sm text-gray-600 mt-1">Copy shifts from another plan</p>
+            <h2 className="text-xl font-semibold text-gray-900">Importer vakter</h2>
+            <p className="text-sm text-gray-600 mt-1">Kopier vakter frå ein anna turnus</p>
           </div>
           <button
             onClick={onClose}
@@ -194,13 +194,13 @@ export default function ImportShiftsModal({ currentPlanId, onClose }: ImportShif
           {/* Select Plan */}
           <div>
             <label htmlFor="sourcePlan" className="block text-sm font-medium text-gray-700 mb-2">
-              Select Source Plan
+              Velg turnus
             </label>
             {loadingPlans ? (
-              <div className="text-sm text-gray-500">Loading plans...</div>
+              <div className="text-sm text-gray-500">Lastar turnusar...</div>
             ) : plans.length === 0 ? (
               <div className="p-4 bg-gray-50 text-gray-600 rounded-lg border border-gray-200 text-sm">
-                No other plans available to import from.
+                Ingen turnusar å velje.
               </div>
             ) : (
               <select
@@ -209,7 +209,7 @@ export default function ImportShiftsModal({ currentPlanId, onClose }: ImportShif
                 onChange={(e) => setSelectedPlanId(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
-                <option value="">Choose a plan...</option>
+                <option value="">Velg ein turnus...</option>
                 {plans.map((plan) => (
                   <option key={plan.id} value={plan.id}>
                     {plan.name} ({plan.type})
@@ -224,7 +224,7 @@ export default function ImportShiftsModal({ currentPlanId, onClose }: ImportShif
             <div>
               <div className="flex items-center justify-between mb-3">
                 <label className="block text-sm font-medium text-gray-700">
-                  Select Shifts to Import
+                  Velg vakter å importere
                 </label>
                 {availableShifts.length > 0 && (
                   <div className="flex gap-2">
@@ -233,7 +233,7 @@ export default function ImportShiftsModal({ currentPlanId, onClose }: ImportShif
                       onClick={selectAll}
                       className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
                     >
-                      Select All
+                      Velg Alle
                     </button>
                     <span className="text-gray-300">|</span>
                     <button
@@ -241,17 +241,17 @@ export default function ImportShiftsModal({ currentPlanId, onClose }: ImportShif
                       onClick={deselectAll}
                       className="text-xs text-gray-600 hover:text-gray-700 font-medium"
                     >
-                      Deselect All
+                      Avmerk Alle
                     </button>
                   </div>
                 )}
               </div>
 
               {loadingShifts ? (
-                <div className="text-sm text-gray-500">Loading shifts...</div>
+                <div className="text-sm text-gray-500">Laster vakter...</div>
               ) : availableShifts.length === 0 ? (
                 <div className="p-4 bg-gray-50 text-gray-600 rounded-lg border border-gray-200 text-sm">
-                  No custom shifts available in this plan.
+                  Ingen eigendefinerte vakter i denne turnusen.
                 </div>
               ) : (
                 <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
@@ -301,14 +301,14 @@ export default function ImportShiftsModal({ currentPlanId, onClose }: ImportShif
             disabled={loading}
             className="px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-100 transition-colors disabled:opacity-50"
           >
-            Cancel
+            Avbryt
           </button>
           <button
             onClick={handleImport}
             disabled={loading || selectedShifts.size === 0 || !selectedPlanId}
             className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Importing...' : `Import ${selectedShifts.size > 0 ? selectedShifts.size + ' ' : ''}Shift${selectedShifts.size !== 1 ? 's' : ''}`}
+            {loading ? 'Importerer...' : `Importer ${selectedShifts.size > 0 ? selectedShifts.size + ' ' : ''}Vakt${selectedShifts.size !== 1 ? 'er' : ''}`}
           </button>
         </div>
       </div>

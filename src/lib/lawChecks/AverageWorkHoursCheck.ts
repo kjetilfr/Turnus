@@ -11,8 +11,8 @@ import { calculateShiftHours } from '@/lib/utils/shiftCalculations'
  */
 export const averageWorkHoursCheck: LawCheck = {
   id: 'average-work-hours',
-  name: 'Gjennomsnittsberegning (Average Work Hours)',
-  description: 'Verifies compliance with average working hours based on agreement type. Standard is 35.5h/week with 9h max shift. Select agreement type for different limits.',
+  name: 'Gjennomsnittsberegning',
+  description: 'Verifiserer at gjennomsnittleg arbeidstid vert overhaldne basert på avtaletype. Standard er 35,5 t/veke med tariffavtale i turnus. 37.5 t/veke utan turnusarbeid. 40 t/veka utan tariffavtale. Standard er at du har tariffavtale og jobbar turnus',
   category: 'shared',
   lawType: 'aml',
   lawReferences: [
@@ -33,134 +33,134 @@ export const averageWorkHoursCheck: LawCheck = {
   inputs: [
     {
       id: 'agreementType',
-      label: 'Agreement Type',
+      label: 'Avtaletype',
       type: 'text',
       defaultValue: 'type2' // Change this to: 'none', 'type1', 'type2', 'type3', or 'type4'
     },
     // Standard (No Agreement)
     {
       id: 'standardMaxShiftHours',
-      label: 'Standard: Max Shift Length',
+      label: 'Maksimum vakt lengde',
       type: 'number',
       defaultValue: 9,
       min: 1,
       max: 24,
       step: 0.5,
-      unit: 'hours'
+      unit: 'timar'
     },
     {
       id: 'standardMaxWeeklyHours',
-      label: 'Standard: Max Weekly Hours',
+      label: 'Maksimum timar per veke',
       type: 'number',
       defaultValue: 35.5,
       min: 1,
       max: 100,
       step: 0.5,
-      unit: 'hours'
+      unit: 'timar'
     },
     // Type 1: Employer-Employee Agreement
     {
       id: 'type1MaxShiftHours',
-      label: 'Type 1: Max Shift Length',
+      label: 'Maksimum vakt lengde',
       type: 'number',
       defaultValue: 10,
       min: 1,
       max: 24,
       step: 0.5,
-      unit: 'hours'
+      unit: 'timar'
     },
     {
       id: 'type1MaxWeeklyHours',
-      label: 'Type 1: Max Weekly Hours',
+      label: 'Maksimum timar per veke',
       type: 'number',
       defaultValue: 50,
       min: 1,
       max: 100,
       step: 0.5,
-      unit: 'hours'
+      unit: 'timar'
     },
     {
       id: 'type1Max8WeekHours',
-      label: 'Type 1: Max Hours per 8-week Span',
+      label: 'Maksimum timar per veke, over 8-veker',
       type: 'number',
       defaultValue: 48,
       min: 1,
       max: 100,
       step: 0.5,
-      unit: 'hours/week avg'
+      unit: 'timar/veke gjennomsnitt'
     },
     // Type 2: Employer-Representative Agreement
     {
       id: 'type2MaxShiftHours',
-      label: 'Type 2: Max Shift Length',
+      label: 'Maksimum vakt lengde',
       type: 'number',
       defaultValue: 12.5,
       min: 1,
       max: 24,
       step: 0.5,
-      unit: 'hours'
+      unit: 'timar'
     },
     {
       id: 'type2MaxWeeklyHours',
-      label: 'Type 2: Max Weekly Hours',
+      label: 'Maksimum timar per veke',
       type: 'number',
       defaultValue: 54,
       min: 1,
       max: 100,
       step: 0.5,
-      unit: 'hours'
+      unit: 'timar'
     },
     {
       id: 'type2Max8WeekHours',
-      label: 'Type 2: Max Hours per 8-week Span',
+      label: 'Maksimum timar per veke, over 8-veker',
       type: 'number',
       defaultValue: 48,
       min: 1,
       max: 100,
       step: 0.5,
-      unit: 'hours/week avg'
+      unit: 'timar/veke gjennomsnitt'
     },
     // Type 3: Arbeidstilsynet Agreement
     {
       id: 'type3MaxShiftHours',
-      label: 'Type 3: Max Shift Length',
+      label: 'Maksimum vakt lengde',
       type: 'number',
       defaultValue: 13,
       min: 1,
       max: 24,
       step: 0.5,
-      unit: 'hours'
+      unit: 'timar'
     },
     {
       id: 'type3Max8WeekHours',
-      label: 'Type 3: Max Hours per 8-week Span',
+      label: 'Maksimum timar per veke, over 8-veker',
       type: 'number',
       defaultValue: 48,
       min: 1,
       max: 100,
       step: 0.5,
-      unit: 'hours/week avg'
+      unit: 'timar/veke gjennomsnitt'
     },
     // Type 4: Union Agreement
     {
       id: 'type4MaxShiftHours',
-      label: 'Type 4: Max Shift Length',
+      label: 'Maksimum vakt lengde',
       type: 'number',
       defaultValue: 14.5,
       min: 1,
       max: 24,
       step: 0.5,
-      unit: 'hours'
+      unit: 'timar'
     },
     {
       id: 'type4MaxWeeklyHours',
-      label: 'Type 4: Max Weekly Hours',
+      label: 'Maksimum timar per veke',
       type: 'number',
       defaultValue: 54,
       min: 1,
       max: 100,
       step: 0.5,
-      unit: 'hours'
+      unit: 'timar'
     }
   ],
   
@@ -184,31 +184,31 @@ export const averageWorkHoursCheck: LawCheck = {
         maxShiftHours = (inputs.type1MaxShiftHours as number) || 10
         maxWeeklyHours = (inputs.type1MaxWeeklyHours as number) || 50
         max8WeekAvgHours = (inputs.type1Max8WeekHours as number) || 48
-        agreementName = 'Employer-Employee Agreement'
+        agreementName = 'Avtale med arbeidstakar'
         break
       case 'type2':
         maxShiftHours = (inputs.type2MaxShiftHours as number) || 12.5
         maxWeeklyHours = (inputs.type2MaxWeeklyHours as number) || 54
         max8WeekAvgHours = (inputs.type2Max8WeekHours as number) || 48
-        agreementName = 'Employer-Representative Agreement'
+        agreementName = 'Avtale med tillitsvalgte'
         break
       case 'type3':
         maxShiftHours = (inputs.type3MaxShiftHours as number) || 13
         maxWeeklyHours = null // No weekly max for Type 3
         max8WeekAvgHours = (inputs.type3Max8WeekHours as number) || 48
-        agreementName = 'Arbeidstilsynet Agreement'
+        agreementName = 'Avtale med arbeidstilsynet'
         break
       case 'type4':
         maxShiftHours = (inputs.type4MaxShiftHours as number) || 14.5
         maxWeeklyHours = (inputs.type4MaxWeeklyHours as number) || 54
         max8WeekAvgHours = null // No 8-week limit for Type 4
-        agreementName = 'Union Agreement'
+        agreementName = 'Avtale med forbund sentralt'
         break
       default: // 'none' - Standard
         maxShiftHours = (inputs.standardMaxShiftHours as number) || 9
         maxWeeklyHours = (inputs.standardMaxWeeklyHours as number) || 35.5
         max8WeekAvgHours = null
-        agreementName = 'Standard (No Special Agreement)'
+        agreementName = 'Ingen avtale (kun aml)'
     }
 
     // Build weekly hours map
@@ -236,7 +236,7 @@ export const averageWorkHoursCheck: LawCheck = {
             result.violations?.push({
               weekIndex: rotation.week_index,
               dayOfWeek: rotation.day_of_week,
-              description: `Shift length ${shiftHours.toFixed(2)}h exceeds max ${maxShiftHours}h`
+              description: `Vakt lengde ${shiftHours.toFixed(2)}t overskrid maksimum på ${maxShiftHours}t`
             })
           }
           
@@ -259,7 +259,7 @@ export const averageWorkHoursCheck: LawCheck = {
           result.violations?.push({
             weekIndex: week,
             dayOfWeek: -1,
-            description: `Weekly hours ${weeklyHours[week].toFixed(1)}h exceeds max ${maxWeeklyHours}h`
+            description: `Veke timar ${weeklyHours[week].toFixed(1)}t overksrid maksimum på ${maxWeeklyHours}t`
           })
         }
       }
@@ -284,18 +284,18 @@ export const averageWorkHoursCheck: LawCheck = {
           result.violations?.push({
             weekIndex: startWeek,
             dayOfWeek: -1,
-            description: `8-week average ${avg.toFixed(1)}h/week exceeds max ${max8WeekAvgHours}h/week (weeks ${startWeek + 1}-${startWeek + 8})`
+            description: `8-vekers gjennomsnitt ${avg.toFixed(1)}t/veka overskrid maksimum på ${max8WeekAvgHours}t/veka (veker ${startWeek + 1}-${startWeek + 8})`
           })
         }
       }
     }
 
     // Build result
-    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    const dayNames = ['Man', 'Tys', 'Ons', 'Tor', 'Fre', 'Lau', 'Søn']
     
     if (shiftViolations.length > 0 || weeklyViolations.length > 0 || eightWeekViolations.length > 0) {
       result.status = 'fail'
-      result.message = `Found violations under ${agreementName}`
+      result.message = `Turnusen er ikkje godkjend med "${agreementName}" sine begrensingar`
       
       if (shiftViolations.length > 0) {
         result.details?.push(`Shift length violations: ${shiftViolations.length}`)
@@ -325,7 +325,7 @@ export const averageWorkHoursCheck: LawCheck = {
       }
     } else {
       result.status = 'pass'
-      result.message = `All hours comply with ${agreementName} limits`
+      result.message = `Alle timar stemmer overeins med "${agreementName}" sine begrensingar`
       result.details = [
         `Agreement: ${agreementName}`,
         `Max shift length: ${maxShiftHours}h`,

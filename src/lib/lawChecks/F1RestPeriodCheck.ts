@@ -10,8 +10,8 @@ import { Shift } from '@/types/shift'
  */
 export const f1RestPeriodCheck: LawCheck = {
   id: 'f1-rest-period',
-  name: 'F1 Shift Rest Period',
-  description: 'Verifies that F1 shifts have adequate rest time before and after (default 35 hours). Checks that only one F1 shift is placed per week and warns if any week is missing an F1 shift.',
+  name: 'Kviletid F1 Vakt',
+  description: 'Verifiserer at F1-vakter har tilstrekkeleg kviletid. Kontrollerer at berre ei F1-vakt er lagt inn per veke og åtvarar viss ei veke manglar F1-vakt.',
   category: 'shared',
   lawType: 'aml',
   lawReferences: [
@@ -28,13 +28,13 @@ export const f1RestPeriodCheck: LawCheck = {
   inputs: [
     {
       id: 'minRestHours',
-      label: 'Minimum Rest Hours',
+      label: 'Minimum Kviletid',
       type: 'number',
       defaultValue: 35,
       min: 0,
       max: 72,
       step: 0.5,
-      unit: 'hours'
+      unit: 'timar'
     }
   ],
   
@@ -190,15 +190,15 @@ export const f1RestPeriodCheck: LawCheck = {
     // Set final status and message
     if (hasErrors) {
       result.status = 'fail'
-      result.message = `Found ${totalIssueCount} issue${totalIssueCount !== 1 ? 's' : ''} across ${Object.keys(weekIssues).filter(w => weekIssues[parseInt(w)].length > 0).length} week${Object.keys(weekIssues).filter(w => weekIssues[parseInt(w)].length > 0).length !== 1 ? 's' : ''}`
+      result.message = `Fann ${totalIssueCount} problem på tvers av ${Object.keys(weekIssues).filter(w => weekIssues[parseInt(w)].length > 0).length} veke${Object.keys(weekIssues).filter(w => weekIssues[parseInt(w)].length > 0).length !== 1 ? 's' : ''}`
       result.details = detailsList
     } else if (hasWarnings) {
       result.status = 'warning'
-      result.message = `Found ${totalIssueCount} warning${totalIssueCount !== 1 ? 's' : ''} across ${Object.keys(weekIssues).filter(w => weekIssues[parseInt(w)].length > 0).length} week${Object.keys(weekIssues).filter(w => weekIssues[parseInt(w)].length > 0).length !== 1 ? 's' : ''}`
+      result.message = `Fann ${totalIssueCount} advars${totalIssueCount !== 1 ? 'el' : 'lar'} på tvers av ${Object.keys(weekIssues).filter(w => weekIssues[parseInt(w)].length > 0).length} veke${Object.keys(weekIssues).filter(w => weekIssues[parseInt(w)].length > 0).length !== 1 ? 's' : ''}`
       result.details = detailsList
     } else {
       result.status = 'pass'
-      result.message = `All F1 shifts comply with ${minRestHours}h rest period requirement`
+      result.message = `Alle F1 vakene har tilstrekkeleg kviletid på ${minRestHours}t`
       result.details = [
         `Total F1 shifts: ${f1Rotations.length}`,
         `All weeks have exactly one F1 shift`,

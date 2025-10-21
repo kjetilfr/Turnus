@@ -16,10 +16,10 @@ export default function NightShiftInfoCard() {
           <span className="text-2xl">🌙</span>
           <div className="text-left">
             <h3 className="text-sm font-semibold text-purple-900">
-              Night Shift Calculation
+              Nattevakt
             </h3>
             <p className="text-xs text-purple-700">
-              How hours are distributed across days and weeks
+              Informasjon
             </p>
           </div>
         </div>
@@ -43,34 +43,25 @@ export default function NightShiftInfoCard() {
       {isExpanded && (
         <div className="px-4 pb-4 text-sm text-purple-900 space-y-3">
           <div className="pt-2 border-t border-purple-200">
-            <p className="font-medium mb-2">How it works:</p>
+            <p className="font-medium mb-2">Korleis du skal bruke nattevakt:</p>
             <ul className="space-y-2 list-disc list-inside">
               <li>
-                <strong>Grid Placement:</strong> Night shifts are placed on the day they have the most hours.
+                <strong>Plassering i turnus:</strong> Plasser nattevaktene på dagen med flest timer.
               </li>
               <li>
-                <strong>Example:</strong> A shift from 22:15 to 07:45 is placed on Wednesday, even though it starts Tuesday at 22:15.
-              </li>
-              <li>
-                <strong>Daily Hours:</strong> The hours before midnight (1h 45m) count toward Tuesday, and hours after midnight (7h 45m) count toward Wednesday.
-              </li>
-              <li>
-                <strong>Weekly Calculation:</strong> Full shift duration counts toward the week where it&lsquo;s placed, EXCEPT for Monday shifts.
-              </li>
-              <li>
-                <strong>Monday Exception:</strong> If a night shift is on Monday, the hours before midnight (starting Sunday 22:15) count toward the previous week. If it&lsquo;s Monday of Week 1, these hours wrap to the last week of the rotation.
+                <strong>Eksempel:</strong> Nattevakt fra kl. 22:15 til kl. 07:45 plasseres på Onsdar, sjølv om det starter kl. 22:15 Tysdag.
               </li>
             </ul>
           </div>
 
           <div className="bg-white rounded p-3 border border-purple-200">
-            <p className="font-medium mb-2 text-purple-900">Visual Indicators:</p>
+            <p className="font-medium mb-2 text-purple-900">Visuell indikator:</p>
             <div className="flex items-center gap-2 text-xs">
               <span className="text-lg">🌙</span>
-              <span>= Shift crosses midnight</span>
+              <span>= Vakten krysser midnatt</span>
             </div>
             <div className="mt-1 text-xs text-purple-700">
-              The cell shows which day the shift actually starts on.
+              Viser kva dag vakta starter.
             </div>
           </div>
         </div>

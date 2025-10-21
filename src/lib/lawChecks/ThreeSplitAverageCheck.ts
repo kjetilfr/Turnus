@@ -33,8 +33,8 @@ import { calculateShiftHours } from '@/lib/utils/shiftCalculations'
 
 export const threeSplitAverageCheck: LawCheck = {
   id: 'three-split-average',
-  name: 'Three-Split Average Qualification',
-  description: 'Verifies qualification for reduced work weeks: 35.5h week (night hours OR Sunday work) or 33.6h week (24-hour coverage AND Sunday work AND 25% non-night hours).',
+  name: '3-Delt snitt',
+  description: 'Sjekker om du er kvalifisert til 3-delt snitt og/eller 35,5t/veke. Standard lagt inn er 1,39t natt (fra 20:00-06:00) per veke for å kvalifisere til 35,5 eller tredje kvar søndag (Laurdag kl. 18:00 -  Søndag kl. 22:00). For å kvalifisere til 3-delt snitt er standard 25% av timane utanom natt, vaktene må dekke heile døgnet og jobb kvar tredje søndag. ',
   category: 'shared',
   lawType: 'hta',
   lawReferences: [
@@ -55,17 +55,17 @@ export const threeSplitAverageCheck: LawCheck = {
   inputs: [
     {
       id: 'requiredNightHoursPerWeek',
-      label: '35.5h: Required Average Night Hours per Week (20:00-06:00)',
+      label: 'Timar natt for å kvalifisere til 35,5t/veke (20:00-06:00)',
       type: 'number',
       defaultValue: 1.39,
       min: 0,
       max: 24,
       step: 0.01,
-      unit: 'hours/week'
+      unit: 'timar/veke'
     },
     {
       id: 'requiredSundayFrequency',
-      label: 'Required Sunday Work Frequency (1 in X Sundays)',
+      label: 'Krav til arbeidsfrekvens på søndagar (1 av X søndagar)',
       type: 'number',
       defaultValue: 3,
       min: 1,
@@ -75,7 +75,7 @@ export const threeSplitAverageCheck: LawCheck = {
     },
     {
       id: 'requiredNonNightPercent',
-      label: '33.6h: Required Non-Night Hours Percentage',
+      label: '3-Delt snitt prosent timar utanom natt',
       type: 'number',
       defaultValue: 25,
       min: 0,

@@ -297,9 +297,9 @@ export default function CalendarView({
     <div className="bg-white rounded-lg shadow-md p-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Shift Calendar</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Kalender</h2>
           <p className="text-sm text-gray-600">
-            View your rotation schedule in calendar format. Click on any shift to see details.
+            Sjå korleis din turnus vil sjå ut i kalenderen.
           </p>
         </div>
         
@@ -325,30 +325,6 @@ export default function CalendarView({
       </div>
       
       <div className="calendar-container" ref={calendarRef}></div>
-
-      {/* Legend */}
-      <div className="mt-6 pt-6 border-t border-gray-200">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Legend</h3>
-        <div className="flex flex-wrap gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-gray-600"></div>
-            <span className="text-sm text-gray-700">Default Shifts (F1-F5)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-indigo-600"></div>
-            <span className="text-sm text-gray-700">Custom Shifts</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-red-500"></div>
-            <span className="text-sm text-gray-700">🇳🇴 Norwegian Holidays</span>
-          </div>
-        </div>
-        {planType === 'main' && repeatCount > 1 && (
-          <div className="mt-3 text-sm text-gray-600">
-            <strong>Note:</strong> Rotation repeated {repeatCount} times. Week labels restart at T1 for each cycle.
-          </div>
-        )}
-      </div>
 
       {/* FullCalendar Styles */}
       <style jsx global>{`

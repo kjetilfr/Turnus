@@ -23,7 +23,7 @@ export default function ShiftsList({ shifts }: ShiftsListProps) {
   const customShifts = shifts.filter(s => !s.is_default)
 
   const handleDelete = async (shiftId: string) => {
-    if (!confirm('Are you sure you want to delete this shift?')) {
+    if (!confirm('Sikker på du vil slette denne vakta?')) {
       return
     }
 
@@ -40,7 +40,7 @@ export default function ShiftsList({ shifts }: ShiftsListProps) {
       router.refresh()
     } catch (error) {
       console.error('Error deleting shift:', error)
-      alert('Failed to delete shift')
+      alert('Klarte ikkje å slette vakta!')
     } finally {
       setDeleting(null)
     }
@@ -54,9 +54,9 @@ export default function ShiftsList({ shifts }: ShiftsListProps) {
     return (
       <div className="bg-white rounded-lg shadow-md p-12 text-center">
         <div className="text-6xl mb-4">⏰</div>
-        <h3 className="text-2xl font-semibold text-gray-900 mb-2">No Shifts Found</h3>
+        <h3 className="text-2xl font-semibold text-gray-900 mb-2">Ingen vakter funne</h3>
         <p className="text-gray-600">
-          Default shifts should be created automatically. Try refreshing the page.
+          Forhandsinnstilte vakter skal vere laga automatisk. Prøv å oppdater sida.
         </p>
       </div>
     )
@@ -68,8 +68,8 @@ export default function ShiftsList({ shifts }: ShiftsListProps) {
         {/* Default Shifts Section */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Default Shifts</h2>
-            <p className="text-sm text-gray-600 mt-1">F1-F5 shifts (cannot be edited)</p>
+            <h2 className="text-lg font-semibold text-gray-900">Forhandsinnstilte vakter</h2>
+            <p className="text-sm text-gray-600 mt-1">F1-F5 vakter (kan ikkje bli endra/sletta)</p>
           </div>
           <div className="divide-y divide-gray-200">
             {defaultShifts.map((shift) => (
@@ -102,7 +102,7 @@ export default function ShiftsList({ shifts }: ShiftsListProps) {
             ))}
             {defaultShifts.length === 0 && (
               <div className="px-6 py-8 text-center text-gray-500 text-sm">
-                No default shifts found
+                Ingen Forhandsinnstilte vakter funne
               </div>
             )}
           </div>
@@ -111,18 +111,18 @@ export default function ShiftsList({ shifts }: ShiftsListProps) {
         {/* Custom Shifts Section */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Custom Shifts</h2>
-            <p className="text-sm text-gray-600 mt-1">Your custom shift types</p>
+            <h2 className="text-lg font-semibold text-gray-900">Eigendefinerte vakter</h2>
+            <p className="text-sm text-gray-600 mt-1">Dine vakter</p>
           </div>
           <div className="divide-y divide-gray-200">
             {customShifts.length === 0 ? (
               <div className="px-6 py-12 text-center">
                 <div className="text-4xl mb-3">⏰</div>
                 <p className="text-gray-600 text-sm mb-4">
-                  No custom shifts yet.
+                  Ingen eigendefinerte vakter.
                 </p>
                 <p className="text-gray-500 text-xs">
-                  Click &quot;Create Shift&quot; or &quot;Import Shifts&quot; to add custom shifts.
+                  Klikk &quot;Ny vakt&quot; eller &quot;Importer Vakter&quot; for å lage nye vakter.
                 </p>
               </div>
             ) : (
@@ -150,14 +150,14 @@ export default function ShiftsList({ shifts }: ShiftsListProps) {
                           onClick={() => setEditingShift(shift)}
                           className="text-sm text-indigo-600 hover:text-indigo-900 font-medium"
                         >
-                          Edit
+                          Endre
                         </button>
                         <button
                           onClick={() => handleDelete(shift.id)}
                           disabled={deleting === shift.id}
                           className="text-sm text-red-600 hover:text-red-900 font-medium disabled:opacity-50"
                         >
-                          {deleting === shift.id ? 'Deleting...' : 'Delete'}
+                          {deleting === shift.id ? 'Slettar...' : 'Slett'}
                         </button>
                       </div>
                     </div>
