@@ -175,10 +175,10 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
   }
 
   // Calculate what the actual plan names will be for rotation_based year plans
-  const rotationYearPlanPreview = type === 'year' && yearPlanMode === 'rotation_based' && name
+  type === 'year' && yearPlanMode === 'rotation_based' && name
     ? `${name} (${durationWeeks} weeks)`
     : null
-  const helpingPlanPreview = type === 'year' && yearPlanMode === 'rotation_based' && name
+  type === 'year' && yearPlanMode === 'rotation_based' && name
     ? `${name} (52 weeks)`
     : null
 
@@ -257,7 +257,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
                 }
               `}
             >
-              <div className="font-semibold text-gray-900 mb-1">Hovudturnus</div>
+              <div className="font-semibold text-gray-900 mb-1">Grunnturnus</div>
               <div className="text-xs text-gray-600">
                 Roterande Hovudturnus/Grunnturnus
               </div>

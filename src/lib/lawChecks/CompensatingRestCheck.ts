@@ -3,7 +3,6 @@
 import { LawCheck, LawCheckResult } from '@/types/lawCheck'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
-import { DAY_NAMES_NORWEGIAN } from '@/types/rotation'
 
 /**
  * Compensating Rest Period Check

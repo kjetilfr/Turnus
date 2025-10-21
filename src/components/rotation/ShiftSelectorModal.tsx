@@ -134,10 +134,6 @@ export default function ShiftSelectorModal({
     return false
   }
 
-  // Check if manual overlay selection should be shown
-  hasOriginalShift && 
-    !['F3', 'F4', 'F5', 'FE'].includes(originalShift?.name || '')
-
   return (
     <div 
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
