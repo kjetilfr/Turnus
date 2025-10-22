@@ -86,6 +86,58 @@ export default function ImportRotationModal({ planId, basePlanId, onClose }: Imp
     fetchData()
   }, [planId, basePlanId, supabase])
 
+  const importCustomShifts = async () => {
+    // Fetch all custom shifts from base plan
+    const { data: baseShifts, error: fetchError } = await supabase
+      .from('shifts')
+      .select('*')
+      .eq('plan_id', basePlanId)
+      .eq('is_default', false) // Only import custom shifts
+
+    if (fetchError) throw fetchError
+    if (!baseShifts || baseShifts.length === 0) {
+      console.log('No custom shifts to import from base plan')
+      return { imported: 0, skipped: 0 }
+    }
+
+    // Get existing shift names in helping plan
+    const { data: existingShifts } = await supabase
+      .from('shifts')
+      .select('name')
+      .eq('plan_id', planId)
+
+    const existingNames = new Set(existingShifts?.map(s => s.name) || [])
+
+    // Filter out shifts with conflicting names
+    const shiftsToImport = baseShifts
+      .filter(shift => !existingNames.has(shift.name))
+      .map(shift => ({
+        plan_id: planId,
+        name: shift.name,
+        description: shift.description,
+        start_time: shift.start_time,
+        end_time: shift.end_time,
+        is_default: false
+      }))
+
+    const skippedCount = baseShifts.length - shiftsToImport.length
+
+    if (shiftsToImport.length === 0) {
+      console.log(`All ${baseShifts.length} custom shifts already exist in helping plan`)
+      return { imported: 0, skipped: skippedCount }
+    }
+
+    // Insert the shifts
+    const { error: insertError } = await supabase
+      .from('shifts')
+      .insert(shiftsToImport)
+
+    if (insertError) throw insertError
+
+    console.log(`Imported ${shiftsToImport.length} custom shifts, skipped ${skippedCount}`)
+    return { imported: shiftsToImport.length, skipped: skippedCount }
+  }
+
   const handleImport = async () => {
     if (!helpingPlan || !basePlan) {
       setError('Missing plan data')
@@ -96,7 +148,13 @@ export default function ImportRotationModal({ planId, basePlanId, onClose }: Imp
     setError(null)
 
     try {
-      // Fetch all rotations from base plan
+      // STEP 1: Import custom shifts first
+      console.log('Step 1: Importing custom shifts...')
+      const shiftImportResult = await importCustomShifts()
+      console.log('Shift import result:', shiftImportResult)
+
+      // STEP 2: Fetch all rotations from base plan
+      console.log('Step 2: Fetching base plan rotations...')
       const { data: baseRotations, error: fetchError } = await supabase
         .from('rotations')
         .select('*')
@@ -123,7 +181,7 @@ export default function ImportRotationModal({ planId, basePlanId, onClose }: Imp
 
       if (baseShiftsError) throw baseShiftsError
 
-      // Fetch all shifts from helping plan
+      // Fetch all shifts from helping plan (re-fetch to include newly imported shifts)
       const { data: helpingShifts, error: helpingShiftsError } = await supabase
         .from('shifts')
         .select('*')
@@ -234,6 +292,7 @@ export default function ImportRotationModal({ planId, basePlanId, onClose }: Imp
         }
         
         console.log('All rotations inserted successfully!')
+        console.log(`Import complete: ${shiftImportResult.imported} shifts imported, ${shiftImportResult.skipped} shifts skipped`)
       } else {
         throw new Error('No rotations to insert')
       }

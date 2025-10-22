@@ -48,7 +48,7 @@ export default function ImportShiftsModal({ currentPlanId, onClose }: ImportShif
         if (error) throw error
         setPlans(data || [])
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load plans')
+        setError(err instanceof Error ? err.message : 'Klarte ikkje å laste inn turnusar')
       } finally {
         setLoadingPlans(false)
       }
@@ -78,7 +78,7 @@ export default function ImportShiftsModal({ currentPlanId, onClose }: ImportShif
         setAvailableShifts(data || [])
         setSelectedShifts(new Set())
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load shifts')
+        setError(err instanceof Error ? err.message : 'Klarte ikkje å importere vakter')
       } finally {
         setLoadingShifts(false)
       }
@@ -107,7 +107,7 @@ export default function ImportShiftsModal({ currentPlanId, onClose }: ImportShif
 
   const handleImport = async () => {
     if (selectedShifts.size === 0) {
-      setError('Please select at least one shift to import')
+      setError('Velg minst ei vakt å importere')
       return
     }
 
@@ -212,7 +212,7 @@ export default function ImportShiftsModal({ currentPlanId, onClose }: ImportShif
                 <option value="">Velg ein turnus...</option>
                 {plans.map((plan) => (
                   <option key={plan.id} value={plan.id}>
-                    {plan.name} ({plan.type})
+                    {plan.name}
                   </option>
                 ))}
               </select>
