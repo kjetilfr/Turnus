@@ -48,77 +48,36 @@ function addHours(date: Date, hours: number, minutes = 0): Date {
 }
 
 /**
- * Check if a date is a red day
- */
-function isRedDay(dateStr: string, allHolidayDates: Set<string>): boolean {
-  return allHolidayDates.has(dateStr)
-}
-
-/**
- * Format date as YYYY-MM-DD
- */
-function formatDate(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
-
-/**
  * Get all Norwegian holiday time zones (AML-based windows)
- * Handles consecutive red days: when red days are back-to-back,
- * the second one starts at 22:00 (when the first one ends)
  */
 export function getHolidayTimeZones(year: number): HolidayTimeZone[] {
   const holidays = getNorwegianHolidays(year)
   const timeZones: HolidayTimeZone[] = []
-  
-  // Create a set of all holiday dates for quick lookup
-  const allHolidayDates = new Set(holidays.map(h => h.date))
 
   for (const h of holidays) {
     const date = makeLocalDate(h.date)
     const dayBefore = new Date(date)
     dayBefore.setDate(date.getDate() - 1)
-    const dayBeforeStr = formatDate(dayBefore)
 
     let start: Date
     let end: Date
     let type: HolidayTimeZone['type']
 
-    // Check if the day before is also a red day
-    const previousDayIsRedDay = isRedDay(dayBeforeStr, allHolidayDates)
-
-    if (previousDayIsRedDay) {
-      // Previous day is a red day, so this one starts at 22:00 day before
+    if (isInCategory(h.name, HOLIDAY_CATEGORIES.MAY)) {
+      // 22:00 day before → 22:00 day of
       start = addHours(dayBefore, 22, 0)
       end = addHours(date, 22, 0)
-      // Keep the type based on the current holiday's category
-      if (isInCategory(h.name, HOLIDAY_CATEGORIES.MAY)) {
-        type = 'may'
-      } else if (isInCategory(h.name, HOLIDAY_CATEGORIES.SPECIAL)) {
-        type = 'special'
-      } else {
-        type = 'standard'
-      }
+      type = 'may'
+    } else if (isInCategory(h.name, HOLIDAY_CATEGORIES.SPECIAL)) {
+      // 15:00 day before → 22:00 day of
+      start = addHours(dayBefore, 15, 0)
+      end = addHours(date, 22, 0)
+      type = 'special'
     } else {
-      // Previous day is NOT a red day, use normal rules
-      if (isInCategory(h.name, HOLIDAY_CATEGORIES.MAY)) {
-        // 22:00 day before → 22:00 day of
-        start = addHours(dayBefore, 22, 0)
-        end = addHours(date, 22, 0)
-        type = 'may'
-      } else if (isInCategory(h.name, HOLIDAY_CATEGORIES.SPECIAL)) {
-        // 15:00 day before → 22:00 day of
-        start = addHours(dayBefore, 15, 0)
-        end = addHours(date, 22, 0)
-        type = 'special'
-      } else {
-        // Standard: 18:00 day before → 22:00 day of
-        start = addHours(dayBefore, 18, 0)
-        end = addHours(date, 22, 0)
-        type = 'standard'
-      }
+      // Standard: 18:00 day before → 22:00 day of
+      start = addHours(dayBefore, 18, 0)
+      end = addHours(date, 22, 0)
+      type = 'standard'
     }
 
     timeZones.push({

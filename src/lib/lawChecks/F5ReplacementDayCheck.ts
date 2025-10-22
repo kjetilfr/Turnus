@@ -42,13 +42,14 @@ export const f5ReplacementDayCheck: LawCheck = {
     let rotationsToCheck: Rotation[] = []
     let shiftsToCheck: Shift[] = []
     let weekOffset = 0
+    let effectiveF1Rotations: Rotation[] = []
 
-    // --- Helping plan: compute effective rotations & week offset ---
-    if (plan.type === 'helping') {
+    // --- Helping/Year plan: compute effective rotations & week offset ---
+    if (plan.type === 'helping' || plan.type === 'year') {
       if (!plan.base_plan_id || !basePlan || !basePlanRotations || !basePlanShifts) {
         result.status = 'warning'
         result.message = 'Base plan data not available'
-        result.details = ['Helping plans require base plan for F5 check']
+        result.details = ['Helping/Year plans require base plan for F5 check']
         return result
       }
 
@@ -64,13 +65,42 @@ export const f5ReplacementDayCheck: LawCheck = {
       rotationsToCheck = rotations
       shiftsToCheck = shifts
 
+      // --- STRETCH BASE PLAN TO COVER FULL HELPING PLAN DURATION ---
+      // Find F1 shift in base plan
+      const f1Shift = basePlanShifts?.find(s => s.name.trim().toUpperCase() === 'F1')
+      
+      if (f1Shift) {
+        // Create effective F1 rotations by repeating the base plan pattern
+        for (let helpingWeek = 0; helpingWeek < plan.duration_weeks; helpingWeek++) {
+          const baseRotationWeek = (helpingWeek + weekOffset) % basePlanRotationLength
+          const baseWeekRotations = basePlanRotations.filter(
+            r => r.week_index === baseRotationWeek && r.shift_id === f1Shift.id
+          )
+          
+          baseWeekRotations.forEach(baseRotation => {
+            effectiveF1Rotations.push({
+              ...baseRotation,
+              week_index: helpingWeek,
+              plan_id: plan.id
+            })
+          })
+        }
+      }
+
       result.details = [
-        `Plan type: helping`,
+        `Plan type: ${plan.type}`,
         `Base rotation length: ${basePlanRotationLength} weeks`,
+        `Helping/Year plan length: ${plan.duration_weeks} weeks`,
         `Week offset: ${weekOffset}`,
-        `Checking F1 from base plan and F5 from helping plan`
+        `Checking F1 from stretched base plan and F5 from helping/year plan`
       ]
     } else {
+      // Main plan - use own rotations
+      const f1Shift = shifts.find(s => s.name.trim().toUpperCase() === 'F1')
+      if (f1Shift) {
+        effectiveF1Rotations = rotations.filter(r => r.shift_id === f1Shift.id)
+      }
+      
       rotationsToCheck = rotations
       shiftsToCheck = shifts
       result.details = [
@@ -79,22 +109,20 @@ export const f5ReplacementDayCheck: LawCheck = {
       ]
     }
 
-    // --- Determine F1 and F5 shifts ---
-    let f1Shift: Shift | undefined
-    let f5Shift: Shift | undefined
+    // --- Determine F5 shift ---
+    const f5Shift = shiftsToCheck.find(s => s.name.trim().toUpperCase() === 'F5')
 
-    if (plan.type === 'helping') {
-      f1Shift = basePlanShifts?.find(s => s.name.trim().toUpperCase() === 'F1')
-      f5Shift = shifts.find(s => s.name.trim().toUpperCase() === 'F5')
-    } else {
-      f1Shift = shifts.find(s => s.name.trim().toUpperCase() === 'F1')
-      f5Shift = shifts.find(s => s.name.trim().toUpperCase() === 'F5')
+    if (!f5Shift) {
+      result.status = 'warning'
+      result.message = 'F5 shift not found'
+      result.details?.push('F5 shift must be defined to track replacement days')
+      return result
     }
 
-    if (!f1Shift || !f5Shift) {
+    if (effectiveF1Rotations.length === 0) {
       result.status = 'warning'
-      result.message = 'Required shift(s) missing'
-      result.details = [`F1 found: ${!!f1Shift}, F5 found: ${!!f5Shift}`]
+      result.message = 'No F1 shifts found in base plan'
+      result.details?.push('Cannot check F5 without F1 shifts in the base plan')
       return result
     }
 
@@ -138,28 +166,30 @@ export const f5ReplacementDayCheck: LawCheck = {
         date: getRotationDate(planStartDate, r.week_index, r.day_of_week)
       }))
 
-    // --- F1 rotations ---
-    const f1StartDate = plan.type === 'helping' ? new Date(basePlan!.date_started) : planStartDate
-    const f1RotationsSource = plan.type === 'helping' ? basePlanRotations! : rotationsToCheck
-    const f1Rotations = f1RotationsSource.filter(r => r.shift_id === f1Shift!.id)
-
-    result.details.push(
-      `Plan period: ${planStartDate.toISOString().split('T')[0]} → ${planEndDate.toISOString().split('T')[0]}`,
+    result.details?.push(
+      `Plan period: ${planStartDate.toISOString().split('T')[0]} → ${planEndDate.toISOString().split('T')[0]} (${planDurationWeeks} weeks)`,
       `Total holidays: ${allHolidays.length}`,
       `Total holiday/Sunday timezones: ${allTimeZones.length}`,
-      `Total F1 shifts: ${f1Rotations.length}`,
+      `Total F1 shifts (stretched): ${effectiveF1Rotations.length}`,
       `Total F5 replacement shifts: ${f5Rotations.length}`,
       ''
     )
 
-    // --- Check F1 on holiday ---
+    // --- Check F1 on holiday (excluding Sundays) ---
     const casesNeedingF5: Array<{
       f1Date: Date
       holidayName: string
     }> = []
 
-    f1Rotations.forEach(f1Rotation => {
-      const f1Date = getRotationDate(f1StartDate, f1Rotation.week_index, f1Rotation.day_of_week)
+    effectiveF1Rotations.forEach(f1Rotation => {
+      const f1Date = getRotationDate(planStartDate, f1Rotation.week_index, f1Rotation.day_of_week)
+      
+      // Skip if F1 falls on a Sunday (actual calendar day, not rotation day)
+      const jsDay = f1Date.getDay() // 0 = Sunday, 1 = Monday, etc.
+      if (jsDay === 0) {
+        return
+      }
+      
       const holidayOnF1 = allHolidays.find(h => formatDateLocal(h.date) === formatDateLocal(f1Date))
       if (!holidayOnF1) return
 
@@ -170,7 +200,9 @@ export const f5ReplacementDayCheck: LawCheck = {
     })
 
     // --- Build results ---
-    result.details.push('--- F1 on Holidays Analysis ---')
+    result.details?.push('--- F1 on Holidays Analysis (excluding Sundays) ---')
+    result.details?.push('Note: F1 on Sunday does not require F5, only F1 on non-Sunday holidays')
+    result.details?.push('')
     
     casesNeedingF5.forEach(c => {
       const dateStr = formatDateLocal(c.f1Date)
@@ -187,7 +219,7 @@ export const f5ReplacementDayCheck: LawCheck = {
     result.details?.push('--- F5 Replacement Shift Validation ---')
     
     // Check if F5s are properly placed as replacement shifts without overlapping red day timezones
-    if (plan.type === 'helping' && basePlanRotations && basePlanShifts) {
+    if ((plan.type === 'helping' || plan.type === 'year') && basePlanRotations && basePlanShifts) {
       const baseWeekLength = Math.max(...basePlanRotations.map(r => r.week_index)) + 1
       
       f5Rotations.forEach(f5r => {
@@ -276,13 +308,13 @@ export const f5ReplacementDayCheck: LawCheck = {
     // --- Final status ---
     if (result.violations && result.violations.length > 0) {
       result.status = 'warning'
-      result.message = `⚠️ ${result.violations.length} issue(s) found for F5 replacement days`
+      result.message = `⚠️ Du skal ha ${casesNeedingF5.length} F5 dagar, men fått plassert ${validF5Count} i turnus. ${casesNeedingF5.length - validF5Count} Skal då bli utbetalt`
     } else if (casesNeedingF5.length === 0) {
       result.status = 'pass'
-      result.message = `✅ No F1s fall on holidays - no F5 compensation needed`
+      result.message = `✅ Ingen F1 dagar på raude dagar som ikkje fell på søndag. Difor 0 F5 dagar.`
     } else {
       result.status = 'pass'
-      result.message = `✅ All ${casesNeedingF5.length} F1-on-holiday case(s) properly covered with F5 replacement shifts`
+      result.message = `✅ Alle ${casesNeedingF5.length} F5 vaktene er plassert riktig i turnus`
     }
 
     return result

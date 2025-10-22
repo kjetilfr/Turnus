@@ -81,7 +81,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
       // For rotation_based year plans, modify the name and create helping plan
       if (type === 'year' && yearPlanMode === 'rotation_based') {
         // Create the rotation-based year plan with modified name
-        const rotationYearPlanName = `${name} (${durationWeeks} weeks)`
+        const rotationYearPlanName = name
         
         const rotationYearPlanData = {
           user_id: user.id,
@@ -105,14 +105,14 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
         if (!rotationYearPlan) throw new Error('Failed to create rotation year plan')
 
         // Create the helping plan (52 weeks) with the rotation year plan as base
-        const helpingPlanName = `${name} (52 weeks)`
+        const helpingPlanName = name
         
         const helpingPlanData = {
           user_id: user.id,
           name: helpingPlanName,
-          description: description ? `${description} - Full year schedule` : 'Full year schedule',
+          description: description ? `${description}` : `${description}`,
           duration_weeks: 52,
-          type: 'helping' as PlanType,  // CHANGE THIS
+          type: 'helping' as PlanType,
           base_plan_id: rotationYearPlan.id,
           date_started: dateStarted,
           work_percent: workPercent,
@@ -125,7 +125,10 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
           .select()
           .single()
 
-        if (helpingPlanError) throw helpingPlanError
+        if (helpingPlanError) {
+          console.error('Helping plan error:', helpingPlanError)
+          throw new Error(`Failed to create helping plan: ${helpingPlanError.message}`)
+        }
 
         // Redirect to the rotation year plan (the base plan)
         router.push(`/plans/${rotationYearPlan.id}`)
@@ -168,6 +171,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
         router.refresh()
       }
     } catch (err) {
+      console.error('Full error:', err)
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setLoading(false)

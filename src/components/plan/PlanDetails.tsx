@@ -125,7 +125,7 @@ export default function PlanDetails({
                     d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" 
                   />
                 </svg>
-                {isRotationYearPlan ? '52 Week View' : 'Rotation View'}
+                {isRotationYearPlan ? 'Full turnus' : 'Grunnturnus'}
               </button>
             )}
           </div>
@@ -287,40 +287,6 @@ export default function PlanDetails({
         <div className="mt-4 pt-4 border-t border-gray-200">
           <div className="text-sm text-gray-600 mb-1">Beskrivelse</div>
           <div className="text-gray-900">{plan.description}</div>
-        </div>
-      )}
-
-      {/* Info about related plan */}
-      {relatedPlan && (
-        <div className="mt-4 pt-4 border-t border-gray-200">
-          <div className="flex items-start gap-2 text-sm">
-            <svg 
-              className="w-4 h-4 text-purple-600 flex-shrink-0 mt-0.5" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={2} 
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
-              />
-            </svg>
-            <div>
-              <span className="text-gray-600">
-                {isRotationYearPlan 
-                  ? 'This rotation plan has a full year (52 week) view: ' 
-                  : 'This is the full year view of rotation plan: '}
-              </span>
-              <button
-                onClick={handleSwapPlan}
-                className="font-semibold text-purple-600 hover:text-purple-700 underline"
-              >
-                {relatedPlan.name}
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>

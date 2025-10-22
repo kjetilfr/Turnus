@@ -264,13 +264,13 @@ export const vacationDaysCheck: LawCheck = {
     result.details?.push('=== CONSECUTIVE VACATION DAYS CHECK ===')
     result.details?.push('Rule: 3 weeks = 18 consecutive vacation days (Monday-Sunday)')
     result.details?.push('')
-    
+
     const consecutiveVacationPeriods = findConsecutiveVacationDays(feRotations, plan)
-    
+
     if (consecutiveVacationPeriods.length === 0) {
-      result.details?.push('✅ No periods with 18+ consecutive vacation days found')
+      result.details?.push('ℹ️ No periods with 18+ consecutive vacation days found')
     } else {
-      result.details?.push(`⚠️ Found ${consecutiveVacationPeriods.length} period(s) with 18+ consecutive vacation days:`)
+      result.details?.push(`✅ Found ${consecutiveVacationPeriods.length} period(s) with 18+ consecutive vacation days:`)
       consecutiveVacationPeriods.forEach(period => {
         const startStr = `Week ${period.startWeek + 1}, ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][period.startDay]}`
         const endStr = `Week ${period.endWeek + 1}, ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][period.endDay]}`
@@ -300,12 +300,24 @@ export const vacationDaysCheck: LawCheck = {
       result.details?.push('')
       
       const restViolations = check16HourRestRule(longVacationPeriods, rotations, shifts, plan)
-      
-      if (restViolations.length === 0) {
+
+      // Separate actual violations from successful checks
+      const actualViolations = restViolations.filter(v => !v.description.startsWith('✅'))
+      const successChecks = restViolations.filter(v => v.description.startsWith('✅'))
+
+      if (actualViolations.length === 0) {
         result.details?.push('✅ All long vacation periods meet 16h rest rule')
+        // Add success details
+        successChecks.forEach(check => {
+          result.details?.push(check.description)
+        })
       } else {
-        restViolations.forEach(violation => {
-          result.details?.push(`❌  ${violation.description}`)
+        actualViolations.forEach(violation => {
+          result.details?.push(`❌ ${violation.description}`)
+        })
+        // Still show successes too
+        successChecks.forEach(check => {
+          result.details?.push(check.description)
         })
       }
     }

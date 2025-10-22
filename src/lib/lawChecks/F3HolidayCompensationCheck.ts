@@ -6,6 +6,56 @@ import { Shift } from '@/types/shift'
 import { getHolidayTimeZones, HolidayTimeZone } from '@/lib/utils/norwegianHolidayTimeZones'
 
 /**
+ * Merge overlapping timezones (e.g., when a holiday falls on Sunday)
+ * This prevents double-counting the same calendar day
+ * Only merges zones that share the same end date AND have actual overlapping time (not just touching at boundaries)
+ */
+function mergeOverlappingTimeZones(zones: HolidayTimeZone[]): HolidayTimeZone[] {
+  if (zones.length === 0) return []
+  
+  const merged: HolidayTimeZone[] = []
+  let current = { ...zones[0] }
+  
+  for (let i = 1; i < zones.length; i++) {
+    const next = zones[i]
+    
+    // Get the end dates (the actual calendar day the zone represents)
+    const currentEndDate = formatDateLocal(current.endDateTime)
+    const nextEndDate = formatDateLocal(next.endDateTime)
+    
+    // Check if there's actual time overlap (more than just touching at a boundary)
+    // If next starts before current ends, they overlap
+    // But we need > 0 actual overlap, not just touching at the same moment
+    const overlapMinutes = (current.endDateTime.getTime() - next.startDateTime.getTime()) / (1000 * 60)
+    const hasActualOverlap = overlapMinutes > 1 // More than 1 minute overlap = actual overlap, not just boundary touch
+    
+    // Only merge if:
+    // 1. Both zones end on the SAME calendar date, AND
+    // 2. They actually overlap in time (not just touching at boundary like 22:00 == 22:00)
+    if (currentEndDate === nextEndDate && hasActualOverlap) {
+      // Merge: extend current zone to include next zone
+      current.startDateTime = new Date(Math.min(current.startDateTime.getTime(), next.startDateTime.getTime()))
+      current.endDateTime = new Date(Math.max(current.endDateTime.getTime(), next.endDateTime.getTime()))
+      
+      // Combine names to show both (e.g., "Sunday + New Year's Day")
+      if (!current.holidayName.includes(next.holidayName)) {
+        current.holidayName = `${current.holidayName} + ${next.holidayName}`
+        current.localName = `${current.localName} + ${next.localName}`
+      }
+    } else {
+      // Different end dates OR no actual overlap - save current and start new zone
+      merged.push(current)
+      current = { ...next }
+    }
+  }
+  
+  // Don't forget the last zone
+  merged.push(current)
+  
+  return merged
+}
+
+/**
  * F3 Holiday Compensation Check (Helping Plans Only) - ZONE-BASED
  * 
  * Three calculation methods:
@@ -156,13 +206,16 @@ export const f3HolidayCompensationCheck: LawCheck = {
     )
     relevantTimeZones.sort((a, b) => a.startDateTime.getTime() - b.startDateTime.getTime())
 
+    // Merge overlapping timezones (e.g., Sunday + holiday on same day)
+    const mergedTimeZones = mergeOverlappingTimeZones(relevantTimeZones)
+
     const zonesWorked: Array<{
       zone: HolidayTimeZone
       overlapHours: number
       rotations: Array<{ rotation: Rotation; shift: Shift; hours: number }>
     }> = []
 
-    relevantTimeZones.forEach(zone => {
+    mergedTimeZones.forEach(zone => {
       let totalOverlapHours = 0
       const rotationsInZone: Array<{ rotation: Rotation; shift: Shift; hours: number }> = []
 
@@ -192,7 +245,7 @@ export const f3HolidayCompensationCheck: LawCheck = {
       `Base rotation length: ${basePlanRotationLength} weeks`,
       `Helping plan period: ${plan.date_started} to ${formatDateLocal(helpingPlanEndDate)} (${plan.duration_weeks} weeks)`,
       `Week offset: ${weekOffset}`,
-      `Holiday/Sunday zones worked: ${zonesWorked.length}`,
+      `Holiday/Sunday zones worked (merged): ${zonesWorked.length}`,
       `Total hours in zones: ${zonesWorked.reduce((sum, zw) => sum + zw.overlapHours, 0).toFixed(2)}h`,
       `F3 compensation shifts: ${f3Rotations.length}`,
       ''
@@ -205,18 +258,18 @@ export const f3HolidayCompensationCheck: LawCheck = {
       // Identify which zones were worked (>ignoreLessThanOrEqualTo hours)
       const workedZones = zonesWorked.filter(zw => zw.overlapHours > ignoreLessThanOrEqualTo)
       
-      result.details.push(`Total red day zones: ${relevantTimeZones.length}`)
+      result.details.push(`Total red day zones (merged): ${mergedTimeZones.length}`)
       result.details.push(`Zones worked (>${ignoreLessThanOrEqualTo}h): ${workedZones.length}`)
       result.details.push('')
 
       // Track consecutive worked zones to determine F3 requirements
       const requiredF3Zones: HolidayTimeZone[] = []
       const violationDetails: string[] = []
-      const workedZoneIndices = new Set(workedZones.map(zw => relevantTimeZones.indexOf(zw.zone)))
+      const workedZoneIndices = new Set(workedZones.map(zw => mergedTimeZones.indexOf(zw.zone)))
 
-      for (let i = 0; i < relevantTimeZones.length - 1; i++) {
-        const currentZone = relevantTimeZones[i]
-        const nextZone = relevantTimeZones[i + 1]
+      for (let i = 0; i < mergedTimeZones.length - 1; i++) {
+        const currentZone = mergedTimeZones[i]
+        const nextZone = mergedTimeZones[i + 1]
         
         const currentWorked = workedZoneIndices.has(i)
         const nextWorked = workedZoneIndices.has(i + 1)
@@ -284,7 +337,7 @@ export const f3HolidayCompensationCheck: LawCheck = {
         const f3DateStr = formatDateLocal(f3Date)
 
         // Find which red-day zone (if any) this F3 date falls into
-        const matchedZone = relevantTimeZones.find(z => {
+        const matchedZone = mergedTimeZones.find(z => {
           const start = new Date(z.startDateTime)
           const end = new Date(z.endDateTime)
           return f3Date >= start && f3Date <= end
@@ -358,7 +411,7 @@ export const f3HolidayCompensationCheck: LawCheck = {
       // Identify worked zones
       const workedZones = zonesWorked.filter(zw => zw.overlapHours > ignoreLessThanOrEqualTo)
       
-      result.details.push(`Total red day zones in period: ${relevantTimeZones.length}`)
+      result.details.push(`Total red day zones (merged): ${mergedTimeZones.length}`)
       result.details.push(`Zones worked (>${ignoreLessThanOrEqualTo}h): ${workedZones.length}`)
       result.details.push('')
 
@@ -368,8 +421,8 @@ export const f3HolidayCompensationCheck: LawCheck = {
       const sequenceDetails: string[] = []
       const workedZoneSet = new Set(workedZones.map(zw => zw.zone))
 
-      for (let i = 0; i < relevantTimeZones.length; i++) {
-        const zone = relevantTimeZones[i]
+      for (let i = 0; i < mergedTimeZones.length; i++) {
+        const zone = mergedTimeZones[i]
         const isWorked = workedZoneSet.has(zone)
 
         if (isWorked) {
@@ -425,11 +478,11 @@ export const f3HolidayCompensationCheck: LawCheck = {
       result.details.push('')
 
       // Check 50% rule
-      const totalZones = relevantTimeZones.length
+      const totalZones = mergedTimeZones.length
       const maxAllowedWorkZones = Math.floor(totalZones / 2)
       const workedMoreThanHalf = workedZones.length > maxAllowedWorkZones
 
-      result.details.push(`Total zones in period: ${totalZones}`)
+      result.details.push(`Total zones in period (merged): ${totalZones}`)
       result.details.push(`Max allowed work zones (50%): ${maxAllowedWorkZones}`)
       result.details.push(`Zones actually worked: ${workedZones.length}`)
       result.details.push('')
@@ -472,7 +525,7 @@ export const f3HolidayCompensationCheck: LawCheck = {
           effectiveRotations,
           basePlanShifts,
           helpingPlanStartDate,
-          relevantTimeZones,
+          mergedTimeZones,
           rotations,
           shifts,
           ignoreLessThanOrEqualTo
@@ -542,7 +595,7 @@ export const f3HolidayCompensationCheck: LawCheck = {
         const segmentEnd = new Date(segmentStart)
         segmentEnd.setDate(segmentEnd.getDate() + useWeeks * 7)
 
-        const segmentZones = relevantTimeZones.filter(
+        const segmentZones = mergedTimeZones.filter(
           z => z.startDateTime >= segmentStart && z.startDateTime < segmentEnd
         )
 
@@ -588,7 +641,7 @@ export const f3HolidayCompensationCheck: LawCheck = {
             effectiveRotations,
             basePlanShifts,
             helpingPlanStartDate,
-            relevantTimeZones,
+            mergedTimeZones,
             rotations,
             shifts,
             ignoreLessThanOrEqualTo
@@ -723,7 +776,7 @@ function checkF3CoversTimezone(
     if (overlap > ignoreLessThanOrEqualTo) {
       const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
       conflictDetails.push(
-        `Week ${rotation.week_index + 1}, ${dayNames[rotation.day_of_week]}: ${shift.name} (${shift.start_time.substring(0, 5)}-${shift.end_time.substring(0, 5)}) overlaps ${overlap.toFixed(2)}h with ${relevantZone.holidayName} timezone (no F3 compensation)`
+        `Week ${rotation.week_index}, ${dayNames[rotation.day_of_week]}: ${shift.name} (${shift.start_time.substring(0, 5)}-${shift.end_time.substring(0, 5)}) overlaps ${overlap.toFixed(2)}h with ${relevantZone.holidayName} timezone (no F3 compensation)`
       )
     }
   }
