@@ -8,7 +8,7 @@ import { getHolidayTimeZones, HolidayTimeZone } from '@/lib/utils/norwegianHolid
 export const f5ReplacementDayCheck: LawCheck = {
   id: 'f5-replacement-day',
   name: 'F5 Erstatningsfridag',
-  description: 'Dersom F1 dagen din er på ein raud dag har du rett på F5. F5 dagen din kan bli utbetalt i staden for å plasserast i turnus. Utbetaling er lik ei dagslønn. (Grunnlag basert på grunnturnus eller rullerande årsturnus)',
+  description: 'Verifiserer F5 erstatningsfridagar. For hjelpeturnus: sjekkar om F1 frå grunnturnus fell på helgedagar. For årsturnus: sjekkar at antal F5-dagar stemmer med det som er satt når planen vart oppretta.',
   category: 'shared',
   lawType: 'hta',
   lawReferences: [
@@ -34,6 +34,59 @@ export const f5ReplacementDayCheck: LawCheck = {
         message: 'F5 check not applicable to Oslo or Staten tariffavtale',
         details: ['This check is only for KS tariffavtale']
       }
+    }
+
+    // =====================================================
+    // YEAR PLAN (STRICT) - Simple count verification
+    // =====================================================
+    if (plan.type === 'year' && plan.year_plan_mode === 'strict_year') {
+      const f5Shift = shifts.find((s: Shift) => s.name.trim().toUpperCase() === 'F5')
+      
+      if (!f5Shift) {
+        return {
+          status: 'warning',
+          message: 'F5 shift type not found',
+          details: ['F5 shifts are required for replacement day compensation']
+        }
+      }
+
+      // Count F5 shifts in the rotation
+      const f5Count = rotations.filter(r => {
+        if (r.shift_id === f5Shift.id) return true
+        if (r.overlay_shift_id === f5Shift.id && r.overlay_type === 'f5_replacement') return true
+        return false
+      }).length
+
+      const expectedF5 = plan.f5_days || 0
+
+      result.details = [
+        'Plan type: Strict Year Plan',
+        '',
+        '=== F5 VERIFICATION (Preset Count) ===',
+        `Expected F5 days (from plan settings): ${expectedF5}`,
+        `Actual F5 shifts in rotation: ${f5Count}`,
+        ''
+      ]
+
+      if (f5Count === expectedF5) {
+        result.status = 'pass'
+        result.message = `✅ F5 count matches preset: ${f5Count} days`
+      } else if (f5Count < expectedF5) {
+        result.status = 'fail'
+        result.message = `❌ Missing F5 shifts: Expected ${expectedF5}, found ${f5Count}`
+        result.details.push(`Missing ${expectedF5 - f5Count} F5 shift(s)`)
+        result.violations?.push({
+          weekIndex: -1,
+          dayOfWeek: -1,
+          description: `Missing ${expectedF5 - f5Count} F5 shift(s)`
+        })
+      } else {
+        result.status = 'warning'
+        result.message = `⚠️ Extra F5 shifts: Expected ${expectedF5}, found ${f5Count}`
+        result.details.push(`${f5Count - expectedF5} extra F5 shift(s) beyond preset amount`)
+      }
+
+      return result
     }
 
     const planStartDate = new Date(plan.date_started)

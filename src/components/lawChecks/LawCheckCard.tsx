@@ -531,7 +531,7 @@ export default function LawCheckCard({
                       onClick={() => setIsExpanded(!isExpanded)}
                       className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
                     >
-                      {isExpanded ? 'Vis' : 'Sjul'} Detaljar
+                      {isExpanded ? 'Sjul' : 'Vis'} Detaljar
                       <svg 
                         className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                         fill="none" 

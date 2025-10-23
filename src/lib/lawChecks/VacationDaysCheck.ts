@@ -326,13 +326,13 @@ export const vacationDaysCheck: LawCheck = {
     if (result.status !== 'fail' && result.status !== 'warning') {
       if (result.violations && result.violations.length > 0) {
         result.status = 'fail'
-        result.message = `Feil i ferietildeling: ${vacationDaysCount.toFixed(1)}/${totalRequiredDays.toFixed(1)} dagar, ${vacationHoursCount.toFixed(1)}/${expectedHours.toFixed(1)}t`
+        result.message = `Feil i ferietildeling: ${vacationDaysCount.toFixed(2)}/${totalRequiredDays.toFixed(2)} dagar, ${vacationHoursCount.toFixed(2)}t/${expectedHours.toFixed(2)}t. Du har ${expectedHours-vacationHoursCount} for lite timar. Dersom du ikkje får desse timane i år bør du få timane til neste år. $`
       } else if (daysDifference > 1 || hoursDifference > 2.5) {
         result.status = 'warning'
-        result.message = `Ferien er betre enn minimumskravet: ${vacationDaysCount.toFixed(1)}/${totalRequiredDays.toFixed(1)} dagar, ${vacationHoursCount.toFixed(1)}/${expectedHours.toFixed(1)}t`
+        result.message = `Ferien er betre enn minimumskravet: ${vacationDaysCount.toFixed(2)}/${totalRequiredDays.toFixed(2)} dagar, ${vacationHoursCount.toFixed(2)}t/${expectedHours.toFixed(2)}t.`
       } else {
         result.status = 'pass'
-        result.message = `✅ Ferie korrekt tildelt: ${vacationDaysCount.toFixed(1)} dagar, ${vacationHoursCount.toFixed(1)}t (${plan.work_percent}% stillingsprosent)`
+        result.message = `Ferie korrekt tildelt: ${vacationDaysCount.toFixed(2)} dagar, ${vacationHoursCount.toFixed(2)}t (${plan.work_percent}% stillingsprosent)`
       }
     }
 

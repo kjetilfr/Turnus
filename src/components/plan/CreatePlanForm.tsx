@@ -330,7 +330,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
                 <div className="flex-1">
                   <div className="font-semibold text-gray-900">Rotasjonsbasert årsturnus</div>
                   <div className="text-xs text-gray-600 mt-1">
-                    Lager ein turnus på ({durationWeeks} veker) så rullerer du denne ut i 52 veker og justerer timetalet (1846t). F3 og F5 blir kalkulert basert på grunnturnus
+                    Lager ein turnus på ({durationWeeks} veker) så rullerer du denne ut i 52 veker og justerer timetalet (1846t for 100%). F3 og F5 blir kalkulert basert på grunnturnus
                   </div>
                 </div>
               </label>
@@ -353,7 +353,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
                 <div className="flex-1">
                   <div className="font-semibold text-gray-900">Årsturnus</div>
                   <div className="text-xs text-gray-600 mt-1">
-                    Årsturnus med forhandsbestemt mengde F3 og F5 dagar. Baserar seg ikkje på grunnturnus.
+                    Årsturnus med forhandsbestemt mengde F3 og F5 dagar. Utan grunnturnus.
                   </div>
                 </div>
               </label>
@@ -458,6 +458,18 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
             disabled={type === 'year' && yearPlanMode === 'strict_year'}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"  // ADD disabled styles
           />
+          
+          {!isNaN(durationWeeks) && durationWeeks > 52 && (
+            <div className="mt-2 flex items-start gap-2 text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded px-3 py-2">
+              <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span>
+                Advarsel: Maks veker på ein turnus er 52 veker etter aml § 10-5 (1).
+              </span>
+            </div>
+          )}
+          
           <p className="mt-2 text-sm text-gray-600">
             {type === 'year' && yearPlanMode === 'rotation_based' 
               ? `Over kor mange veker er turnusen?`

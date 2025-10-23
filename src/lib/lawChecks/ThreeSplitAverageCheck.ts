@@ -387,23 +387,23 @@ export const threeSplitAverageCheck: LawCheck = {
     if ((qualifiesFor33_6 || qualifiesFor35_5) && !exceedsHourLimit) {
       result.status = 'pass'
       if (qualifiesFor33_6) {
-        result.message = `✅ Qualifies for 33.6h work week — allowed: ${expectedMaxHours.toFixed(2)}h/week`
+        result.message = `Timetalet i turnusen er korrekt. Kvalifiserer for 3-delt snitt med timetal på: ${expectedMaxHours.toFixed(2)}t/veke`
       } else {
-        result.message = `✅ Qualifies for 35.5h work week — allowed: ${expectedMaxHours.toFixed(2)}h/week`
+        result.message = `Timetalet i turnusen er korrekt. Kvalifiserer for: ${expectedMaxHours.toFixed(2)}t/veke (35,5t x ${plan.work_percent}%). Kvalifiserer ikkje til 3-delt snitt.`
       }
     } else if ((qualifiesFor33_6 || qualifiesFor35_5) && exceedsHourLimit) {
       result.status = 'fail'
       const reduceBy = actualAvgHoursPerWeek - expectedMaxHours
-      result.message = `✗ Weekly hours exceed allowed maximum. Should be: ${expectedMaxHours.toFixed(2)} h/week, currently: ${actualAvgHoursPerWeek.toFixed(2)} h/week. Reduce by ${reduceBy.toFixed(2)} h/week.`
+      result.message = `Turnusen inneheld: ${actualAvgHoursPerWeek.toFixed(2)}t/veke, men skal innehalde: ${expectedMaxHours.toFixed(2)}t/veke. Turnusen må reduserast med ${reduceBy.toFixed(2)}t/veke.`
 
       result.violations = [{
         weekIndex: -1,
         dayOfWeek: -1,
-        description: `Actual hours (${actualAvgHoursPerWeek.toFixed(2)} h/week) exceed allowed (${expectedMaxHours.toFixed(2)} h/week). Reduce by ${reduceBy.toFixed(2)} h/week.`
+        description: `Turnusen inneheld: ${actualAvgHoursPerWeek.toFixed(2)}t/veke, men skal innehalde: ${expectedMaxHours.toFixed(2)}t/veke. Turnusen må reduserast med ${reduceBy.toFixed(2)}t/veke.`
       }]
     } else {
       result.status = 'fail'
-      result.message = `✗ Does NOT qualify for reduced work week`
+      result.message = `Kvalifiserer ikkje for 35,5t/veke eller 3-delt snitt. Du vil vere kvalifisert som turnusarbeidar med 37,5t arbeidsveke.`
       result.violations = [{
         weekIndex: -1,
         dayOfWeek: -1,

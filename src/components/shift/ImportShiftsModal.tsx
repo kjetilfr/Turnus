@@ -10,6 +10,7 @@ interface Plan {
   id: string
   name: string
   type: string
+  duration_weeks: number
 }
 
 interface ImportShiftsModalProps {
@@ -40,7 +41,7 @@ export default function ImportShiftsModal({ currentPlanId, onClose }: ImportShif
 
         const { data, error } = await supabase
           .from('plans')
-          .select('id, name, type')
+          .select('id, name, type, duration_weeks')
           .eq('user_id', user.id)
           .neq('id', currentPlanId)
           .order('name')
@@ -212,7 +213,7 @@ export default function ImportShiftsModal({ currentPlanId, onClose }: ImportShif
                 <option value="">Velg ein turnus...</option>
                 {plans.map((plan) => (
                   <option key={plan.id} value={plan.id}>
-                    {plan.name}
+                    {plan.name} ({plan.duration_weeks} veker)
                   </option>
                 ))}
               </select>

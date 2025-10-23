@@ -144,39 +144,6 @@ export default function LawChecksView({
 
   return (
     <div className="space-y-6">
-      {/* Info Banner */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex gap-3">
-          <svg 
-            className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              strokeWidth={2} 
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
-            />
-          </svg>
-          <div className="text-sm text-blue-900">
-            <p className="font-semibold mb-1">Om lovsjekk:</p>
-            <ul className="list-disc list-inside space-y-1">
-              <li><strong>AML:</strong> Arbeidsmiljøloven</li>
-              <li><strong>HTA:</strong> Hovedtariffavtalen</li>
-              <li>Tilgjengeleg: {amlCount} AML testar{amlCount !== 1 }, {htaCount} HTA testar{htaCount !== 1 }</li>
-              <li>Huk av boksane du vil kjøre lovsjekk på</li>
-              <li>Lovsjekkane er basert på din tariffavtale: <strong>{
-                plan.tariffavtale === 'ks' ? 'KS' :
-                plan.tariffavtale === 'staten' ? 'Staten' :
-                plan.tariffavtale === 'oslo' ? 'Oslo Kommune' :
-                'Ingen (AML only)'
-              }</strong></li>
-            </ul>
-          </div>
-        </div>
-      </div>
 
       {/* Main Card */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">

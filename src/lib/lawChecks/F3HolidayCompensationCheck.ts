@@ -69,8 +69,8 @@ function mergeOverlappingTimeZones(zones: HolidayTimeZone[]): HolidayTimeZone[] 
 export const f3HolidayCompensationCheck: LawCheck = {
   id: 'f3-holiday-compensation',
   name: 'F3 helgedags fri',
-  description: 'Verifiserer at F3-vakter er korrekt plasserte på faktiske rauddagssoner og dekkjer tidssona fullt ut (ingen arbeidskonfliktar). Dersom du går 50/50 langvakter og vanlege dag/kveld vakter er det naturleg at F3 dagar også reflekterer det. Det er ikkje noko som blir testa. (Grunnlag basert på grunnturnus eller rullerande årsturnus)',
-  category: 'helping',
+  description: 'Verifiserer at F3-vakter er korrekt plasserte. For hjelpeturnus: sjekkar mot grunnturnus og rauddagssoner. For årsturnus: sjekkar at antal F3-dagar stemmer med det som er satt når planen vart oppretta.',
+  category: 'shared', // Changed from 'helping'
   lawType: 'aml',
   lawReferences: [
     {
@@ -78,6 +78,7 @@ export const f3HolidayCompensationCheck: LawCheck = {
       url: 'https://lovdata.no/lov/2005-06-17-62/§10-10'
     }
   ],
+  applicableTo: ['helping', 'year'], // Added applicableTo
   inputs: [
     {
       id: 'ignoreLessThanOrEqualTo',
@@ -131,6 +132,62 @@ export const f3HolidayCompensationCheck: LawCheck = {
         methodName = 'Hovudregelen (Annenhver rød dag fri)'
     }
 
+    // =====================================================
+    // YEAR PLAN (STRICT) - Simple count verification
+    // =====================================================
+    if (plan.type === 'year' && plan.year_plan_mode === 'strict_year') {
+      const f3Shift = shifts.find((s: Shift) => s.name === 'F3' && s.is_default)
+      
+      if (!f3Shift) {
+        return {
+          status: 'warning',
+          message: 'F3 shift type not found',
+          details: ['F3 shifts are required for holiday compensation']
+        }
+      }
+
+      // Count F3 shifts in the rotation
+      const f3Count = rotations.filter(r => {
+        if (r.shift_id === f3Shift.id) return true
+        if (r.overlay_shift_id === f3Shift.id && r.overlay_type === 'f3_compensation') return true
+        return false
+      }).length
+
+      const expectedF3 = plan.f3_days || 0
+
+      result.details = [
+        'Plan type: Strict Year Plan',
+        '',
+        '=== F3 VERIFICATION (Preset Count) ===',
+        `Expected F3 days (from plan settings): ${expectedF3}`,
+        `Actual F3 shifts in rotation: ${f3Count}`,
+        ''
+      ]
+
+      if (f3Count === expectedF3) {
+        result.status = 'pass'
+        result.message = `✅ F3 count matches preset: ${f3Count} days`
+      } else if (f3Count < expectedF3) {
+        result.status = 'fail'
+        result.message = `❌ Missing F3 shifts: Expected ${expectedF3}, found ${f3Count}`
+        result.details.push(`Missing ${expectedF3 - f3Count} F3 shift(s)`)
+        result.violations?.push({
+          weekIndex: -1,
+          dayOfWeek: -1,
+          description: `Missing ${expectedF3 - f3Count} F3 shift(s)`
+        })
+      } else {
+        result.status = 'warning'
+        result.message = `⚠️ Extra F3 shifts: Expected ${expectedF3}, found ${f3Count}`
+        result.details.push(`${f3Count - expectedF3} extra F3 shift(s) beyond preset amount`)
+      }
+
+      return result
+    }
+
+    // =====================================================
+    // HELPING PLAN - Original complex logic
+    // =====================================================
     if (plan.type !== 'helping') {
       return {
         status: 'warning',
