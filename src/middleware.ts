@@ -4,7 +4,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  let response = await updateSession(request)
+  const response = await updateSession(request)
   
   // Protect /app routes
   if (request.nextUrl.pathname.startsWith('/app')) {
