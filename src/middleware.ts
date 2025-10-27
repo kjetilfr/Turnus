@@ -6,29 +6,45 @@ import { NextResponse } from 'next/server'
 export async function middleware(request: NextRequest) {
   const response = await updateSession(request)
   
-  // Protect /app routes
-  if (request.nextUrl.pathname.startsWith('/app')) {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return request.cookies.getAll()
-          },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              response.cookies.set(name, value, options)
-            })
-          },
+  // Create Supabase client
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
         },
-      }
-    )
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options)
+          })
+        },
+      },
+    }
+  )
 
-    const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
 
+  // Protect /app routes - require authentication
+  if (request.nextUrl.pathname.startsWith('/app')) {
     if (!user) {
       return NextResponse.redirect(new URL('/login', request.url))
+    }
+  }
+
+  // Protect /admin routes - require admin role
+  if (request.nextUrl.pathname.startsWith('/admin')) {
+    if (!user) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+
+    // Check if user is admin
+    const isAdmin = user.user_metadata?.is_admin === true
+    
+    if (!isAdmin) {
+      // Redirect non-admin users to app dashboard or show 403
+      return NextResponse.redirect(new URL('/app', request.url))
     }
   }
 

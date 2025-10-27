@@ -56,78 +56,92 @@ export default function ArticleEditor({ article }: ArticleEditorProps) {
   }
 
   // Handle save
-  const handleSave = async (publish: boolean) => {
-    setSaving(true)
-    setMessage(null)
+  // Updated handleSave function with better debugging
+const handleSave = async (publish: boolean) => {
+  setSaving(true)
+  setMessage(null)
 
-    try {
-      // Validation
-      if (!title.trim()) {
-        throw new Error('Title is required')
-      }
-      if (!slug.trim()) {
-        throw new Error('Slug is required')
-      }
-      if (!content.trim()) {
-        throw new Error('Content is required')
-      }
-      if (!authorName.trim()) {
-        throw new Error('Author name is required')
-      }
-
-      const articleData = {
-        title: title.trim(),
-        slug: slug.trim(),
-        description: description.trim() || null,
-        content: content.trim(),
-        tags,
-        author_name: authorName.trim(),
-        reading_time_minutes: readingTime ? parseInt(readingTime) : null,
-        featured_image_url: featuredImage.trim() || null,
-        meta_description: metaDescription.trim() || null,
-        is_published: publish,
-        published_at: publish && !article?.is_published ? new Date().toISOString() : article?.published_at || null,
-      }
-
-      if (article) {
-        // Update existing article
-        const { error } = await supabase
-          .from('articles')
-          .update(articleData)
-          .eq('id', article.id)
-
-        if (error) throw error
-
-        setMessage({ type: 'success', text: 'Article updated successfully!' })
-      } else {
-        // Create new article
-        const { data, error } = await supabase
-          .from('articles')
-          .insert([articleData])
-          .select()
-          .single()
-
-        if (error) throw error
-
-        setMessage({ type: 'success', text: 'Article created successfully!' })
-        
-        // Redirect to edit page for the new article
-        setTimeout(() => {
-          router.push(`/admin/articles/${data.id}/edit`)
-        }, 1000)
-      }
-
-      router.refresh()
-    } catch (error) {
-      console.error('Error saving article:', error)
-      setMessage({ 
-        type: 'error', 
-        text: error instanceof Error ? error.message : 'Failed to save article' 
-      })
-    } finally {
-      setSaving(false)
+  try {
+    // Validation
+    if (!title.trim()) {
+      throw new Error('Title is required')
     }
+    if (!slug.trim()) {
+      throw new Error('Slug is required')
+    }
+    if (!content.trim()) {
+      throw new Error('Content is required')
+    }
+    if (!authorName.trim()) {
+      throw new Error('Author name is required')
+    }
+
+    const articleData = {
+      title: title.trim(),
+      slug: slug.trim(),
+      description: description.trim() || null,
+      content: content.trim(),
+      tags,
+      author_name: authorName.trim(),
+      reading_time_minutes: readingTime ? parseInt(readingTime) : null,
+      featured_image_url: featuredImage.trim() || null,
+      meta_description: metaDescription.trim() || null,
+      is_published: publish,
+      published_at: publish && !article?.is_published ? new Date().toISOString() : article?.published_at || null,
+    }
+
+    console.log('Saving article data:', articleData) // DEBUG
+
+    if (article) {
+      // Update existing article
+      const { data, error } = await supabase
+        .from('articles')
+        .update(articleData)
+        .eq('id', article.id)
+        .select()
+
+      console.log('Update response:', { data, error }) // DEBUG
+
+      if (error) {
+        console.error('Supabase error:', error)
+        throw error
+      }
+
+      setMessage({ type: 'success', text: 'Article updated successfully!' })
+    } else {
+      // Create new article
+      const { data, error } = await supabase
+        .from('articles')
+        .insert([articleData])
+        .select()
+        .single()
+
+      console.log('Insert response:', { data, error }) // DEBUG
+
+      if (error) {
+        console.error('Supabase error:', error)
+        throw error
+      }
+
+      setMessage({ type: 'success', text: 'Article created successfully!' })
+      
+      // Redirect to edit page for the new article
+      setTimeout(() => {
+        router.push(`/admin/articles/${data.id}/edit`)
+      }, 1000)
+    }
+
+    router.refresh()
+  } catch (error) {
+    console.error('Error saving article:', error)
+    setMessage({ 
+      type: 'error', 
+      text: error instanceof Error ? error.message : 'Failed to save article' 
+    })
+  } finally {
+    setSaving(false)
   }
+}
 
   return (
     <div className="bg-white rounded-lg shadow-md">

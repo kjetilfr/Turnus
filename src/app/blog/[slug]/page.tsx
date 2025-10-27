@@ -176,8 +176,13 @@ export default async function ArticlePage({ params }: PageProps) {
           <div className="prose prose-lg max-w-none">
             <ReactMarkdown
               components={{
+                h1: ({ children }) => (
+                  <h2 className="text-4xl font-bold text-gray-900 mt-12 mb-6">
+                    {children}
+                  </h2>
+                ),
                 h2: ({ children }) => (
-                  <h2 className="text-3xl font-bold text-gray-900 mt-12 mb-6 pb-3 border-b border-gray-200">
+                  <h2 className="text-3xl font-bold text-gray-900 mt-12 mb-6">
                     {children}
                   </h2>
                 ),
