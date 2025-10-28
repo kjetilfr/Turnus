@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { ArticlePreview } from '@/types/article'
 
 export const metadata = {
   title: 'Blog & Wiki - Turnusplanlegging',
