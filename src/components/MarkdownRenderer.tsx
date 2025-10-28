@@ -3,10 +3,16 @@
 
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { ComponentPropsWithoutRef } from 'react'
 
 interface MarkdownRendererProps {
   content: string
   className?: string
+}
+
+// Proper type for code component props
+interface CodeComponentProps extends ComponentPropsWithoutRef<'code'> {
+  inline?: boolean
 }
 
 export default function MarkdownRenderer({ content, className = '' }: MarkdownRendererProps) {
@@ -83,8 +89,8 @@ export default function MarkdownRenderer({ content, className = '' }: MarkdownRe
             <td className="px-6 py-4 text-sm text-gray-700" {...props} />
           ),
           
-          // Code blocks
-          code: ({ inline, className, children, ...props }: any) => {
+          // Code blocks - PROPERLY TYPED
+          code: ({ inline, children, ...props }: CodeComponentProps) => {
             return inline ? (
               <code className="bg-gray-100 text-red-600 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
                 {children}

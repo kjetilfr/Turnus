@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Metadata } from 'next'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -175,6 +176,7 @@ export default async function ArticlePage({ params }: PageProps) {
           {/* Article Body */}
           <div className="prose prose-lg max-w-none">
             <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
               components={{
                 h1: ({ children }) => (
                   <h2 className="text-4xl font-bold text-gray-900 mt-12 mb-6">
@@ -244,11 +246,74 @@ export default async function ArticlePage({ params }: PageProps) {
                     {children}
                   </em>
                 ),
+                table: ({ children }) => (
+                  <div className="my-8 overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-300 border border-gray-300">
+                      {children}
+                    </table>
+                  </div>
+                ),
+                thead: ({ children }) => (
+                  <thead className="bg-gray-50">
+                    {children}
+                  </thead>
+                ),
+                tbody: ({ children }) => (
+                  <tbody className="divide-y divide-gray-200 bg-white">
+                    {children}
+                  </tbody>
+                ),
+                tr: ({ children }) => (
+                  <tr>
+                    {children}
+                  </tr>
+                ),
+                th: ({ children }) => (
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900 border-r border-gray-300 last:border-r-0">
+                    {children}
+                  </th>
+                ),
+                td: ({ children }) => (
+                  <td className="px-6 py-4 text-sm text-gray-700 border-r border-gray-200 last:border-r-0">
+                    {children}
+                  </td>
+                ),
               }}
             >
               {article.content}
             </ReactMarkdown>
           </div>
+
+          {/* Updated: Sources Section with Text + URL */}
+          {article.sources && article.sources.length > 0 && (
+            <div className="mt-12 pt-8 border-t border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                Kjelder
+              </h3>
+              <ol className="space-y-3">
+                {article.sources.map((source: { text: string; url?: string | null }, index: number) => (
+                  <li key={index} className="flex gap-3 text-gray-700">
+                    <span className="font-semibold text-indigo-600 flex-shrink-0">[{index + 1}]</span>
+                    {source.url ? (
+                      <a 
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-600 hover:text-indigo-800 underline break-words"
+                      >
+                        {source.text}
+                      </a>
+                    ) : (
+                      <span className="break-words">{source.text}</span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
 
           {/* Tags */}
           {article.tags && article.tags.length > 0 && (

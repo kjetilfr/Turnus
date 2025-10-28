@@ -1,30 +1,27 @@
+// src/types/article.ts
+
+export interface ArticleSource {
+  text: string
+  url?: string | null
+}
+
 export interface Article {
   id: string
-  slug: string
   title: string
-  description: string | null
+  slug: string
   content: string
-  category: 'blog' | 'wiki' | 'guide'
+  description: string | null
   tags: string[]
   author_name: string
-  published_at: string | null
-  updated_at: string
-  is_published: boolean
-  view_count: number
   reading_time_minutes: number | null
   featured_image_url: string | null
   meta_description: string | null
+  is_published: boolean
+  published_at: string | null
+  view_count: number
+  sources: ArticleSource[]  // Updated: Array of {text, url} objects
   created_at: string
-}
-
-export interface ArticleCategory {
-  id: string
-  slug: string
-  name: string
-  description: string | null
-  icon: string | null
-  sort_order: number
-  created_at: string
+  updated_at: string
 }
 
 export interface ArticlePreview {
@@ -32,10 +29,9 @@ export interface ArticlePreview {
   slug: string
   title: string
   description: string | null
-  category: string
   tags: string[]
   author_name: string
-  published_at: string
   reading_time_minutes: number | null
   featured_image_url: string | null
+  published_at: string | null
 }
