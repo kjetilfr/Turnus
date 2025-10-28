@@ -132,7 +132,7 @@ export default function LoginPage() {
               <div className="w-full border-t border-gray-300"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Or continue with email</span>
+              <span className="px-2 bg-white text-gray-500">Eller fortsett med e-post</span>
             </div>
           </div>
 
@@ -204,7 +204,7 @@ export default function LoginPage() {
               }}
               className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
             >
-              {isSignUp ? 'Har du konto? Logg inn' : "har du ikkje konto? Registrer"}
+              {isSignUp ? 'Har du konto? Logg inn' : "Har du ikkje konto? Registrer"}
             </button>
           </div>
         </div>
