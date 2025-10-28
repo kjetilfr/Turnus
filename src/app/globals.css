@@ -48,3 +48,43 @@ input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
   -webkit-text-fill-color: #111827 !important;
 }
+
+/* Screenshot Carousel Styles */
+.screenshot-carousel {
+  position: relative;
+  width: 100%;
+}
+
+.screenshot-slide {
+  display: none;
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.screenshot-slide:first-child {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Carousel dot active state */
+.carousel-dot.active {
+  background-color: rgb(79 70 229); /* indigo-600 */
+}
+
+.carousel-dot {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.carousel-dot:hover {
+  transform: scale(1.2);
+}

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import ScreenshotCarousel from '@/components/landing/ScreenshotCarousel'
 
 export const metadata = {
   title: 'Turnusplanleggar - Enkelt og lovleg',
@@ -10,13 +11,30 @@ export default async function LandingPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Fetch latest blog articles
-  const { data: articles } = await supabase
-    .from('articles')
-    .select('id, slug, title, description, category, published_at, reading_time_minutes, featured_image_url')
-    .eq('is_published', true)
-    .order('published_at', { ascending: false })
-    .limit(3)
+  // Fetch latest blog articles - FIXED: Removed category field and added better error handling
+  let articles = null
+  let articlesError = null
+  
+  try {
+    const result = await supabase
+      .from('articles')
+      .select('id, slug, title, description, published_at, reading_time_minutes, featured_image_url')
+      .eq('is_published', true)
+      .order('published_at', { ascending: false })
+      .limit(3)
+    
+    articles = result.data
+    articlesError = result.error
+    
+    // Log for debugging
+    if (articlesError) {
+      console.error('Error fetching articles:', articlesError)
+    } else {
+      console.log('Successfully fetched articles:', articles?.length || 0)
+    }
+  } catch (error) {
+    console.error('Exception fetching articles:', error)
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -161,7 +179,39 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* Free Articles Promotion Section */}
+      {/* NEW: App Screenshots Slideshow Section */}
+      <section className="py-20 bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="container mx-auto px-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-12">
+              <span className="text-indigo-600 font-semibold text-sm uppercase tracking-wide">Sjå appen i aksjon</span>
+              <h2 className="text-4xl font-bold text-gray-900 mt-2 mb-4">
+                Enkel og kraftig turnusplanlegging
+              </h2>
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                Alt du treng for å lage og sjekke turnusen din på éin stad
+              </p>
+            </div>
+
+            {/* Screenshot Carousel Component */}
+            <ScreenshotCarousel />
+
+            <div className="text-center mt-12">
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-2 bg-indigo-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-all hover:shadow-lg"
+              >
+                Prøv appen gratis
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Free Articles Promotion Section - FIXED */}
       <section className="py-20 bg-white">
         <div className="container mx-auto px-4">
           <div className="max-w-7xl mx-auto">
@@ -175,9 +225,20 @@ export default async function LandingPage() {
               </p>
             </div>
 
-            {/* Article Grid */}
+            {/* Article Grid - FIXED: Better error handling and fallback */}
             <div className="grid md:grid-cols-3 gap-8 mb-12">
-              {articles && articles.length > 0 ? (
+              {articlesError && (
+                <div className="col-span-3 text-center py-12 bg-red-50 rounded-xl border border-red-200">
+                  <svg className="w-16 h-16 mx-auto text-red-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <h3 className="text-xl font-bold text-red-900 mb-2">Kunne ikkje laste artiklar</h3>
+                  <p className="text-red-700 mb-2">Det oppstod ein feil ved henting av artiklar.</p>
+                  <p className="text-sm text-red-600">Sjekk konsollen for detaljar</p>
+                </div>
+              )}
+              
+              {!articlesError && articles && articles.length > 0 ? (
                 articles.map(article => (
                   <Link
                     key={article.id}
@@ -199,11 +260,6 @@ export default async function LandingPage() {
                           </svg>
                         </div>
                       )}
-                      <div className="absolute top-3 right-3">
-                        <span className="bg-white/90 backdrop-blur-sm text-indigo-700 px-3 py-1 rounded-full text-xs font-semibold">
-                          {article.category}
-                        </span>
-                      </div>
                     </div>
                     
                     <div className="p-6">
@@ -226,9 +282,11 @@ export default async function LandingPage() {
                         {article.title}
                       </h3>
                       
-                      <p className="text-gray-600 line-clamp-3 text-sm">
-                        {article.description}
-                      </p>
+                      {article.description && (
+                        <p className="text-gray-600 line-clamp-3 text-sm">
+                          {article.description}
+                        </p>
+                      )}
                       
                       <div className="mt-4 flex items-center text-indigo-600 font-semibold text-sm group-hover:gap-2 transition-all">
                         Les meir
@@ -239,21 +297,25 @@ export default async function LandingPage() {
                     </div>
                   </Link>
                 ))
-              ) : (
-                // Placeholder cards if no articles
-                [...Array(3)].map((_, i) => (
-                  <div key={i} className="bg-white rounded-xl shadow-md overflow-hidden">
-                    <div className="h-48 bg-gradient-to-br from-indigo-100 to-purple-100"></div>
-                    <div className="p-6">
-                      <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
-                      <div className="h-6 bg-gray-200 rounded w-full mb-2"></div>
-                      <div className="h-6 bg-gray-200 rounded w-2/3 mb-4"></div>
-                      <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-                      <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-                    </div>
-                  </div>
-                ))
-              )}
+              ) : !articlesError ? (
+                // Fallback: Show "Coming soon" when no articles but no error
+                <div className="col-span-3 text-center py-12">
+                  <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Artiklar kjem snart!</h3>
+                  <p className="text-gray-600 mb-6">Vi jobbar med å lage nyttig innhald for deg</p>
+                  <Link
+                    href="/blog"
+                    className="inline-flex items-center gap-2 text-indigo-600 font-semibold hover:text-indigo-700"
+                  >
+                    Sjekk bloggen
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </Link>
+                </div>
+              ) : null}
             </div>
 
             <div className="text-center">

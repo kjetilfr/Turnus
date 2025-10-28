@@ -131,7 +131,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
         }
 
         // Redirect to the rotation year plan (the base plan)
-        router.push(`/plans/${rotationYearPlan.id}`)
+        router.push(`/app/plans/${rotationYearPlan.id}`)
         router.refresh()
       } else {
         // Standard plan creation for non-rotation-based year plans and other plan types
@@ -164,7 +164,7 @@ export default function CreatePlanForm({ mainPlans }: CreatePlanFormProps) {
 
         // Redirect to the created plan or home
         if (createdPlan) {
-          router.push(`/plans/${createdPlan.id}`)
+          router.push(`/app/plans/${createdPlan.id}`)
         } else {
           router.push('/')
         }

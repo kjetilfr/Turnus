@@ -88,7 +88,7 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
 
       if (updateError) throw updateError
 
-      router.push(`/plans/${plan.id}`)
+      router.push(`/app/plans/${plan.id}`)
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')

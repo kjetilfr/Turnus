@@ -93,7 +93,7 @@ export default function PlanDetails({
 
   const handleSwapPlan = () => {
     if (relatedPlan) {
-      router.push(`/plans/${relatedPlan.id}`)
+      router.push(`/app/plans/${relatedPlan.id}`)
     }
   }
 
@@ -210,7 +210,7 @@ export default function PlanDetails({
         {/* Navigation Tabs - Right Side */}
         <div className="flex gap-2 ml-6">
           <Link
-            href={`/plans/${plan.id}`}
+            href={`/app/plans/${plan.id}`}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors text-sm ${
               activePage === 'rotation'
                 ? 'bg-indigo-600 text-white'
@@ -234,7 +234,7 @@ export default function PlanDetails({
           </Link>
 
           <Link
-            href={`/plans/${plan.id}/calendar`}
+            href={`/app/plans/${plan.id}/calendar`}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors text-sm ${
               activePage === 'calendar'
                 ? 'bg-indigo-600 text-white'
@@ -258,7 +258,7 @@ export default function PlanDetails({
           </Link>
 
           <Link
-            href={`/plans/${plan.id}/law-checks`}
+            href={`/app/plans/${plan.id}/law-checks`}
             className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors text-sm ${
               activePage === 'lawChecks'
                 ? 'bg-green-600 text-white'

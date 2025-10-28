@@ -10,7 +10,7 @@ interface ManageShiftsButtonProps {
 export default function ManageShiftsButton({ planId }: ManageShiftsButtonProps) {
   return (
     <Link
-      href={`/plans/${planId}/shifts`}
+      href={`/app/plans/${planId}/shifts`}
       className="inline-flex items-center gap-2 bg-white border-2 border-indigo-600 text-indigo-600 px-4 py-2 rounded-lg font-semibold hover:bg-indigo-50 transition-colors text-sm"
     >
       <svg 
