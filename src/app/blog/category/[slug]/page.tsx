@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import { notFound } from 'next/navigation'
 import Link from 'next/link'
 
 interface PageProps {
@@ -7,25 +6,12 @@ interface PageProps {
 }
 
 export default async function CategoryPage({ params }: PageProps) {
-  const { slug } = await params
   const supabase = await createClient()
-
-  // Fetch category
-  const { data: category } = await supabase
-    .from('article_categories')
-    .select('*')
-    .eq('slug', slug)
-    .single()
-
-  if (!category) {
-    notFound()
-  }
 
   // Fetch articles in this category
   const { data: articles } = await supabase
     .from('articles')
     .select('id, slug, title, description, tags, published_at, reading_time_minutes')
-    .eq('category', slug)
     .eq('is_published', true)
     .order('published_at', { ascending: false })
 
@@ -36,13 +22,6 @@ export default async function CategoryPage({ params }: PageProps) {
           <Link href="/blog" className="text-indigo-600 hover:text-indigo-700 text-sm mb-3 inline-block">
             ← Tilbake til blog
           </Link>
-          <div className="flex items-center gap-4">
-            <span className="text-4xl">{category.icon}</span>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">{category.name}</h1>
-              <p className="text-gray-600">{category.description}</p>
-            </div>
-          </div>
         </div>
       </header>
 
