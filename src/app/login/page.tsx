@@ -71,7 +71,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `https://turnus-hjelp-no/auth/callback`,
+          redirectTo: `${location.origin}/auth/callback`,
         },
       })
       
