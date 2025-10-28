@@ -10,18 +10,26 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      const forwardedHost = request.headers.get('x-forwarded-host')
       const isLocalEnv = process.env.NODE_ENV === 'development'
+      
+      // Ensure next path starts with /
+      const nextPath = next.startsWith('/') ? next : `/${next}`
+      
       if (isLocalEnv) {
-        return NextResponse.redirect(`${origin}${next}`)
-      } else if (forwardedHost) {
-        return NextResponse.redirect(`https://turnus-hjelp.no/${next}`)
+        // Local development
+        return NextResponse.redirect(`${origin}${nextPath}`)
       } else {
-        return NextResponse.redirect(`${origin}${next}`)
+        // Production - always use custom domain
+        const productionDomain = process.env.NEXT_PUBLIC_SITE_URL || 'https://turnus-hjelp.no'
+        return NextResponse.redirect(`${productionDomain}${nextPath}`)
       }
     }
   }
 
   // Return the user to an error page with instructions
-  return NextResponse.redirect(`${origin}/auth/auth-code-error`)
+  const isLocalEnv = process.env.NODE_ENV === 'development'
+  const errorRedirect = isLocalEnv 
+    ? `${origin}/auth/auth-code-error` 
+    : `${process.env.NEXT_PUBLIC_SITE_URL || 'https://turnus-hjelp.no'}/auth/auth-code-error`
+  return NextResponse.redirect(errorRedirect)
 }
