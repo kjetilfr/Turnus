@@ -170,11 +170,11 @@ export const f3HolidayCompensationCheck: LawCheck = {
       } else if (f3Count < expectedF3) {
         result.status = 'fail'
         result.message = `❌ Missing F3 shifts: Expected ${expectedF3}, found ${f3Count}`
-        result.details.push(`Missing ${expectedF3 - f3Count} F3 shift(s)`)
+        result.details.push(`Manglar ${expectedF3 - f3Count} F3 plasseringar i turnus`)
         result.violations?.push({
           weekIndex: -1,
           dayOfWeek: -1,
-          description: `Missing ${expectedF3 - f3Count} F3 shift(s)`
+          description: `Manglar ${expectedF3 - f3Count} F3 plasseringar i turnus`
         })
       } else {
         result.status = 'warning'
@@ -443,18 +443,18 @@ export const f3HolidayCompensationCheck: LawCheck = {
       if (missingDates.length > 0 || extraDates.length > 0 || coverageViolations > 0) {
         result.status = 'fail'
         if (missingDates.length > 0) {
-          result.message = `Hovudregelen: Missing ${missingDates.length} required F3(s)`
+          result.message = `Hovudregelen: Manglar **${missingDates.length}** F3 dagar plassert i turnusen`
         } else if (extraDates.length > 0) {
-          result.message = `Hovudregelen: ${extraDates.length} extra/unneeded F3(s)`
+          result.message = `Hovudregelen: ${extraDates.length} F3 plasseringar meir enn du har krav på`
         } else {
-          result.message = `Hovudregelen: ${coverageViolations} F3 coverage issue(s)`
+          result.message = `Hovudregelen: ${coverageViolations} F3 plassert på feil måte`
         }
       } else if (requiredF3Zones.length === 0) {
         result.status = 'pass'
-        result.message = `Hovudregelen: No consecutive zones worked – no F3 required`
+        result.message = `Hovudregelen: Du jobbar ikkje to raude dagar på rad og har rett på 0 F3 dagar`
       } else {
         result.status = 'pass'
-        result.message = `Hovudregelen: All required F3s correctly placed and covering zones`
+        result.message = `Hovudregelen: Alle F3 dagar er plassert korrekt`
       }
 
       return result

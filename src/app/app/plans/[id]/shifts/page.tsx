@@ -55,7 +55,7 @@ export default async function ShiftsPage({ params }: PageProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link 
-                href={`/plans/${id}`}
+                href={`/app/plans/${id}`}
                 className="text-gray-600 hover:text-gray-900"
               >
                 ← Back to Plan

@@ -103,10 +103,10 @@ export default async function PlanDetailPage({ params }: PageProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link 
-                href="/"
+                href="/app"
                 className="text-gray-600 hover:text-gray-900 transition-colors"
               >
-                ← Tilbake til plan
+                ← Tilbake til turnusar
               </Link>
               <div className="h-6 w-px bg-gray-300"></div>
               <div>

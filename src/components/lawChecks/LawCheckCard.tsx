@@ -4,6 +4,21 @@
 import { LawCheck, LawCheckResult, LawCheckStatus } from '@/types/lawCheck'
 import { useState } from 'react'
 
+// Helper function to render text with custom bold markers
+// Use **text** to make text bold in messages
+function renderMessageWithBold(message: string) {
+  // Split by **text** pattern and wrap them in <strong> tags
+  const parts = message.split(/(\*\*.*?\*\*)/)
+  return parts.map((part, index) => {
+    // Check if part is wrapped in **
+    if (part.startsWith('**') && part.endsWith('**')) {
+      const content = part.slice(2, -2) // Remove the ** markers
+      return <strong key={index} className="font-extrabold">{content}</strong>
+    }
+    return part
+  })
+}
+
 interface LawCheckCardProps {
   check: LawCheck
   result?: LawCheckResult
@@ -156,7 +171,7 @@ export default function LawCheckCard({
                         onChange={() => onInputChange('agreementType', 'none')}
                         className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                       />
-                      <span className="text-sm text-gray-700">Standard ingen avtale (aml) - 9t vakt, 35.5t/veka</span>
+                      <span className="text-sm text-gray-700">Standard ingen avtale (aml) - 9t vakt, 35.5t/veke</span>
                     </label>
                     <label className="flex items-center gap-2">
                       <input
@@ -167,7 +182,7 @@ export default function LawCheckCard({
                         onChange={() => onInputChange('agreementType', 'type1')}
                         className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                       />
-                      <span className="text-sm text-gray-700">Individuell avtale med arbeidstakar - 10t vakt, 50t/veka, 48t/veka over 8-veker gjennomsnitt</span>
+                      <span className="text-sm text-gray-700">Individuell avtale med arbeidstakar - 10t vakt, 50t/veke, 48t/veke over 8-veker gjennomsnitt</span>
                     </label>
                     <label className="flex items-center gap-2">
                       <input
@@ -178,7 +193,7 @@ export default function LawCheckCard({
                         onChange={() => onInputChange('agreementType', 'type2')}
                         className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                       />
-                      <span className="text-sm text-gray-700">Avtale med tillitsvalgte - 12,5t vakt, 54t/veka, 48t/veka over 8-veker gjennomsnitt</span>
+                      <span className="text-sm text-gray-700">Avtale med tillitsvaldte - 12,5t vakt, 54t/veke, 48t/veke over 8-veker gjennomsnitt</span>
                     </label>
                     <label className="flex items-center gap-2">
                       <input
@@ -189,7 +204,7 @@ export default function LawCheckCard({
                         onChange={() => onInputChange('agreementType', 'type3')}
                         className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                       />
-                      <span className="text-sm text-gray-700">Arbeidstilsynet - 13t vakt, 48t/veka over 8-veker gjennomsnitt</span>
+                      <span className="text-sm text-gray-700">Arbeidstilsynet - 13t vakt, 48t/veke over 8-veker gjennomsnitt</span>
                     </label>
                     <label className="flex items-center gap-2">
                       <input
@@ -518,11 +533,11 @@ export default function LawCheckCard({
                 </div>
               )}
 
-              {/* Result Message */}
+              {/* Result Message - UPDATED: Now renders numbers in bold */}
               {result && isEnabled && (
                 <div className="mb-3">
                   <p className="text-sm font-semibold text-gray-900 mb-2">
-                    {result.message}
+                    {renderMessageWithBold(result.message)}
                   </p>
                   
                   {/* Details toggle for long results */}

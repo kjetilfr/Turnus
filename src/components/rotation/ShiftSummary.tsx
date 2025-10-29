@@ -102,7 +102,7 @@ export default function ShiftSummary({ rotations, shifts, plan, planType }: Shif
   }
 
   const formatHours = (hours: number) => {
-    return `${hours.toFixed(2)}h`
+    return `${hours.toFixed(2)}t`
   }
 
   const totalShifts = shiftStats.reduce((sum, stat) => sum + stat.count, 0)

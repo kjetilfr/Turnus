@@ -327,14 +327,14 @@ const handleShiftSelect = async (
                         </div>
                       ) : (
                         <div className="text-gray-400 text-xs py-2">
-                          Click to assign
+                          Klikk for å velje vakt
                         </div>
                       )}
                     </td>
                   )
                 })}
                 <td className="border border-gray-300 px-4 py-3 text-center text-sm font-semibold bg-indigo-50 text-indigo-900">
-                  {weeklyHours[weekIndex]?.toFixed(2) || '0.0'}h
+                  {weeklyHours[weekIndex]?.toFixed(2) || '0.0'}t
                 </td>
               </tr>
             ))}
@@ -353,7 +353,7 @@ const handleShiftSelect = async (
                 </td>
               ))}
               <td className="border border-gray-300 px-4 py-3 text-center text-sm font-bold bg-indigo-100 text-indigo-900">
-                {grandTotal.toFixed(2)}h
+                {grandTotal.toFixed(2)}t
               </td>
             </tr>
           </tbody>
