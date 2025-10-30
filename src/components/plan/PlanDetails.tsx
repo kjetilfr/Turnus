@@ -151,6 +151,7 @@ export default function PlanDetails({
                 {plan.tariffavtale === 'ks' && 'KS'}
                 {plan.tariffavtale === 'staten' && 'Staten'}
                 {plan.tariffavtale === 'oslo' && 'Oslo Kommune'}
+                {plan.tariffavtale === 'spekter' && 'Spekter'}
                 {plan.tariffavtale === 'aml' && 'Ingen (AML)'}
               </span>
             </div>

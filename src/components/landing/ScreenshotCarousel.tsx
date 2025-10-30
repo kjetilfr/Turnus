@@ -64,7 +64,7 @@ export default function ScreenshotCarousel() {
 
     const interval = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % screenshots.length)
-    }, 5000) // Change slide every 5 seconds
+    }, 7000) // Change slide every 7 seconds
 
     return () => clearInterval(interval)
   }, [isAutoPlaying])

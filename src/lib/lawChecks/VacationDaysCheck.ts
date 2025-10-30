@@ -68,7 +68,7 @@ export const vacationDaysCheck: LawCheck = {
     // Determine vacation entitlement
     const amlDays = 25 * fractionOfYear
     let htaDays = 0
-    if (['ks', 'staten', 'oslo'].includes(plan.tariffavtale)) {
+    if (['ks', 'staten', 'oslo', 'spekter'].includes(plan.tariffavtale)) {
       htaDays = 5 * fractionOfYear
     }
 

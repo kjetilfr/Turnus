@@ -361,7 +361,7 @@ const handleShiftSelect = async (
         
         {rotations.length === 0 && (
           <div className="text-center py-12 text-gray-500">
-            <p>No rotation data found. Click on any cell to start assigning shifts.</p>
+            <p>Ingen data i turnus. Trykk på ei celle for å starte.</p>
           </div>
         )}
       </div>

@@ -26,16 +26,24 @@ export default function PlansList({ plans }: PlansListProps) {
     return (
       <div className="bg-white rounded-lg shadow-md p-12 text-center">
         <div className="text-6xl mb-4">📋</div>
-        <h3 className="text-2xl font-semibold text-gray-900 mb-2">No Plans Yet</h3>
+        <h3 className="text-2xl font-semibold text-gray-900 mb-2">Ingen turnusar enno</h3>
         <p className="text-gray-600 mb-6">
-          Get started by creating your first scheduling plan
+          Start med å lage din første turnus. Eller sjå guiden.
         </p>
-        <Link
-          href="/app/plans/new"
-          className="inline-block bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
-        >
-          Create Your First Plan
-        </Link>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Link
+            href="/app/plans/new"
+            className="inline-block bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+          >
+            Lag ny turnus
+          </Link>
+          <Link
+            href="/guide"
+            className="inline-block bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+          >
+            Sjå guiden
+          </Link>
+        </div>
       </div>
     )
   }
@@ -76,6 +84,8 @@ export default function PlansList({ plans }: PlansListProps) {
         return 'Oslo'
       case 'aml':
         return 'Ingen'
+        case 'spekter':
+          return 'Spekter'
       default:
         return tariffavtale
     }

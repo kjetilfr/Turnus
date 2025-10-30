@@ -220,12 +220,13 @@ export default function LawChecksView({
               <div className="text-5xl mb-3">📋</div>
               <p className="text-lg font-semibold mb-2">No tests available</p>
               <p className="text-sm">
-                There are no compliance tests configured for {plan.type} plans with {
+                Det er ingen lovsjekkar for plan av type {plan.type} {
                   plan.tariffavtale === 'ks' ? 'KS' :
                   plan.tariffavtale === 'staten' ? 'Staten' :
                   plan.tariffavtale === 'oslo' ? 'Oslo Kommune' :
+                  plan.tariffavtale === 'spekter' ? 'Spekter' :
                   'Ingen (AML only)'
-                } tariffavtale yet.
+                } tariffavtale.
               </p>
             </div>
           ) : (

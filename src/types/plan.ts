@@ -1,7 +1,7 @@
 // src/types/plan.ts
 
 export type PlanType = 'main' | 'helping' | 'year'
-export type Tariffavtale = 'ks' | 'staten' | 'oslo' | 'aml'
+export type Tariffavtale = 'ks' | 'staten' | 'oslo' | 'spekter' | 'aml'
 export type YearPlanMode = 'rotation_based' | 'strict_year'
 
 export interface Plan {

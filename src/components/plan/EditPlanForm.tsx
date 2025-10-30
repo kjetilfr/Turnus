@@ -473,6 +473,24 @@ export default function EditPlanForm({ plan, mainPlans }: EditPlanFormProps) {
 
             <label className={`
               flex items-center justify-center gap-2 p-2 border-2 rounded-lg cursor-pointer transition-all text-sm
+              ${tariffavtale === 'spekter' 
+                ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' 
+                : 'border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'
+              }
+            `}>
+              <input
+                type="radio"
+                name="tariffavtale"
+                value="spekter"
+                checked={tariffavtale === 'spekter'}
+                onChange={(e) => setTariffavtale(e.target.value as Tariffavtale)}
+                className="w-3 h-3 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+              />
+              <span className="font-medium text-gray-900">Spekter</span>
+            </label>
+
+            <label className={`
+              flex items-center justify-center gap-2 p-2 border-2 rounded-lg cursor-pointer transition-all text-sm
               ${tariffavtale === 'aml'  // Changed from 'ingen'
                 ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200' 
                 : 'border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'

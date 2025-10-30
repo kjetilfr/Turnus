@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import ScreenshotCarousel from '@/components/landing/ScreenshotCarousel'
+import LogoutButton from '@/components/LogoutButton'
 
 export const metadata = {
   title: 'Turnusplanleggar - Enkelt og lovleg',
@@ -53,19 +54,25 @@ export default async function LandingPage() {
                 <Link href="#features" className="text-gray-600 hover:text-indigo-600 transition-colors font-medium">
                   Funksjonar
                 </Link>
-                <Link href="#pricing" className="text-gray-600 hover:text-indigo-600 transition-colors font-medium">
-                  Prisar
-                </Link>
+                {!user && (
+                  <Link href="#pricing" className="text-gray-600 hover:text-indigo-600 transition-colors font-medium">
+                    Prisar
+                  </Link>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-4">
               {user ? (
-                <Link
-                  href="/app"
-                  className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-indigo-700 transition-all hover:shadow-lg transform hover:-translate-y-0.5"
-                >
-                  Gå til app
-                </Link>
+                <>
+                  <span className="text-sm text-gray-600 hidden sm:block">{user.email}</span>
+                  <Link
+                    href="/app"
+                    className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-indigo-700 transition-all hover:shadow-lg transform hover:-translate-y-0.5"
+                  >
+                    Gå til app
+                  </Link>
+                  <LogoutButton />
+                </>
               ) : (
                 <>
                   <Link
@@ -96,11 +103,13 @@ export default async function LandingPage() {
           <div className="grid lg:grid-cols-2 gap-12 items-center max-w-7xl mx-auto">
             {/* Left Column - Text Content */}
             <div className="space-y-8">
-              <div className="inline-block">
-                <span className="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-full text-sm font-semibold">
-                  ✨ Gratis artiklar + 49kr/mnd for turnussjekk
-                </span>
-              </div>
+              {!user && (
+                <div className="inline-block">
+                  <span className="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-full text-sm font-semibold">
+                    ✨ Gratis artiklar + 49kr/mnd for turnussjekk
+                  </span>
+                </div>
+              )}
               
               <h1 className="text-5xl md:text-6xl font-bold text-gray-900 leading-tight">
                 Er din turnus{' '}
@@ -113,18 +122,37 @@ export default async function LandingPage() {
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link
-                  href="/login"
-                  className="bg-indigo-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-indigo-700 transition-all hover:shadow-xl transform hover:-translate-y-1 text-center"
-                >
-                  Start turnussjekk (49kr/mnd)
-                </Link>
-                <Link
-                  href="/blog"
-                  className="bg-white text-indigo-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-all border-2 border-indigo-600 hover:shadow-lg text-center"
-                >
-                  Les gratis artiklar
-                </Link>
+                {user ? (
+                  <>
+                    <Link
+                      href="/app"
+                      className="bg-indigo-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-indigo-700 transition-all hover:shadow-xl transform hover:-translate-y-1 text-center"
+                    >
+                      Gå til mine turnusar
+                    </Link>
+                    <Link
+                      href="/blog"
+                      className="bg-white text-indigo-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-all border-2 border-indigo-600 hover:shadow-lg text-center"
+                    >
+                      Les gratis artiklar
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/login"
+                      className="bg-indigo-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-indigo-700 transition-all hover:shadow-xl transform hover:-translate-y-1 text-center"
+                    >
+                      Start turnussjekk (49kr/mnd)
+                    </Link>
+                    <Link
+                      href="/blog"
+                      className="bg-white text-indigo-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-all border-2 border-indigo-600 hover:shadow-lg text-center"
+                    >
+                      Les gratis artiklar
+                    </Link>
+                  </>
+                )}
               </div>
 
               <div className="flex items-center gap-8 pt-4">
@@ -196,17 +224,19 @@ export default async function LandingPage() {
             {/* Screenshot Carousel Component */}
             <ScreenshotCarousel />
 
-            <div className="text-center mt-12">
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-2 bg-indigo-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-all hover:shadow-lg"
-              >
-                Prøv appen gratis
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
-              </Link>
-            </div>
+            {!user && (
+              <div className="text-center mt-12">
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-2 bg-indigo-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-all hover:shadow-lg"
+                >
+                  Prøv appen gratis
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -544,206 +574,212 @@ export default async function LandingPage() {
                 </div>
               </div>
 
-              <div className="text-center">
-                <Link
-                  href="/login"
-                  className="inline-flex items-center gap-2 bg-indigo-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-all hover:shadow-lg"
-                >
-                  Start turnussjekk no
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                  </svg>
-                </Link>
-              </div>
+              {!user && (
+                <div className="text-center">
+                  <Link
+                    href="/login"
+                    className="inline-flex items-center gap-2 bg-indigo-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-all hover:shadow-lg"
+                  >
+                    Start turnussjekk no
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <span className="text-indigo-600 font-semibold text-sm uppercase tracking-wide">Prisar</span>
-            <h2 className="text-4xl font-bold text-gray-900 mt-2 mb-4">
-              Enkle og rettferdige prisar
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Les våre artiklar gratis eller abonner for å sjekke din turnus mot lovverket
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* Free Plan */}
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl shadow-lg p-8 border-2 border-gray-200">
-              <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Gratis Artiklar</h3>
-                <div className="text-5xl font-bold text-gray-900 mb-2">
-                  0 kr
-                </div>
-                <p className="text-gray-600">For alltid gratis</p>
-              </div>
-              
-              <ul className="space-y-4 mb-8">
-                <li className="flex items-start gap-3">
-                  <svg className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Tilgang til alle artiklar om arbeidsmiljøloven</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <svg className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Lær om tariffavtalar og dine rettar</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <svg className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Guide til turnusplanlegging</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <svg className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="text-gray-700">Oppdatert med siste lovendringar</span>
-                </li>
-              </ul>
-              
-              <Link
-                href="/blog"
-                className="block w-full text-center bg-gray-800 text-white px-6 py-4 rounded-lg font-semibold hover:bg-gray-900 transition-all hover:shadow-lg"
-              >
-                Les gratis artiklar
-              </Link>
+      {/* Pricing Section - Only show for non-logged-in users */}
+      {!user && (
+        <section id="pricing" className="py-20 bg-white">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-16">
+              <span className="text-indigo-600 font-semibold text-sm uppercase tracking-wide">Prisar</span>
+              <h2 className="text-4xl font-bold text-gray-900 mt-2 mb-4">
+                Enkle og rettferdige prisar
+              </h2>
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                Les våre artiklar gratis eller abonner for å sjekke din turnus mot lovverket
+              </p>
             </div>
 
-            {/* Pro Plan */}
-            <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl shadow-2xl p-8 text-white relative transform hover:scale-105 transition-transform duration-300">
-              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                <span className="bg-yellow-400 text-gray-900 px-6 py-2 rounded-full text-sm font-bold shadow-lg">
-                  ⭐ POPULÆR
-                </span>
-              </div>
-              
-              <div className="text-center mb-6 mt-4">
-                <h3 className="text-2xl font-bold mb-2">Turnussjekk Pro</h3>
-                <div className="text-5xl font-bold mb-2">
-                  49 kr
-                  <span className="text-2xl font-normal opacity-90">/mnd</span>
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+              {/* Free Plan */}
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl shadow-lg p-8 border-2 border-gray-200">
+                <div className="text-center mb-6">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Gratis Artiklar</h3>
+                  <div className="text-5xl font-bold text-gray-900 mb-2">
+                    0 kr
+                  </div>
+                  <p className="text-gray-600">For alltid gratis</p>
                 </div>
-                <p className="opacity-90">Kanseller når som helst</p>
+                
+                <ul className="space-y-4 mb-8">
+                  <li className="flex items-start gap-3">
+                    <svg className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-gray-700">Tilgang til alle artiklar om arbeidsmiljøloven</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <svg className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-gray-700">Lær om tariffavtalar og dine rettar</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <svg className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-gray-700">Guide til turnusplanlegging</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <svg className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-gray-700">Oppdatert med siste lovendringar</span>
+                  </li>
+                </ul>
+                
+                <Link
+                  href="/blog"
+                  className="block w-full text-center bg-gray-800 text-white px-6 py-4 rounded-lg font-semibold hover:bg-gray-900 transition-all hover:shadow-lg"
+                >
+                  Les gratis artiklar
+                </Link>
               </div>
-              
-              <ul className="space-y-4 mb-8">
-                <li className="flex items-start gap-3">
-                  <svg className="w-6 h-6 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+
+              {/* Pro Plan */}
+              <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl shadow-2xl p-8 text-white relative transform hover:scale-105 transition-transform duration-300">
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <span className="bg-yellow-400 text-gray-900 px-6 py-2 rounded-full text-sm font-bold shadow-lg">
+                    ⭐ POPULÆR
+                  </span>
+                </div>
+                
+                <div className="text-center mb-6 mt-4">
+                  <h3 className="text-2xl font-bold mb-2">Turnussjekk Pro</h3>
+                  <div className="text-5xl font-bold mb-2">
+                    49 kr
+                    <span className="text-2xl font-normal opacity-90">/mnd</span>
+                  </div>
+                  <p className="opacity-90">Kanseller når som helst</p>
+                </div>
+                
+                <ul className="space-y-4 mb-8">
+                  <li className="flex items-start gap-3">
+                    <svg className="w-6 h-6 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span><strong>Alt i gratis</strong> + turnussjekk</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <svg className="w-6 h-6 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Ubegrensa turnusplanar</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <svg className="w-6 h-6 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Automatiske lovsjekkar (AML + HTA)</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <svg className="w-6 h-6 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Kalendereksport</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <svg className="w-6 h-6 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Detaljert statistikk og analyse</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <svg className="w-6 h-6 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Prioritert support</span>
+                  </li>
+                </ul>
+                
+                <Link
+                  href="/login"
+                  className="block w-full text-center bg-white text-indigo-600 px-6 py-4 rounded-lg font-semibold hover:bg-gray-100 transition-all hover:shadow-xl"
+                >
+                  Start 7 dagar gratis
+                </Link>
+                
+                <p className="text-center text-sm mt-4 opacity-75">
+                  Ingen binding • Kanseller når som helst
+                </p>
+              </div>
+            </div>
+
+            {/* Trust badges */}
+            <div className="mt-16 text-center">
+              <p className="text-gray-600 mb-6">Stol på av hundrevis av helsearbeidarar</p>
+              <div className="flex justify-center items-center gap-8 flex-wrap">
+                <div className="flex items-center gap-2 text-gray-600">
+                  <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  <span><strong>Alt i gratis</strong> + turnussjekk</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <svg className="w-6 h-6 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  <span className="font-medium">Sikker betaling</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-600">
+                  <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  <span>Ubegrensa turnusplanar</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <svg className="w-6 h-6 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  <span className="font-medium">GDPR-kompatibel</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-600">
+                  <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  <span>Automatiske lovsjekkar (AML + HTA)</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <svg className="w-6 h-6 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>Kalendereksport</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <svg className="w-6 h-6 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>Detaljert statistikk og analyse</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <svg className="w-6 h-6 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>Prioritert support</span>
-                </li>
-              </ul>
-              
+                  <span className="font-medium">Norsk selskap</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* CTA Section - Only show for non-logged-in users */}
+      {!user && (
+        <section className="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 py-20">
+          <div className="container mx-auto px-4 text-center">
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+              Klar til å sjekke din turnus?
+            </h2>
+            <p className="text-xl text-indigo-100 mb-8 max-w-2xl mx-auto">
+              Start gratis i dag. Ingen kredittkort påkravd. 
+              Kanseller når som helst.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 href="/login"
-                className="block w-full text-center bg-white text-indigo-600 px-6 py-4 rounded-lg font-semibold hover:bg-gray-100 transition-all hover:shadow-xl"
+                className="inline-block bg-white text-indigo-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-all hover:shadow-2xl transform hover:-translate-y-1"
               >
                 Start 7 dagar gratis
               </Link>
-              
-              <p className="text-center text-sm mt-4 opacity-75">
-                Ingen binding • Kanseller når som helst
-              </p>
+              <Link
+                href="/blog"
+                className="inline-block bg-transparent border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/10 transition-all"
+              >
+                Les gratis artiklar først
+              </Link>
             </div>
+            <p className="text-indigo-100 mt-6 text-sm">
+              49 kr/mnd etter prøveperioden • Ingen binding
+            </p>
           </div>
-
-          {/* Trust badges */}
-          <div className="mt-16 text-center">
-            <p className="text-gray-600 mb-6">Stol på av hundrevis av helsearbeidarar</p>
-            <div className="flex justify-center items-center gap-8 flex-wrap">
-              <div className="flex items-center gap-2 text-gray-600">
-                <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <span className="font-medium">Sikker betaling</span>
-              </div>
-              <div className="flex items-center gap-2 text-gray-600">
-                <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <span className="font-medium">GDPR-kompatibel</span>
-              </div>
-              <div className="flex items-center gap-2 text-gray-600">
-                <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                <span className="font-medium">Norsk selskap</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 py-20">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-            Klar til å sjekke din turnus?
-          </h2>
-          <p className="text-xl text-indigo-100 mb-8 max-w-2xl mx-auto">
-            Start gratis i dag. Ingen kredittkort påkravd. 
-            Kanseller når som helst.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/login"
-              className="inline-block bg-white text-indigo-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-all hover:shadow-2xl transform hover:-translate-y-1"
-            >
-              Start 7 dagar gratis
-            </Link>
-            <Link
-              href="/blog"
-              className="inline-block bg-transparent border-2 border-white text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/10 transition-all"
-            >
-              Les gratis artiklar først
-            </Link>
-          </div>
-          <p className="text-indigo-100 mt-6 text-sm">
-            49 kr/mnd etter prøveperioden • Ingen binding
-          </p>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-12">
@@ -759,7 +795,7 @@ export default async function LandingPage() {
               <h4 className="font-semibold mb-4">Produkt</h4>
               <ul className="space-y-2 text-sm text-gray-400">
                 <li><Link href="#features" className="hover:text-white transition-colors">Funksjonar</Link></li>
-                <li><Link href="#pricing" className="hover:text-white transition-colors">Prisar</Link></li>
+                {!user && <li><Link href="#pricing" className="hover:text-white transition-colors">Prisar</Link></li>}
                 <li><Link href="/blog" className="hover:text-white transition-colors">Artiklar</Link></li>
               </ul>
             </div>
