@@ -4,8 +4,8 @@ import ScreenshotCarousel from '@/components/landing/ScreenshotCarousel'
 import LogoutButton from '@/components/LogoutButton'
 
 export const metadata = {
-  title: 'Turnusplanleggar - Enkelt og lovleg',
-  description: 'Lag lovlege turnusar med automatiske sjekkar mot arbeidsmiljøloven og tariffavtalar. Les gratis artiklar om dine rettar som turnusarbeidar.'
+  title: 'Turnus-Hjelp - Sjekk din turnus',
+  description: 'Sjekk din turnus mot lovar og reglar i aml og hta. Få vite kva som er feil og kvifor.'
 }
 
 export default async function LandingPage() {
@@ -45,7 +45,7 @@ export default async function LandingPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-8">
               <Link href="/" className="text-2xl font-bold text-indigo-600 hover:text-indigo-700 transition-colors">
-                Turnusplanleggar
+                Turnus-Hjelp
               </Link>
               <div className="hidden md:flex items-center gap-6">
                 <Link href="/blog" className="text-gray-600 hover:text-indigo-600 transition-colors font-medium">
@@ -176,19 +176,11 @@ export default async function LandingPage() {
               {/* Placeholder for nurse/healthcare worker image */}
               <div className="relative rounded-2xl overflow-hidden shadow-2xl bg-gradient-to-br from-indigo-100 to-purple-100">
                 <div className="aspect-[4/3] flex items-center justify-center">
-                  {/* TODO: Replace with actual stock image */}
-                  <div className="text-center p-12">
-                    <svg className="w-32 h-32 mx-auto text-indigo-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                    </svg>
-                    <p className="text-indigo-400 text-sm">
-                      [Stock image: Healthcare worker reviewing schedule on tablet]
-                    </p>
-                  </div>
+                  <img src="images/lovsjekk_bilete_3.png" alt="Lovsjekk av turnus som ikkje blir godkjend"></img>
                 </div>
               </div>
               
-              {/* Floating card - Stats */}
+              {/*X turnusar sjekka
               <div className="absolute -bottom-6 -left-6 bg-white rounded-xl shadow-xl p-6 max-w-xs">
                 <div className="flex items-center gap-4">
                   <div className="bg-green-100 rounded-full p-3">
@@ -196,12 +188,14 @@ export default async function LandingPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
+                  
                   <div>
                     <p className="text-2xl font-bold text-gray-900">100+</p>
                     <p className="text-sm text-gray-600">Turnusar sjekka</p>
                   </div>
                 </div>
               </div>
+              */}
             </div>
           </div>
         </div>
@@ -786,7 +780,7 @@ export default async function LandingPage() {
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
-              <h3 className="text-lg font-bold mb-4">Turnusplanleggar</h3>
+              <h3 className="text-lg font-bold mb-4">Turnus-Hjelp</h3>
               <p className="text-gray-400 text-sm">
                 Lag lovlege turnusar med automatiske sjekkar mot arbeidsmiljøloven og tariffavtalar.
               </p>

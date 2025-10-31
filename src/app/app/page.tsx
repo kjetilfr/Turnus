@@ -53,7 +53,7 @@ export default async function DashboardPage() {
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Kjetil&apos;s Turnus Hjelpar</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Turnus Hjelp</h1>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">{user.email}</span>
             <LogoutButton />

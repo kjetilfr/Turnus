@@ -71,7 +71,7 @@ export const threeSplitAverageCheck: LawCheck = {
       min: 1,
       max: 10,
       step: 1,
-      unit: 'Sundays'
+      unit: 'Søndagar'
     },
     {
       id: 'requiredNonNightPercent',
