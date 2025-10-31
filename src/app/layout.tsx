@@ -1,22 +1,25 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
+// src/app/app/layout.tsx
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { checkSubscription } from '@/lib/supabase/subscriptionCheck'
 
-const inter = Inter({ subsets: ["latin"] });
-
-export const metadata: Metadata = {
-  title: "Nurse Scheduling App",
-  description: "Healthcare staff scheduling made simple",
-};
-
-export default function RootLayout({
+export default async function AppLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="en">
-      <body className={inter.className}>{children}</body>
-    </html>
-  );
+}: {
+  children: React.ReactNode
+}) {
+  const { hasAccess, user } = await checkSubscription()
+
+  // Not logged in - redirect to login
+  if (!user) {
+    redirect('/login')
+  }
+
+  // Logged in but no subscription - redirect to pricing/paywall
+  if (!hasAccess) {
+    redirect('/subscribe')
+  }
+
+  // Has access - render the app
+  return <>{children}</>
 }
