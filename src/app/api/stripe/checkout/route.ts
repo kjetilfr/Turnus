@@ -15,6 +15,8 @@ export async function POST(request: Request) {
       )
     }
 
+    console.log('Creating checkout for user:', user.id, user.email)
+
     // Check if user already has a Stripe customer
     const { data: existingSubscription } = await supabase
       .from('subscriptions')
@@ -33,6 +35,9 @@ export async function POST(request: Request) {
         },
       })
       customerId = customer.id
+      console.log('Created new Stripe customer:', customerId)
+    } else {
+      console.log('Using existing Stripe customer:', customerId)
     }
 
     // Create checkout session with 7-day trial
@@ -52,10 +57,16 @@ export async function POST(request: Request) {
           supabase_user_id: user.id,
         },
       },
+      // FIXED: Add metadata to the checkout session itself
+      metadata: {
+        supabase_user_id: user.id,
+      },
       success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/app?checkout=success`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/subscribe?checkout=cancelled`,
       allow_promotion_codes: true,
     })
+
+    console.log('Checkout session created:', session.id, 'for user:', user.id)
 
     // Return the URL instead of sessionId
     return NextResponse.json({ url: session.url })

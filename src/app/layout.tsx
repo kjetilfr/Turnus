@@ -1,25 +1,22 @@
-// src/app/app/layout.tsx
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import { checkSubscription } from '@/lib/supabase/subscriptionCheck'
+// src/app/layout.tsx
+import type { Metadata } from "next";
+import "./globals.css";
 
-export default async function AppLayout({
+export const metadata: Metadata = {
+  title: "Turnus-Hjelp",
+  description: "Sjekk din turnus mot lovar og reglar",
+};
+
+export default function RootLayout({
   children,
-}: {
-  children: React.ReactNode
-}) {
-  const { hasAccess, user } = await checkSubscription()
-
-  // Not logged in - redirect to login
-  if (!user) {
-    redirect('/login')
-  }
-
-  // Logged in but no subscription - redirect to pricing/paywall
-  if (!hasAccess) {
-    redirect('/subscribe')
-  }
-
-  // Has access - render the app
-  return <>{children}</>
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="no">
+      <body>
+        {children}
+      </body>
+    </html>
+  );
 }

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { checkSubscription } from '@/lib/supabase/subscriptionCheck'
+import { CheckoutButton } from './CheckoutButton'
 
 export default async function SubscribePage() {
   const { hasAccess, user } = await checkSubscription()
@@ -108,11 +109,8 @@ export default async function SubscribePage() {
                   <span>Kalendereksport</span>
                 </li>
               </ul>
-              <button
-                className="block w-full bg-white text-indigo-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all"
-              >
-                Start 7 dagar gratis
-              </button>
+              {/* FIXED: Using CheckoutButton component instead of plain button */}
+              <CheckoutButton />
             </div>
           </div>
 
