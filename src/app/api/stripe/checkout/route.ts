@@ -1,4 +1,4 @@
-// src/app/api/stripe/checkout/route.ts
+// src/app/api/stripe/checkout/route.ts - IMPROVED (Adds metadata everywhere)
 import { createClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/server'
 import { NextResponse } from 'next/server'
@@ -31,13 +31,21 @@ export async function POST(request: Request) {
       const customer = await stripe.customers.create({
         email: user.email,
         metadata: {
-          supabase_user_id: user.id,
+          supabase_user_id: user.id, // IMPORTANT: Add metadata here too!
         },
       })
       customerId = customer.id
       console.log('Created new Stripe customer:', customerId)
     } else {
       console.log('Using existing Stripe customer:', customerId)
+      
+      // ADDED: Update existing customer to ensure metadata is set
+      await stripe.customers.update(customerId, {
+        metadata: {
+          supabase_user_id: user.id,
+        },
+      })
+      console.log('Updated customer metadata for:', customerId)
     }
 
     // Create checkout session with 7-day trial
@@ -54,10 +62,10 @@ export async function POST(request: Request) {
       subscription_data: {
         trial_period_days: 7,
         metadata: {
-          supabase_user_id: user.id,
+          supabase_user_id: user.id, // Metadata in subscription
         },
       },
-      // FIXED: Add metadata to the checkout session itself
+      // Metadata in checkout session
       metadata: {
         supabase_user_id: user.id,
       },
