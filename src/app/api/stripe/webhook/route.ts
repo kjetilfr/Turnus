@@ -1,9 +1,22 @@
-// src/app/api/stripe/webhook/route.ts - FIXED VERSION
+// src/app/api/stripe/webhook/route.ts - PROPERLY TYPED
 import { supabaseAdmin } from '@/lib/supabase/service'
 import { stripe } from '@/lib/stripe/server'
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type Stripe from 'stripe'
+
+// Define the type for subscription upsert data
+interface SubscriptionUpsertData {
+  user_id: string
+  stripe_customer_id: string
+  stripe_subscription_id: string
+  status: string
+  updated_at: string
+  current_period_start?: string
+  current_period_end?: string
+  trial_end?: string
+  cancel_at_period_end?: boolean
+}
 
 export async function POST(request: Request) {
   const body = await request.text()
@@ -11,7 +24,7 @@ export async function POST(request: Request) {
   const signature = headersList.get('stripe-signature')
 
   if (!signature) {
-    console.error('No stripe-signature header found')
+    console.error('❌ No stripe-signature header found')
     return NextResponse.json(
       { error: 'No signature' },
       { status: 400 }
@@ -27,16 +40,16 @@ export async function POST(request: Request) {
       process.env.STRIPE_WEBHOOK_SECRET!
     )
   } catch (err) {
-    console.error('Webhook signature verification failed:', err)
+    console.error('❌ Webhook signature verification failed:', err)
     return NextResponse.json(
       { error: 'Invalid signature' },
       { status: 400 }
     )
   }
 
-  console.log(`Received event: ${event.type}`)
+  console.log(`✅ Received event: ${event.type}`)
 
- const supabase = supabaseAdmin
+  const supabase = supabaseAdmin
 
   try {
     switch (event.type) {
@@ -45,10 +58,11 @@ export async function POST(request: Request) {
         const userId = session.metadata?.supabase_user_id
         
         if (!userId || !session.customer) {
-          console.error('Missing user_id or customer in checkout.session.completed', {
+          console.error('❌ Missing user_id or customer in checkout.session.completed', {
             userId,
             customer: session.customer,
-            sessionId: session.id
+            sessionId: session.id,
+            metadata: session.metadata
           })
           return NextResponse.json(
             { error: 'Missing user_id or customer' },
@@ -56,10 +70,12 @@ export async function POST(request: Request) {
           )
         }
 
-        console.log(`Checkout completed for user: ${userId}`)
+        console.log(`📝 Checkout completed for user: ${userId}`)
+        console.log(`   Customer ID: ${session.customer}`)
+        console.log(`   Subscription ID: ${session.subscription}`)
 
         // Create or update subscription record with basic info
-        const { error: upsertError } = await supabase
+        const { data: upsertData, error: upsertError } = await supabase
           .from('subscriptions')
           .upsert({
             user_id: userId,
@@ -70,9 +86,16 @@ export async function POST(request: Request) {
           }, {
             onConflict: 'user_id'
           })
+          .select()
 
         if (upsertError) {
-          console.error('Error upserting subscription:', upsertError)
+          console.error('❌ Error upserting subscription:', upsertError)
+          return NextResponse.json(
+            { error: 'Database error', details: upsertError.message },
+            { status: 500 }
+          )
+        } else {
+          console.log('✅ Subscription record created/updated:', upsertData)
         }
 
         break
@@ -83,7 +106,9 @@ export async function POST(request: Request) {
         const subscription = event.data.object as Stripe.Subscription
         const customerId = subscription.customer as string
 
-        console.log(`Processing ${event.type} for customer: ${customerId}`)
+        console.log(`📝 Processing ${event.type} for customer: ${customerId}`)
+        console.log(`   Subscription ID: ${subscription.id}`)
+        console.log(`   Status: ${subscription.status}`)
 
         // Get user_id from existing subscription record
         const { data: existingSub, error: fetchError } = await supabase
@@ -93,15 +118,17 @@ export async function POST(request: Request) {
           .single()
 
         if (fetchError || !existingSub?.user_id) {
-          console.error('No user found for customer:', customerId, fetchError)
+          console.error('❌ No user found for customer:', customerId, fetchError)
           return NextResponse.json(
             { error: 'User not found' },
             { status: 404 }
           )
         }
 
-        // Build the upsert data object safely
-        const upsertData: any = {
+        console.log(`   Found user: ${existingSub.user_id}`)
+
+        // Build upsert data with proper typing
+        const upsertData: SubscriptionUpsertData = {
           user_id: existingSub.user_id,
           stripe_customer_id: customerId,
           stripe_subscription_id: subscription.id,
@@ -109,10 +136,11 @@ export async function POST(request: Request) {
           updated_at: new Date().toISOString(),
         }
 
-        // Safely add period dates
+        // Add period dates
         if (subscription.items.data[0].current_period_start) {
           upsertData.current_period_start = new Date(subscription.items.data[0].current_period_start * 1000).toISOString()
         }
+        
         if (subscription.items.data[0].current_period_end) {
           upsertData.current_period_end = new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
         }
@@ -123,18 +151,31 @@ export async function POST(request: Request) {
         }
 
         // Add cancel_at_period_end
-        upsertData.cancel_at_period_end = subscription.cancel_at_period_end || false
+        if (subscription.cancel_at_period_end !== undefined) {
+          upsertData.cancel_at_period_end = subscription.cancel_at_period_end
+        }
 
-        const { error: updateError } = await supabase
+        console.log('📊 Upserting subscription data:', {
+          user_id: upsertData.user_id,
+          status: upsertData.status,
+          subscription_id: upsertData.stripe_subscription_id,
+        })
+
+        const { data: updatedData, error: updateError } = await supabase
           .from('subscriptions')
           .upsert(upsertData, {
             onConflict: 'user_id'
           })
+          .select()
 
         if (updateError) {
-          console.error('Error updating subscription:', updateError)
+          console.error('❌ Error updating subscription:', updateError)
+          return NextResponse.json(
+            { error: 'Database error', details: updateError.message },
+            { status: 500 }
+          )
         } else {
-          console.log(`Subscription updated: ${subscription.id}, Status: ${subscription.status}`)
+          console.log(`✅ Subscription updated successfully:`, updatedData)
         }
 
         break
@@ -144,9 +185,9 @@ export async function POST(request: Request) {
         const subscription = event.data.object as Stripe.Subscription
         const customerId = subscription.customer as string
 
-        console.log(`Subscription deleted: ${subscription.id}`)
+        console.log(`📝 Subscription deleted: ${subscription.id}`)
 
-        const { error: updateError } = await supabase
+        const { data: updatedData, error: updateError } = await supabase
           .from('subscriptions')
           .update({
             status: 'canceled',
@@ -154,9 +195,12 @@ export async function POST(request: Request) {
             updated_at: new Date().toISOString(),
           })
           .eq('stripe_customer_id', customerId)
+          .select()
 
         if (updateError) {
-          console.error('Error marking subscription as canceled:', updateError)
+          console.error('❌ Error marking subscription as canceled:', updateError)
+        } else {
+          console.log('✅ Subscription marked as canceled:', updatedData)
         }
 
         break
@@ -166,19 +210,22 @@ export async function POST(request: Request) {
         const invoice = event.data.object as Stripe.Invoice
         const customerId = invoice.customer as string
 
-        console.log(`Payment succeeded for customer: ${customerId}`)
+        console.log(`💰 Payment succeeded for customer: ${customerId}`)
 
         // Payment succeeded - ensure subscription is active
-        const { error: updateError } = await supabase
+        const { data: updatedData, error: updateError } = await supabase
           .from('subscriptions')
           .update({
             status: 'active',
             updated_at: new Date().toISOString(),
           })
           .eq('stripe_customer_id', customerId)
+          .select()
 
         if (updateError) {
-          console.error('Error updating subscription to active:', updateError)
+          console.error('❌ Error updating subscription to active:', updateError)
+        } else {
+          console.log('✅ Subscription marked as active:', updatedData)
         }
 
         break
@@ -188,32 +235,35 @@ export async function POST(request: Request) {
         const invoice = event.data.object as Stripe.Invoice
         const customerId = invoice.customer as string
 
-        console.log(`Payment failed for customer: ${customerId}`)
+        console.log(`❌ Payment failed for customer: ${customerId}`)
 
-        const { error: updateError } = await supabase
+        const { data: updatedData, error: updateError } = await supabase
           .from('subscriptions')
           .update({
             status: 'past_due',
             updated_at: new Date().toISOString(),
           })
           .eq('stripe_customer_id', customerId)
+          .select()
 
         if (updateError) {
-          console.error('Error updating subscription to past_due:', updateError)
+          console.error('❌ Error updating subscription to past_due:', updateError)
+        } else {
+          console.log('⚠️ Subscription marked as past_due:', updatedData)
         }
 
         break
       }
 
       default:
-        console.log(`Unhandled event type: ${event.type}`)
+        console.log(`ℹ️ Unhandled event type: ${event.type}`)
     }
 
     return NextResponse.json({ received: true })
   } catch (error) {
-    console.error('Webhook handler error:', error)
+    console.error('💥 Webhook handler error:', error)
     return NextResponse.json(
-      { error: 'Webhook handler failed' },
+      { error: 'Webhook handler failed', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
