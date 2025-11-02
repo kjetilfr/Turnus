@@ -1,9 +1,12 @@
-// src/app/api/stripe/webhook/route.ts - PROPERLY TYPED
+// src/app/api/stripe/webhook/route.ts - FIXED FOR VERCEL (Body parser disabled)
 import { supabaseAdmin } from '@/lib/supabase/service'
 import { stripe } from '@/lib/stripe/server'
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type Stripe from 'stripe'
+
+// CRITICAL: Disable body parsing so we get the raw body
+export const runtime = 'nodejs'
 
 // Define the type for subscription upsert data
 interface SubscriptionUpsertData {
@@ -19,6 +22,7 @@ interface SubscriptionUpsertData {
 }
 
 export async function POST(request: Request) {
+  // Get the raw body as text (not parsed JSON)
   const body = await request.text()
   const headersList = await headers()
   const signature = headersList.get('stripe-signature')
@@ -34,6 +38,7 @@ export async function POST(request: Request) {
   let event: Stripe.Event
 
   try {
+    // Verify the webhook signature with the raw body
     event = stripe.webhooks.constructEvent(
       body,
       signature,
@@ -110,26 +115,79 @@ export async function POST(request: Request) {
         console.log(`   Subscription ID: ${subscription.id}`)
         console.log(`   Status: ${subscription.status}`)
 
-        // Get user_id from existing subscription record
-        const { data: existingSub, error: fetchError } = await supabase
-          .from('subscriptions')
-          .select('user_id')
-          .eq('stripe_customer_id', customerId)
-          .single()
+        // First, try to find existing user by customer ID
+        console.log('🔍 Looking up subscription by customer ID:', customerId)
 
-        if (fetchError || !existingSub?.user_id) {
-          console.error('❌ No user found for customer:', customerId, fetchError)
-          return NextResponse.json(
-            { error: 'User not found' },
-            { status: 404 }
-          )
+        const { data: existingSub, error: fetchError } = await supabase
+        .from('subscriptions')
+        .select('user_id')
+        .eq('stripe_customer_id', customerId)
+        .maybeSingle()
+
+        console.log('🔍 Supabase query result:', { existingSub, fetchError })
+
+        if (fetchError) {
+        console.error('❌ Database error looking up customer:', customerId, fetchError)
+        return NextResponse.json(
+            { error: 'Database error' },
+            { status: 500 }
+        )
         }
 
-        console.log(`   Found user: ${existingSub.user_id}`)
+        // If no user found, try to get user_id from subscription/customer metadata
+        let userId: string | null = existingSub?.user_id || null
+
+        if (!userId) {
+          console.log('⚠️ No existing subscription found, checking Stripe metadata...')
+          
+          // Check subscription metadata
+          try {
+            const fullSubscription = await stripe.subscriptions.retrieve(subscription.id)
+            userId = fullSubscription.metadata?.supabase_user_id || null
+            
+            if (userId) {
+              console.log(`✅ Found user_id in subscription metadata: ${userId}`)
+            }
+          } catch (stripeError) {
+            console.error('❌ Error fetching subscription from Stripe:', stripeError)
+          }
+        }
+
+        // If still no user, check customer metadata
+        if (!userId) {
+          console.log('⚠️ No user_id in subscription metadata, checking customer metadata...')
+          
+          try {
+            const customer = await stripe.customers.retrieve(customerId)
+            if (customer && !customer.deleted) {
+              userId = customer.metadata?.supabase_user_id || null
+              
+              if (userId) {
+                console.log(`✅ Found user_id in customer metadata: ${userId}`)
+              }
+            }
+          } catch (stripeError) {
+            console.error('❌ Error fetching customer from Stripe:', stripeError)
+          }
+        }
+
+        // If we still don't have a user_id, return success and wait for checkout.session.completed
+        if (!userId) {
+          console.error('❌ Cannot find user_id for customer:', customerId)
+          console.error('   This event arrived before checkout.session.completed')
+          console.error('   Returning success - checkout.session.completed will handle this')
+          
+          return NextResponse.json({ 
+            received: true, 
+            message: 'User not found yet, will be created by checkout.session.completed' 
+          })
+        }
+
+        console.log(`   Found user: ${userId}`)
 
         // Build upsert data with proper typing
         const upsertData: SubscriptionUpsertData = {
-          user_id: existingSub.user_id,
+          user_id: userId,
           stripe_customer_id: customerId,
           stripe_subscription_id: subscription.id,
           status: subscription.status,
@@ -206,7 +264,8 @@ export async function POST(request: Request) {
         break
       }
 
-      case 'invoice.payment_succeeded': {
+      case 'invoice.payment_succeeded':
+      case 'invoice.paid': { // Handle both events
         const invoice = event.data.object as Stripe.Invoice
         const customerId = invoice.customer as string
 
