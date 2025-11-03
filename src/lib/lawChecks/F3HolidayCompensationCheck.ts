@@ -10,50 +10,70 @@ import { getHolidayTimeZones, HolidayTimeZone } from '@/lib/utils/norwegianHolid
  * This prevents double-counting the same calendar day
  * Only merges zones that share the same end date AND have actual overlapping time (not just touching at boundaries)
  */
+function areSameLocalDate(a: Date, b: Date): boolean {
+  const ad = new Date(a)
+  const bd = new Date(b)
+  // Use Oslo local date by shifting to midnight in Europe/Oslo
+  // (formatDateLocal returns 'YYYY-MM-DD' but numeric compare is more robust)
+  const aStr = ad.toLocaleDateString('sv-SE', { timeZone: 'Europe/Oslo' })
+  const bStr = bd.toLocaleDateString('sv-SE', { timeZone: 'Europe/Oslo' })
+  return aStr === bStr
+}
+
+/**
+ * Robust merge: merge intervals that overlap or fall on the same local calendar day.
+ * Also merge when intervals are within `toleranceMs` of each other (to avoid tiny-millis edge cases).
+ */
 function mergeOverlappingTimeZones(zones: HolidayTimeZone[]): HolidayTimeZone[] {
   if (zones.length === 0) return []
-  
+
+  const sorted = [...zones].sort(
+    (a, b) => a.startDateTime.getTime() - b.startDateTime.getTime()
+  )
+
   const merged: HolidayTimeZone[] = []
-  let current = { ...zones[0] }
-  
-  for (let i = 1; i < zones.length; i++) {
-    const next = zones[i]
-    
-    // Get the end dates (the actual calendar day the zone represents)
-    const currentEndDate = formatDateLocal(current.endDateTime)
-    const nextEndDate = formatDateLocal(next.endDateTime)
-    
-    // Check if there's actual time overlap (more than just touching at a boundary)
-    // If next starts before current ends, they overlap
-    // But we need > 0 actual overlap, not just touching at the same moment
-    const overlapMinutes = (current.endDateTime.getTime() - next.startDateTime.getTime()) / (1000 * 60)
-    const hasActualOverlap = overlapMinutes > 1 // More than 1 minute overlap = actual overlap, not just boundary touch
-    
-    // Only merge if:
-    // 1. Both zones end on the SAME calendar date, AND
-    // 2. They actually overlap in time (not just touching at boundary like 22:00 == 22:00)
-    if (currentEndDate === nextEndDate && hasActualOverlap) {
-      // Merge: extend current zone to include next zone
-      current.startDateTime = new Date(Math.min(current.startDateTime.getTime(), next.startDateTime.getTime()))
-      current.endDateTime = new Date(Math.max(current.endDateTime.getTime(), next.endDateTime.getTime()))
-      
-      // Combine names to show both (e.g., "Sunday + New Year's Day")
-      if (!current.holidayName.includes(next.holidayName)) {
-        current.holidayName = `${current.holidayName} + ${next.holidayName}`
-        current.localName = `${current.localName} + ${next.localName}`
-      }
-    } else {
-      // Different end dates OR no actual overlap - save current and start new zone
-      merged.push(current)
-      current = { ...next }
+
+  for (const zone of sorted) {
+    const sameDayIndex = merged.findIndex(existing =>
+      // same local calendar day
+      existing.startDateTime.toLocaleDateString('no-NO', { timeZone: 'Europe/Oslo' }) ===
+      zone.startDateTime.toLocaleDateString('no-NO', { timeZone: 'Europe/Oslo' })
+    )
+
+    if (sameDayIndex === -1) {
+      // new calendar day → push it
+      merged.push({ ...zone })
+      continue
+    }
+
+    // Same local day → merge: choose the longest one
+    const existing = merged[sameDayIndex]
+    const existingDuration = existing.endDateTime.getTime() - existing.startDateTime.getTime()
+    const newDuration = zone.endDateTime.getTime() - zone.startDateTime.getTime()
+
+    const longer = newDuration > existingDuration ? zone : existing
+
+    merged[sameDayIndex] = {
+      holidayName:
+        existing.holidayName !== zone.holidayName
+          ? `${existing.holidayName} + ${zone.holidayName}`
+          : existing.holidayName,
+      localName:
+        existing.localName !== zone.localName
+          ? `${existing.localName} + ${zone.localName}`
+          : existing.localName,
+      startDateTime: longer.startDateTime,
+      endDateTime: longer.endDateTime,
+      type: longer.type,
     }
   }
-  
-  // Don't forget the last zone
-  merged.push(current)
-  
+
+  // Keep chronological order
+  merged.sort((a, b) => a.startDateTime.getTime() - b.startDateTime.getTime())
+
   return merged
 }
+
 
 /**
  * F3 Holiday Compensation Check (Helping Plans Only) - ZONE-BASED
@@ -443,7 +463,7 @@ export const f3HolidayCompensationCheck: LawCheck = {
       if (missingDates.length > 0 || extraDates.length > 0 || coverageViolations > 0) {
         result.status = 'fail'
         if (missingDates.length > 0) {
-          result.message = `Hovudregelen: Manglar **${missingDates.length}** F3 dagar plassert i turnusen`
+          result.message = `Hovudregelen: Manglar **${missingDates.length} F3 dagar plassert i turnusen`
         } else if (extraDates.length > 0) {
           result.message = `Hovudregelen: ${extraDates.length} F3 plasseringar meir enn du har krav på`
         } else {

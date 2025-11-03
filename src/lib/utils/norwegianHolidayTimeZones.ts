@@ -17,7 +17,6 @@ const HOLIDAY_CATEGORIES = {
   SECOND_DAY: ['Easter Monday', 'Whit Monday', "St. Stephen's Day"] as const
 } as const
 
-// Create a type-safe helper to check if a holiday name is in a category
 type HolidayName = 
   | typeof HOLIDAY_CATEGORIES.MAY[number]
   | typeof HOLIDAY_CATEGORIES.SPECIAL[number]
@@ -31,7 +30,7 @@ function isInCategory(
 }
 
 /**
- * Helper: make local Date safely (avoids UTC shift)
+ * Create a local Date safely (avoids UTC shifts)
  */
 function makeLocalDate(dateStr: string): Date {
   const [y, m, d] = dateStr.split('-').map(Number)
@@ -39,7 +38,7 @@ function makeLocalDate(dateStr: string): Date {
 }
 
 /**
- * Helper: add hours/minutes to a Date (returns new instance)
+ * Add hours and minutes to a date (returns new Date instance)
  */
 function addHours(date: Date, hours: number, minutes = 0): Date {
   const result = new Date(date)
@@ -49,12 +48,17 @@ function addHours(date: Date, hours: number, minutes = 0): Date {
 
 /**
  * Get all Norwegian holiday time zones (AML-based windows)
+ * If a red day is immediately after another red day, it starts when the previous ends.
  */
 export function getHolidayTimeZones(year: number): HolidayTimeZone[] {
   const holidays = getNorwegianHolidays(year)
   const timeZones: HolidayTimeZone[] = []
 
-  for (const h of holidays) {
+  // Sort holidays by date just in case
+  holidays.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
+  for (let i = 0; i < holidays.length; i++) {
+    const h = holidays[i]
     const date = makeLocalDate(h.date)
     const dayBefore = new Date(date)
     dayBefore.setDate(date.getDate() - 1)
@@ -63,20 +67,29 @@ export function getHolidayTimeZones(year: number): HolidayTimeZone[] {
     let end: Date
     let type: HolidayTimeZone['type']
 
-    if (isInCategory(h.name, HOLIDAY_CATEGORIES.MAY)) {
-      // 22:00 day before → 22:00 day of
-      start = addHours(dayBefore, 22, 0)
-      end = addHours(date, 22, 0)
+    // Check if previous day is a red day (holiday or Sunday)
+    const prevDayStr = formatDate(dayBefore)
+    const isPrevDayHoliday = holidays.some(hol => hol.date === prevDayStr)
+    const isPrevDaySunday = dayBefore.getDay() === 0
+    const isPrevDayRedDay = isPrevDayHoliday || isPrevDaySunday
+
+    if (isPrevDayRedDay) {
+      // Start when previous red day ends
+      const prevZone = timeZones[timeZones.length - 1]
+      start = prevZone ? new Date(prevZone.endDateTime) : addHours(dayBefore, 22)
+      end = addHours(date, 22)
+      type = 'standard'
+    } else if (isInCategory(h.name, HOLIDAY_CATEGORIES.MAY)) {
+      start = addHours(dayBefore, 22)
+      end = addHours(date, 22)
       type = 'may'
     } else if (isInCategory(h.name, HOLIDAY_CATEGORIES.SPECIAL)) {
-      // 15:00 day before → 22:00 day of
-      start = addHours(dayBefore, 15, 0)
-      end = addHours(date, 22, 0)
+      start = addHours(dayBefore, 15)
+      end = addHours(date, 22)
       type = 'special'
     } else {
-      // Standard: 18:00 day before → 22:00 day of
-      start = addHours(dayBefore, 18, 0)
-      end = addHours(date, 22, 0)
+      start = addHours(dayBefore, 18)
+      end = addHours(date, 22)
       type = 'standard'
     }
 
@@ -92,11 +105,32 @@ export function getHolidayTimeZones(year: number): HolidayTimeZone[] {
   // Sort chronologically
   timeZones.sort((a, b) => a.startDateTime.getTime() - b.startDateTime.getTime())
 
+  // 🩺 DEBUG: log all generated holiday zones
+  console.log('=== holidayTimeZones (raw) ===')
+  timeZones.forEach(z => {
+    console.log(
+      `${z.localName.padEnd(20)} | ${z.startDateTime.toLocaleString('no-NO')} → ${z.endDateTime.toLocaleString('no-NO')}`
+    )
+  })
+
   return timeZones
 }
 
 /**
- * Helper for debug output
+ * Simple YYYY-MM-DD formatter
+ */
+export function formatDate(date: Date): string {
+  if (!(date instanceof Date)) {
+    throw new Error('formatDate expects a Date object, got: ' + date)
+  }
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+/**
+ * Debug helper
  */
 export function listHolidayTimeZones(year: number): void {
   const zones = getHolidayTimeZones(year)
