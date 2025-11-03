@@ -17,7 +17,13 @@ export default function PDFUploader() {
     message: '',
   })
   const [error, setError] = useState('')
-  const [extractedData, setExtractedData] = useState<any>(null)
+  const [extractedData, setExtractedData] = useState<{
+    plan_name: string
+    start_date: string
+    end_date: string
+    shift_count: number
+    rotation_pattern?: string[]
+  } | null>(null)
   const router = useRouter()
   const { hasAccess, loading: accessLoading, tier } = useAIAccess()
 
