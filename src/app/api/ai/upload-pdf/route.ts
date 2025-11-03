@@ -3,6 +3,23 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
 
+// Define types for extracted data
+interface ExtractedShift {
+  date: string
+  shift_type: string
+  start_time: string
+  end_time: string
+  hours: number
+}
+
+interface ExtractedPlanData {
+  plan_name: string
+  start_date: string
+  end_date?: string
+  rotation_pattern?: string[]
+  shifts: ExtractedShift[]
+}
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -118,7 +135,7 @@ Important:
       throw new Error('Could not extract JSON from Claude response')
     }
 
-    const extracted = JSON.parse(jsonMatch[0])
+    const extracted = JSON.parse(jsonMatch[0]) as ExtractedPlanData
 
     // Validate extracted data
     if (!extracted.plan_name || !extracted.start_date || !extracted.shifts || extracted.shifts.length === 0) {
@@ -147,7 +164,7 @@ Important:
     if (planError) throw planError
 
     // Create all shifts
-    const shiftsToInsert = extracted.shifts.map((shift: any) => ({
+    const shiftsToInsert = extracted.shifts.map((shift: ExtractedShift) => ({
       plan_id: plan.id,
       date: shift.date,
       shift_type: shift.shift_type,

@@ -87,7 +87,7 @@ export default async function AIFeaturesPage() {
                       <p className="font-semibold mb-1">Korleis fungerer det?</p>
                       <ol className="list-decimal list-inside space-y-1">
                         <li>Gå til ein av dine turnusplanar</li>
-                        <li>Klikk på "AI-forbetringar" knappen</li>
+                        <li>Klikk på &quot;AI-forbetringar&quot; knappen</li>
                         <li>AI analyserer planen mot AML og tariffavtalar</li>
                         <li>Få konkrete forslag med dato-nivå endringar</li>
                         <li>Bruk forslag med éin klikk</li>
