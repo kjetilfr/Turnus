@@ -1,4 +1,4 @@
-// src/app/api/stripe/checkout/route.ts - IMPROVED (Adds metadata everywhere)
+// src/app/api/stripe/checkout/route.ts - WITH AI TIER SUPPORT
 import { createClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe/server'
 import { NextResponse } from 'next/server'
@@ -15,7 +15,18 @@ export async function POST(request: Request) {
       )
     }
 
-    console.log('Creating checkout for user:', user.id, user.email)
+    // Get tier from request body (default to 'pro')
+    const { tier = 'pro' } = await request.json()
+    
+    // Validate tier
+    if (!['pro', 'premium'].includes(tier)) {
+      return NextResponse.json(
+        { error: 'Invalid tier' },
+        { status: 400 }
+      )
+    }
+
+    console.log('Creating checkout for user:', user.id, user.email, 'tier:', tier)
 
     // Check if user already has a Stripe customer
     const { data: existingSubscription } = await supabase
@@ -31,7 +42,7 @@ export async function POST(request: Request) {
       const customer = await stripe.customers.create({
         email: user.email,
         metadata: {
-          supabase_user_id: user.id, // IMPORTANT: Add metadata here too!
+          supabase_user_id: user.id,
         },
       })
       customerId = customer.id
@@ -39,13 +50,25 @@ export async function POST(request: Request) {
     } else {
       console.log('Using existing Stripe customer:', customerId)
       
-      // ADDED: Update existing customer to ensure metadata is set
       await stripe.customers.update(customerId, {
         metadata: {
           supabase_user_id: user.id,
         },
       })
       console.log('Updated customer metadata for:', customerId)
+    }
+
+    // Select the correct price ID based on tier
+    const priceId = tier === 'premium' 
+      ? process.env.STRIPE_PREMIUM_PRICE_ID 
+      : process.env.STRIPE_PRO_PRICE_ID
+
+    if (!priceId) {
+      console.error(`Missing price ID for tier: ${tier}`)
+      return NextResponse.json(
+        { error: 'Configuration error' },
+        { status: 500 }
+      )
     }
 
     // Create checkout session with 7-day trial
@@ -55,28 +78,28 @@ export async function POST(request: Request) {
       payment_method_types: ['card'],
       line_items: [
         {
-          price: process.env.STRIPE_PRICE_ID!,
+          price: priceId,
           quantity: 1,
         },
       ],
       subscription_data: {
         trial_period_days: 7,
         metadata: {
-          supabase_user_id: user.id, // Metadata in subscription
+          supabase_user_id: user.id,
+          tier: tier, // Store tier in subscription metadata
         },
       },
-      // Metadata in checkout session
       metadata: {
         supabase_user_id: user.id,
+        tier: tier, // Store tier in checkout metadata
       },
       success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/app?checkout=success`,
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/subscribe?checkout=cancelled`,
       allow_promotion_codes: true,
     })
 
-    console.log('Checkout session created:', session.id, 'for user:', user.id)
+    console.log('Checkout session created:', session.id, 'for user:', user.id, 'tier:', tier)
 
-    // Return the URL instead of sessionId
     return NextResponse.json({ url: session.url })
   } catch (error) {
     console.error('Checkout error:', error)

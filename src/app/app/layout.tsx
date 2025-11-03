@@ -1,4 +1,3 @@
-// src/app/app/layout.tsx
 import { checkSubscription } from '@/lib/supabase/subscriptionCheck'
 import { redirect } from 'next/navigation'
 
@@ -19,6 +18,6 @@ export default async function AppLayout({
     redirect('/subscribe')
   }
 
-  // Has access - render the app
+  // Has access (Pro or Premium tier, active or trialing) - render the app
   return <>{children}</>
 }

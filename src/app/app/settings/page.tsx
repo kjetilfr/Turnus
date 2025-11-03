@@ -1,4 +1,4 @@
-// src/app/app/settings/page.tsx - UPDATED with working Delete Account button
+// src/app/app/settings/page.tsx - COMPLETE VERSION with Pro/Premium tiers
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -66,6 +66,27 @@ export default async function SettingsPage() {
     }
   }
 
+  // Get tier display info
+  const getTierInfo = (tier: string | null) => {
+    if (tier === 'premium') {
+      return {
+        name: 'Premium',
+        price: '199',
+        description: 'AI-assistert planlegging + alle Pro-funksjonar',
+        color: 'purple'
+      }
+    }
+    // Default to Pro
+    return {
+      name: 'Pro',
+      price: '99',
+      description: 'Ubegrensa turnussjekkar og kalendereksport',
+      color: 'indigo'
+    }
+  }
+
+  const tierInfo = getTierInfo(subscription?.tier)
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
@@ -127,6 +148,19 @@ export default async function SettingsPage() {
                     <p className="font-semibold text-gray-900">{getStatusText(subscription.status)}</p>
                   </div>
 
+                  {/* Tier Display */}
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600 mb-1">Abonnement</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-gray-900">{tierInfo.name}</p>
+                      {subscription.tier === 'premium' && (
+                        <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded">
+                          AI
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
                   {subscription.current_period_end && (
                     <div className="p-4 bg-gray-50 rounded-lg">
                       <p className="text-sm text-gray-600 mb-1">
@@ -161,17 +195,63 @@ export default async function SettingsPage() {
                 </div>
 
                 {/* Pricing Information */}
-                <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                <div className={`p-4 bg-${tierInfo.color}-50 rounded-lg border border-${tierInfo.color}-200`}>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-semibold text-indigo-900">Turnus-Hjelp Pro</p>
-                      <p className="text-sm text-indigo-600">Ubegrensa turnussjekkar og kalendereksport</p>
+                      <p className={`font-semibold text-${tierInfo.color}-900`}>
+                        Turnus-Hjelp {tierInfo.name}
+                      </p>
+                      <p className={`text-sm text-${tierInfo.color}-600`}>
+                        {tierInfo.description}
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-bold text-indigo-900">49 kr</p>
-                      <p className="text-sm text-indigo-600">per månad</p>
+                      <p className={`text-2xl font-bold text-${tierInfo.color}-900`}>
+                        {tierInfo.price} kr
+                      </p>
+                      <p className={`text-sm text-${tierInfo.color}-600`}>per månad</p>
                     </div>
                   </div>
+                  
+                  {/* Show upgrade option for Pro users */}
+                  {subscription.tier === 'pro' && subscription.status === 'active' && (
+                    <div className={`mt-4 pt-4 border-t border-${tierInfo.color}-200`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-900 mb-1">
+                            Oppgrader til Premium
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            Få tilgang til AI-funksjonar: PDF-import, smarte forbetringar og meir
+                          </p>
+                        </div>
+                        <Link
+                          href="/subscribe"
+                          className="ml-4 flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition-colors whitespace-nowrap"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                          Oppgrader
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show AI features link for Premium users */}
+                  {subscription.tier === 'premium' && subscription.status === 'active' && (
+                    <div className={`mt-4 pt-4 border-t border-${tierInfo.color}-200`}>
+                      <Link
+                        href="/app/ai"
+                        className="flex items-center gap-2 text-purple-600 font-semibold hover:text-purple-700 transition-colors"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Gå til AI-funksjonar →
+                      </Link>
+                    </div>
+                  )}
                 </div>
 
                 {/* Manage Subscription Button */}
@@ -193,11 +273,69 @@ export default async function SettingsPage() {
                   href="/subscribe"
                   className="inline-block bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
                 >
-                  Start abonnement
+                  Vel abonnement
                 </Link>
               </div>
             )}
           </div>
+
+          {/* Tier Comparison Card - Show for Pro users only */}
+          {subscription?.tier === 'pro' && subscription.status === 'active' && (
+            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg shadow-md p-6 border-2 border-purple-200">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">
+                    Oppgrader til Premium for AI-funksjonar
+                  </h3>
+                  <p className="text-gray-700 mb-4">
+                    Få tilgang til kraftige AI-verktøy som automatisk lagar turnusplanar frå PDF og gir smarte forbetringsforslag.
+                  </p>
+                  <div className="grid md:grid-cols-2 gap-3 mb-4">
+                    <div className="flex items-start gap-2">
+                      <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-sm text-gray-700">Last opp PDF → AI lagar plan</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-sm text-gray-700">AI-genererte forbetringar</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-sm text-gray-700">Automatisk fylle rotation</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-sm text-gray-700">Prioritert support</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Link
+                      href="/subscribe"
+                      className="bg-purple-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-purple-700 transition-colors"
+                    >
+                      Oppgrader no
+                    </Link>
+                    <span className="text-sm text-gray-600">
+                      Berre 100 kr meir per månad
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Danger Zone */}
           <div className="bg-white rounded-lg shadow-md p-6 border-2 border-red-200">
