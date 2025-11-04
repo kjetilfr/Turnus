@@ -102,10 +102,17 @@ export const threeSplitAverageCheck: LawCheck = {
     console.log('Plan type:', plan.type, 'Duration weeks:', plan.duration_weeks)
     console.log('Inputs:', { requiredNightHours, requiredSundayFreq, requiredNonNightPercent })
 
+    // Determine actual weeks from rotations
+    const actualWeeks = effectiveRotations.length > 0 
+      ? Math.max(...effectiveRotations.map(r => r.week_index)) + 1 
+      : plan.duration_weeks
+    
+    console.log('Actual weeks in rotations:', actualWeeks)
+
     // Plan dates
     const planStartDate = new Date(plan.date_started)
     const planEndDate = new Date(planStartDate)
-    planEndDate.setDate(planEndDate.getDate() + plan.duration_weeks * 7)
+    planEndDate.setDate(planEndDate.getDate() + actualWeeks * 7)
 
     // Build Sunday and holiday zones
     const allTimeZones: HolidayTimeZone[] = []
@@ -183,7 +190,7 @@ export const threeSplitAverageCheck: LawCheck = {
       totalNightHours20to6 += nightHours
     })
 
-    const avgNightHoursPerWeek20to6 = totalNightHours20to6 / plan.duration_weeks
+    const avgNightHoursPerWeek20to6 = totalNightHours20to6 / actualWeeks
     console.log(`  → Average per week: ${avgNightHoursPerWeek20to6.toFixed(2)}h`)
 
     // ============================================================
@@ -265,7 +272,7 @@ export const threeSplitAverageCheck: LawCheck = {
     const qualifiesFor35_5 = meetsNightHours35 || meetsSundayRequirement
     const qualifiesFor33_6 = has24HourCoverage && meetsSundayRequirement && meetsNonNightRequirement
 
-    const actualAvgHoursPerWeek = totalHours / plan.duration_weeks
+    const actualAvgHoursPerWeek = totalHours / actualWeeks
 
     // ============================================================
     // NEW: compute reductions and expectedMaxHours according to your rules
@@ -283,7 +290,7 @@ export const threeSplitAverageCheck: LawCheck = {
     let computedWeeklyAfterReduction = baseStandardWeek
 
     if (qualifiesFor33_6) {
-      const weeks = plan.duration_weeks;
+      const weeks = actualWeeks;
 
       reductionFromNight = totalNightHoursTariff * 0.25 / weeks // per week
       reductionFromHoliday = (totalHolidayHoursWorked * (10 / 60)) / weeks // per week
@@ -379,7 +386,7 @@ export const threeSplitAverageCheck: LawCheck = {
       totalZonesChecked: relevantTimeZones.length,
       totalRedDaysWorked,
       totalHolidayZones,
-      planDurationWeeks: plan.duration_weeks,
+      planDurationWeeks: actualWeeks,
       planWorkPercent: plan.work_percent
     })
 
@@ -765,3 +772,4 @@ function check24HourCoverage(rotations: Rotation[], shifts: Shift[]): boolean {
     mergedRanges[0].start === 0 &&
     mergedRanges[0].end === 24 * 60
 }
+//AMAZIN
