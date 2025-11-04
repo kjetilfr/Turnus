@@ -83,14 +83,17 @@ function mergeOverlappingTimeZones(zones: HolidayTimeZone[]): HolidayTimeZone[] 
  * 2. Annenhver beregning og fri fordeling - Every other ZONE with free distribution
  * 3. Gjennomsnittsberegning - Average ZONE calculation
  * 
- * KEY CHANGE: Now treats red day TIMEZONES as units, not calendar days
- * Example: Working Dec 24-25 in same timezone = 1 zone worked, not 2 days
+ * NEW PLACEMENT LOGIC:
+ * - F3 can be placed on a shift if it overlaps the red timezone by MORE than ignoreLessThanOrEqualTo hours
+ * - Once F3 is placed, the ENTIRE timezone must be free of other work shifts
+ * - Example: Shift 15:00-22:00 on Apr 1 can have F3 even if zone starts 18:00 Apr 1 (4h overlap > 1h threshold)
+ * - But then NO other work is allowed in that entire timezone period
  */
 export const f3HolidayCompensationCheck: LawCheck = {
   id: 'f3-holiday-compensation',
   name: 'F3 helgedags fri',
-  description: 'Verifiserer at F3-vakter er korrekt plasserte. For hjelpeturnus: sjekkar mot grunnturnus og rauddagssoner. For årsturnus: sjekkar at antal F3-dagar stemmer med det som er satt når planen vart oppretta.',
-  category: 'shared', // Changed from 'helping'
+  description: 'Verifiserer at F3-vakter er korrekt plasserte. For hjelpeturnus: sjekkar mot grunnturnus og rauddagssoner. For årsturnus: sjekkar at antal F3-dagar stemmer med det som er sett når planen vart oppretta. F3 kan plasserast på skift som overlapper tidssona med meir enn grenseverdien.',
+  category: 'shared',
   lawType: 'aml',
   lawReferences: [
     {
@@ -98,11 +101,11 @@ export const f3HolidayCompensationCheck: LawCheck = {
       url: 'https://lovdata.no/lov/2005-06-17-62/§10-10'
     }
   ],
-  applicableTo: ['helping', 'year'], // Added applicableTo
+  applicableTo: ['helping', 'year'],
   inputs: [
     {
       id: 'ignoreLessThanOrEqualTo',
-      label: 'Ignorer overlapp raud tidssone lik',
+      label: 'Ignorer overlapp raud tidssone lik eller under',
       type: 'number',
       defaultValue: 1,
       min: 0,
@@ -318,7 +321,8 @@ export const f3HolidayCompensationCheck: LawCheck = {
 
     result.details = [
       `Method: ${methodName}`,
-      `Ignore work ≤ ${ignoreLessThanOrEqualTo}h`,
+      `Ignore work ≤ ${ignoreLessThanOrEqualTo}h for qualification`,
+      `F3 can be placed if shift overlaps timezone > ${ignoreLessThanOrEqualTo}h`,
       `Base rotation length: ${basePlanRotationLength} weeks`,
       `Helping plan period: ${plan.date_started} to ${formatDateLocal(helpingPlanEndDate)} (${plan.duration_weeks} weeks)`,
       `Week offset: ${weekOffset}`,
@@ -404,58 +408,41 @@ export const f3HolidayCompensationCheck: LawCheck = {
         extraDates.forEach(d => result.details?.push(`  - ${d}`))
       }
 
-      // === Check coverage of the timezones ===
+      // === Check F3 placement and timezone coverage ===
       result.details.push('')
-      result.details.push('--- F3 Timezone Coverage Check ---')
+      result.details.push('--- F3 Placement & Timezone Coverage Check ---')
       let coverageViolations = 0
 
       f3Rotations.forEach(f3r => {
         const f3Date = getRotationDate(helpingPlanStartDate, f3r.week_index, f3r.day_of_week)
         const f3DateStr = formatDateLocal(f3Date)
 
-        // Find which red-day zone (if any) this F3 date falls into
-        const matchedZone = mergedTimeZones.find(z => {
-          const start = new Date(z.startDateTime)
-          const end = new Date(z.endDateTime)
-          return f3Date >= start && f3Date <= end
-        })
-
-        if (!matchedZone) {
-          result.details?.push(`❌ F3 on ${f3DateStr} is NOT inside any red-day timezone`)
-          result.violations?.push({
-            weekIndex: f3r.week_index,
-            dayOfWeek: f3r.day_of_week,
-            description: `F3 on ${f3DateStr} not inside any red-day timezone`
-          })
-          coverageViolations++
-          return // skip further coverage check
-        }
-
-        // Normal check for covering the matched zone
-        const { covers, conflictDetails } = checkF3CoversTimezone(
+        // Check F3 placement and coverage (function will find the matching zone based on shift overlap)
+        const { covers, conflictDetails } = checkF3PlacementAndCoverage(
           f3Date,
           effectiveRotations,
           basePlanShifts,
           helpingPlanStartDate,
-          [matchedZone], // only check against this zone
+          null, // Let function find zone by shift overlap
           rotations,
           shifts,
-          ignoreLessThanOrEqualTo
+          ignoreLessThanOrEqualTo,
+          mergedTimeZones
         )
 
         if (!covers) {
-          result.details?.push(`❌ F3 on ${f3DateStr} does NOT fully cover timezone:`)
+          result.details?.push(`❌ F3 on ${f3DateStr} has issues:`)
           conflictDetails.forEach(detail => {
             result.details?.push(`  - ${detail}`)
           })
           result.violations?.push({
             weekIndex: f3r.week_index,
             dayOfWeek: f3r.day_of_week,
-            description: `F3 on ${f3DateStr} doesn't cover entire timezone - work shifts still present`
+            description: `F3 on ${f3DateStr}: ${conflictDetails.join('; ')}`
           })
           coverageViolations++
         } else {
-          result.details?.push(`✅ F3 on ${f3DateStr} properly covers ${matchedZone.localName} (${formatDateLocal(new Date(matchedZone.endDateTime))})`)
+          result.details?.push(`✅ F3 on ${f3DateStr} properly placed on qualifying shift and timezone is work-free`)
         }
       })
 
@@ -463,7 +450,7 @@ export const f3HolidayCompensationCheck: LawCheck = {
       if (missingDates.length > 0 || extraDates.length > 0 || coverageViolations > 0) {
         result.status = 'fail'
         if (missingDates.length > 0) {
-          result.message = `Hovudregelen: Manglar **${missingDates.length} F3 dagar plassert i turnusen`
+          result.message = `Hovudregelen: Manglar **${missingDates.length}** F3 dagar plassert i turnusen`
         } else if (extraDates.length > 0) {
           result.message = `Hovudregelen: ${extraDates.length} F3 plasseringar meir enn du har krav på`
         } else {
@@ -480,8 +467,7 @@ export const f3HolidayCompensationCheck: LawCheck = {
       return result
     }
 
-
-        // ===================== ANNENHVER (Zone-based) =====================
+    // ===================== ANNENHVER (Zone-based) =====================
     if (calculationMethod === 'annenhver') {
       result.details.push('=== Annenhver Beregning Analysis (Zone-based) ===\n')
 
@@ -592,25 +578,26 @@ export const f3HolidayCompensationCheck: LawCheck = {
         result.details.push(`✅ Zone work within 50% limit`)
       }
 
-      // Check if F3 properly covers the timezone (no work conflicts)
+      // Check if F3 properly placed and zones are work-free
       result.details.push('')
-      result.details.push('--- F3 Timezone Coverage Check ---')
+      result.details.push('--- F3 Placement & Coverage Check ---')
       f3Rotations.forEach(f3r => {
         const f3Date = getRotationDate(helpingPlanStartDate, f3r.week_index, f3r.day_of_week)
-        const { covers, conflictDetails } = checkF3CoversTimezone(
+        const { covers, conflictDetails } = checkF3PlacementAndCoverage(
           f3Date,
           effectiveRotations,
           basePlanShifts,
           helpingPlanStartDate,
-          mergedTimeZones,
+          null, // will find zone inside function
           rotations,
           shifts,
-          ignoreLessThanOrEqualTo
+          ignoreLessThanOrEqualTo,
+          mergedTimeZones
         )
         
         const f3DateStr = formatDateLocal(f3Date)
         if (!covers) {
-          result.details?.push(`❌ F3 on ${f3DateStr} does NOT fully cover timezone:`)
+          result.details?.push(`❌ F3 on ${f3DateStr} has issues:`)
           conflictDetails.forEach(detail => {
             result.details?.push(`  - ${detail}`)
             violationCount++
@@ -618,10 +605,10 @@ export const f3HolidayCompensationCheck: LawCheck = {
           result.violations?.push({
             weekIndex: f3r.week_index,
             dayOfWeek: f3r.day_of_week,
-            description: `F3 on ${f3DateStr} doesn't cover entire timezone - work shifts still present`
+            description: `F3 on ${f3DateStr}: ${conflictDetails.join('; ')}`
           })
         } else {
-          result.details?.push(`✅ F3 on ${f3DateStr} properly covers timezone`)
+          result.details?.push(`✅ F3 on ${f3DateStr} properly placed`)
         }
       })
 
@@ -706,27 +693,27 @@ export const f3HolidayCompensationCheck: LawCheck = {
         result.details.push('')
       }
 
-      // F3 hours info (only if F3 needed)
+      // Check F3 placement
       if (significantWorkZones.length > 0) {
-        // Check if F3 properly covers timezones
         result.details.push('')
-        result.details.push('--- F3 Timezone Coverage Check ---')
+        result.details.push('--- F3 Placement & Coverage Check ---')
         f3Rotations.forEach(f3r => {
           const f3Date = getRotationDate(helpingPlanStartDate, f3r.week_index, f3r.day_of_week)
-          const { covers, conflictDetails } = checkF3CoversTimezone(
+          const { covers, conflictDetails } = checkF3PlacementAndCoverage(
             f3Date,
             effectiveRotations,
             basePlanShifts,
             helpingPlanStartDate,
-            mergedTimeZones,
+            null,
             rotations,
             shifts,
-            ignoreLessThanOrEqualTo
+            ignoreLessThanOrEqualTo,
+            mergedTimeZones
           )
           
           const f3DateStr = formatDateLocal(f3Date)
           if (!covers) {
-            result.details?.push(`❌ F3 on ${f3DateStr} does NOT fully cover timezone:`)
+            result.details?.push(`❌ F3 on ${f3DateStr} has issues:`)
             conflictDetails.forEach(detail => {
               result.details?.push(`  - ${detail}`)
               violationCount++
@@ -734,10 +721,10 @@ export const f3HolidayCompensationCheck: LawCheck = {
             result.violations?.push({
               weekIndex: f3r.week_index,
               dayOfWeek: f3r.day_of_week,
-              description: `F3 on ${f3DateStr} doesn't cover entire timezone - work shifts still present`
+              description: `F3 on ${f3DateStr}: ${conflictDetails.join('; ')}`
             })
           } else {
-            result.details?.push(`✅ F3 on ${f3DateStr} properly covers timezone`)
+            result.details?.push(`✅ F3 on ${f3DateStr} properly placed`)
           }
         })
       }
@@ -786,58 +773,141 @@ function formatDateLocal(date: Date): string {
 }
 
 /**
- * Check if F3 properly covers a red day timezone
- * F3 must cover the ENTIRE timezone period, not just the calendar date
- * Uses ignoreLessThanOrEqualTo to ignore minor work overlaps
+ * NEW: Check if F3 is properly placed and timezone is work-free
+ * 
+ * Rules:
+ * 1. F3 must be on a shift that overlaps the timezone by > ignoreLessThanOrEqualTo
+ * 2. The entire timezone must be free of OTHER work (excluding the F3 shift itself)
  */
-function checkF3CoversTimezone(
+function checkF3PlacementAndCoverage(
   f3Date: Date,
-  rotations: Rotation[],
-  shifts: Shift[],
+  baseRotations: Rotation[],
+  baseShifts: Shift[],
   planStartDate: Date,
-  allTimeZones: HolidayTimeZone[],
+  specifiedZone: HolidayTimeZone | null,
   helpingRotations: Rotation[],
   helpingShifts: Shift[],
-  ignoreLessThanOrEqualTo: number
+  ignoreLessThanOrEqualTo: number,
+  allTimeZones?: HolidayTimeZone[]
 ): { covers: boolean; conflictDetails: string[] } {
   
-  // Find zone where the F3 date/time falls *inside* start→end, not just on end date
-  const relevantZone = allTimeZones.find(zone => {
-    return f3Date >= zone.startDateTime && f3Date <= zone.endDateTime
+  console.log('\n🔎 checkF3PlacementAndCoverage called:')
+  console.log(`  F3 Date: ${formatDateLocal(f3Date)}`)
+  console.log(`  Specified zone: ${specifiedZone ? specifiedZone.localName : 'null (will search)'}`)
+  console.log(`  Ignore threshold: ${ignoreLessThanOrEqualTo}h`)
+  
+  // Find the helping rotation that has the F3 overlay
+  const f3HelpingRotation = helpingRotations.find(hr => {
+    const hrDate = getRotationDate(planStartDate, hr.week_index, hr.day_of_week)
+    return formatDateLocal(hrDate) === formatDateLocal(f3Date) && 
+           hr.overlay_type === 'f3_compensation'
   })
+  
+  if (!f3HelpingRotation) {
+    console.log('  ❌ No helping rotation found')
+    return {
+      covers: false,
+      conflictDetails: [`F3 on ${formatDateLocal(f3Date)} has no corresponding helping rotation`]
+    }
+  }
+  
+  console.log(`  ✅ Found helping rotation: Week ${f3HelpingRotation.week_index}, Day ${f3HelpingRotation.day_of_week}`)
+  
+  // PHASE 2: Use HELPING PLAN shift to check F3 placement
+  // Find the actual shift in the helping plan where F3 is placed
+  const helpingShiftWithF3 = helpingShifts.find(s => s.id === f3HelpingRotation.shift_id)
+  
+  if (!helpingShiftWithF3 || !helpingShiftWithF3.start_time || !helpingShiftWithF3.end_time) {
+    console.log('  ❌ Helping shift has no time info')
+    return {
+      covers: false,
+      conflictDetails: [`F3 on ${formatDateLocal(f3Date)} is on a shift without time info`]
+    }
+  }
+  
+  console.log(`  ✅ Helping plan shift (where F3 is placed): ${helpingShiftWithF3.name} (${helpingShiftWithF3.start_time.substring(0,5)}-${helpingShiftWithF3.end_time.substring(0,5)})`)
+  
+  // Find zone by checking which timezone the F3 SHIFT (from helping plan) overlaps with
+  // This is important because a shift on April 1st might overlap with a timezone that starts at 18:00 on April 1st
+  // IMPORTANT: Only accept a zone if the overlap is > ignoreLessThanOrEqualTo
+  let relevantZone = specifiedZone
+  let maxOverlap = 0
+  
+  if (!relevantZone && allTimeZones) {
+    console.log(`  🔍 Searching for matching timezone among ${allTimeZones.length} zones...`)
+    // Find the timezone that this shift overlaps with the most (and that exceeds threshold)
+    for (const zone of allTimeZones) {
+      const overlap = calculateTimeZoneOverlap(
+        f3HelpingRotation, // Use helping rotation position
+        helpingShiftWithF3, // Use helping plan shift times
+        zone,
+        planStartDate,
+        false // Disable detailed logging - we'll log summary below
+      )
+      console.log(`    Checking zone: ${zone.localName} (${formatDateLocal(zone.endDateTime)}) - overlap: ${overlap.toFixed(2)}h`)
+      // Only consider this zone if overlap exceeds the threshold
+      if (overlap > ignoreLessThanOrEqualTo && overlap > maxOverlap) {
+        console.log(`      ✅ New best match! (${overlap.toFixed(2)}h > ${ignoreLessThanOrEqualTo}h threshold)`)
+        maxOverlap = overlap
+        relevantZone = zone
+      } else if (overlap > 0 && overlap <= ignoreLessThanOrEqualTo) {
+        console.log(`      ⚠️ Overlap too small (${overlap.toFixed(2)}h ≤ ${ignoreLessThanOrEqualTo}h threshold)`)
+      }
+    }
+    
+    // Log detailed calculation for the selected zone only
+    if (relevantZone) {
+      console.log(`\n  📊 DETAILED CALCULATION for selected zone:`)
+      calculateTimeZoneOverlap(
+        f3HelpingRotation,
+        helpingShiftWithF3,
+        relevantZone,
+        planStartDate,
+        true // Enable detailed logging for selected zone
+      )
+    }
+  }
 
-  // If no matching red-day zone found → fail immediately
   if (!relevantZone) {
+    console.log('  ❌ No matching timezone found')
     return { 
       covers: false, 
       conflictDetails: [
-        `F3 on ${formatDateLocal(f3Date)} is not inside any red-day timezone`
+        `F3 on ${formatDateLocal(f3Date)} (shift ${helpingShiftWithF3.start_time.substring(0, 5)}-${helpingShiftWithF3.end_time.substring(0, 5)}) does not overlap with any red-day timezone by more than ${ignoreLessThanOrEqualTo}h`
       ]
     }
   }
   
-  // Check if ANY work shifts overlap with this timezone
-  // BUT ignore shifts that have F3 as overlay (they're already compensated)
-  // AND ignore overlaps <= ignoreLessThanOrEqualTo
+  console.log(`  ✅ Selected zone: ${relevantZone.localName} with ${maxOverlap.toFixed(2)}h overlap`)
+  
+  // RULE 1: Already validated above - helping plan shift overlaps timezone by > threshold
+  
+  // RULE 2: Check that the entire timezone is free of OTHER work in BASE PLAN (excluding the F3 position)
   const conflictDetails: string[] = []
   
-  for (const rotation of rotations) {
+  for (const rotation of baseRotations) {
     if (!rotation.shift_id) continue
     
-    const shift = shifts.find(s => s.id === rotation.shift_id)
+    // Skip the rotation position that has F3 on it in helping plan
+    if (rotation.week_index === f3HelpingRotation.week_index && 
+        rotation.day_of_week === f3HelpingRotation.day_of_week) {
+      continue
+    }
     
-    // Skip F3 and other default shifts - we only care about work shifts
+    const shift = baseShifts.find(s => s.id === rotation.shift_id)
+    
+    // Skip default shifts - we only care about work shifts
     if (!shift || shift.is_default || !shift.start_time || !shift.end_time) continue
     
-    // Check if this rotation has F3 as overlay in the helping plan
-    const helpingRotation = helpingRotations.find(
+    // Check if this rotation also has F3 overlay (another F3 in same zone - that's ok)
+    const otherHelpingRotation = helpingRotations.find(
       hr => hr.week_index === rotation.week_index && hr.day_of_week === rotation.day_of_week
     )
     
-    if (helpingRotation?.overlay_shift_id) {
-      const overlayShift = helpingShifts.find(s => s.id === helpingRotation.overlay_shift_id)
-      if (overlayShift?.name === 'F3' && helpingRotation.overlay_type === 'f3_compensation') {
-        // This shift has F3 overlay, so it's compensated - skip it
+    if (otherHelpingRotation?.overlay_shift_id) {
+      const overlayShift = helpingShifts.find(s => s.id === otherHelpingRotation.overlay_shift_id)
+      if (overlayShift?.name === 'F3' && otherHelpingRotation.overlay_type === 'f3_compensation') {
+        // This is another F3 shift - skip it
         continue
       }
     }
@@ -846,14 +916,16 @@ function checkF3CoversTimezone(
       rotation,
       shift,
       relevantZone,
-      planStartDate
+      planStartDate,
+      false
     )
     
-    // Only flag as conflict if overlap exceeds the ignore threshold
-    if (overlap > ignoreLessThanOrEqualTo) {
+    // Flag as conflict if ANY work exists in the timezone
+    // Once F3 is placed, the entire zone must be work-free
+    if (overlap > 0) {
       const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
       conflictDetails.push(
-        `Week ${rotation.week_index}, ${dayNames[rotation.day_of_week]}: ${shift.name} (${shift.start_time.substring(0, 5)}-${shift.end_time.substring(0, 5)}) overlaps ${overlap.toFixed(2)}h with ${relevantZone.holidayName} timezone (no F3 compensation)`
+        `Week ${rotation.week_index + 1}, ${dayNames[rotation.day_of_week]}: ${shift.name} (${shift.start_time.substring(0, 5)}-${shift.end_time.substring(0, 5)}) overlaps ${overlap.toFixed(2)}h with ${relevantZone.localName} timezone (work not allowed in F3 zone)`
       )
     }
   }
@@ -904,7 +976,8 @@ function calculateTimeZoneOverlap(
   rotation: Rotation,
   shift: Shift,
   zone: { startDateTime: Date; endDateTime: Date },
-  planStartDate: Date
+  planStartDate: Date,
+  shouldLog: boolean = false
 ): number {
   if (!shift.start_time || !shift.end_time) return 0
 
@@ -959,10 +1032,28 @@ function calculateTimeZoneOverlap(
     ? shiftEndDateTime
     : zone.endDateTime
 
-  if (overlapStart < overlapEnd) {
-    const overlapMillis = overlapEnd.getTime() - overlapStart.getTime()
-    return overlapMillis / (1000 * 60 * 60)
+  const overlapMillis = overlapEnd.getTime() - overlapStart.getTime()
+  const overlapHours = overlapMillis / (1000 * 60 * 60)
+
+  // Log the calculation only if requested
+  if (shouldLog) {
+    console.log('\n🔍 calculateTimeZoneOverlap:')
+    console.log(`  Rotation: Week ${rotation.week_index}, Day ${rotation.day_of_week}`)
+    console.log(`  Shift: ${shift.name} (${shift.start_time.substring(0,5)}-${shift.end_time.substring(0,5)})`)
+    console.log(`  Is night shift: ${isNightShift}`)
+    console.log(`  Shift period: ${shiftStartDateTime.toLocaleString('no-NO')} → ${shiftEndDateTime.toLocaleString('no-NO')}`)
+    console.log(`  Zone: ${zone.startDateTime.toLocaleString('no-NO')} → ${zone.endDateTime.toLocaleString('no-NO')}`)
+    console.log(`  Overlap start: ${overlapStart.toLocaleString('no-NO')}`)
+    console.log(`  Overlap end: ${overlapEnd.toLocaleString('no-NO')}`)
+    console.log(`  Overlap hours: ${overlapHours.toFixed(2)}h`)
   }
 
+  if (overlapStart < overlapEnd) {
+    return overlapHours
+  }
+
+  if (shouldLog) {
+    console.log(`  ⚠️ No overlap (overlapStart >= overlapEnd)`)
+  }
   return 0
 }
