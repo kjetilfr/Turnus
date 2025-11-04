@@ -6,7 +6,7 @@ import LogoutButton from '@/components/LogoutButton'
 import PricingCards from '@/components/pricing/PricingCards'
 
 export const metadata = {
-  title: 'Turnus-Hjelp Pro - 7 dagar gratis prøveperiode',
+  title: 'Turnus-Hjelp',
   description: 'Sjekk din turnus mot lovar og reglar i aml og hta. Prøv gratis i 7 dagar, ingen binding.'
 }
 
