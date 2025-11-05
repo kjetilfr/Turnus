@@ -29,13 +29,18 @@ export const TIME_PERIODS = {
     START: { hour: 21, minute: 0 }, // 21:00
     END: { hour: 6, minute: 0 },    // 06:00
   },
+  // AML §10-11 bruker 21:00-06:00 for natt
+  NIGHT_SPEKTER: {
+    START: { hour: 21, minute: 0 }, // 21:00
+    END: { hour: 6, minute: 0 },    // 06:00
+  },
   WEEKEND: {
     START_DAY: 5, // Saturday (0 = Monday, 5 = Saturday)
     END_DAY: 6,   // Sunday (0 = Monday, 6 = Sunday)
   },
 } as const
 
-export type NightDefinition = 'ks' | 'staten' | 'aml' | 'oslo'
+export type NightDefinition = 'ks' | 'staten' | 'aml' | 'oslo'| 'spekter'
 
 /**
  * Get night period definition based on tariffavtale
@@ -48,6 +53,8 @@ export function getNightPeriodDefinition(tariffavtale: string): { start: number;
       return { start: TIME_PERIODS.NIGHT_STATEN.START.hour, end: TIME_PERIODS.NIGHT_STATEN.END.hour }
     case 'oslo':
       return { start: TIME_PERIODS.NIGHT_OSLO.START.hour, end: TIME_PERIODS.NIGHT_OSLO.END.hour }
+    case 'spekter':
+      return { start: TIME_PERIODS.NIGHT_SPEKTER.START.hour, end: TIME_PERIODS.NIGHT_SPEKTER.END.hour }
     case 'aml':
       return { start: TIME_PERIODS.NIGHT_AML.START.hour, end: TIME_PERIODS.NIGHT_AML.END.hour }
     default:
@@ -71,6 +78,8 @@ export function getNightHoursCalculator(tariffavtale: string): (startTime: strin
       return calculateNightHoursStaten // 20:00-06:00
     case 'oslo':
       return calculateNightHoursOslo // 21:00-06:00
+    case 'spekter':
+      return calculateNightHoursSpekter // 21:00-06:00
     case 'aml':
       return calculateNightHoursKS // Default to KS definition (21:00-06:00)
     default:
@@ -153,6 +162,14 @@ export function calculateNightHoursAML(startTime: string | null, endTime: string
  */
 export function calculateNightHoursOslo(startTime: string | null, endTime: string | null): number {
   return calculateNightHoursByPeriod(startTime, endTime, TIME_PERIODS.NIGHT_OSLO)
+}
+
+/**
+ * Calculate night hours using Spekter definition (21:00-06:00)
+ * Spekter Tariffavtale standard definition
+ */
+export function calculateNightHoursSpekter(startTime: string | null, endTime: string | null): number {
+  return calculateNightHoursByPeriod(startTime, endTime, TIME_PERIODS.NIGHT_KS)
 }
 
 /**

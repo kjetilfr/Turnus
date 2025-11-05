@@ -9,7 +9,12 @@ import { calculateShiftHours } from '@/lib/utils/shiftCalculations'
 
 
 /**
- * Three-Split Average Check (Simplified)
+ * Three-Split Average Check (Fixed with proper F3/F4/F5 handling)
+ *
+ * CRITICAL FIX: This check now properly handles overlays (F3/F4/F5) by:
+ * 1. Only counting the UNDERLYING shift's hours (not F3/F4/F5 themselves)
+ * 2. Using the robust timezone overlap calculation from F3HolidayCompensationCheck
+ * 3. Properly tracking which shifts are in holiday/Sunday zones
  *
  * Qualifications:
  *
@@ -22,7 +27,7 @@ import { calculateShiftHours } from '@/lib/utils/shiftCalculations'
  * 2. Work every 3rd Sunday on average
  * 3. At least 25% of hours are non-night hours (night = tariffavtale-specific)
  *
- * Reduction rules (new):
+ * Reduction rules:
  * - If qualifies for 33.6, compute reduction from 37.5 using:
  *    * 0.25 h reduction per tariff-night hour (15 min per hour)
  *    * (10/60) h reduction per hour worked in Sunday/red-day timezones (10 min per hour)
@@ -131,6 +136,11 @@ export const threeSplitAverageCheck: LawCheck = {
     )
     relevantTimeZones.sort((a, b) => a.startDateTime.getTime() - b.startDateTime.getTime())
 
+    // ============================================================
+    // CRITICAL FIX: Properly handle overlays (F3/F4/F5)
+    // Only count the UNDERLYING shift hours, not the overlay itself
+    // ============================================================
+    
     // Determine, per-zone, whether worked and hours overlapped
     const zonesWorked: Array<{
       zone: HolidayTimeZone
@@ -142,10 +152,14 @@ export const threeSplitAverageCheck: LawCheck = {
       let totalOverlapHours = 0
 
       effectiveRotations.forEach(rotation => {
+        // CRITICAL: Get the UNDERLYING shift (shift_id), not overlay
         if (!rotation.shift_id) return
         const shift = effectiveShifts.find(s => s.id === rotation.shift_id)
+        
+        // Skip default shifts (F1-F5) and shifts without time info
         if (!shift || shift.is_default || !shift.start_time || !shift.end_time) return
 
+        // Calculate overlap using the robust method from F3HolidayCompensationCheck
         const overlapHours = calculateTimeZoneOverlap(rotation, shift, zone, planStartDate)
         if (overlapHours > 0) {
           totalOverlapHours += overlapHours
@@ -160,7 +174,7 @@ export const threeSplitAverageCheck: LawCheck = {
     })
 
     // Debug: log worked zones
-    console.log('\n🟥 RED DAY / SUNDAY ZONES')
+    console.log('\n🟥 RED DAY / SUNDAY ZONES (Fixed with proper overlay handling)')
     zonesWorked.forEach(zw => {
       const zoneDate = zw.zone.startDateTime.toISOString().split('T')[0]
       if (zw.isWorked && zw.overlapHours > 0) {
@@ -172,19 +186,23 @@ export const threeSplitAverageCheck: LawCheck = {
 
     // ============================================================
     // Night hours (20:00–06:00) used for 35.5 criterion (simple)
+    // FIXED: Only count underlying shift hours
     // ============================================================
-    console.log('\n🌙 NIGHT HOURS CALCULATION (20:00–06:00 for 35.5h check)')
+    console.log('\n🌙 NIGHT HOURS CALCULATION (20:00–06:00 for 35.5h check) - Fixed')
     let totalNightHours20to6 = 0
 
     effectiveRotations.forEach((rotation: Rotation) => {
       if (!rotation.shift_id) return
       const shift = effectiveShifts.find((s: Shift) => s.id === rotation.shift_id)
-      if (!shift || !shift.start_time || !shift.end_time) return
+      
+      // CRITICAL: Skip if this is a default shift (F1-F5)
+      // We only want to count actual work shifts
+      if (!shift || shift.is_default || !shift.start_time || !shift.end_time) return
 
       const nightHours = calculateNightHours20to6(shift.start_time, shift.end_time)
       if (nightHours > 0) {
         console.log(
-          `  Week ${rotation.week_index + 1}, Day ${rotation.day_of_week}: ${shift.start_time}-${shift.end_time} → ${nightHours.toFixed(2)}h night (20–06)`
+          `  Week ${rotation.week_index + 1}, Day ${rotation.day_of_week}: ${shift.name} (${shift.start_time}-${shift.end_time}) → ${nightHours.toFixed(2)}h night (20–06)`
         )
       }
       totalNightHours20to6 += nightHours
@@ -222,14 +240,15 @@ export const threeSplitAverageCheck: LawCheck = {
     const sundayWorkRatio = sundaysWorked > 0 ? totalSundays / sundaysWorked : Infinity
 
     // ============================================================
-    // 24-hour coverage check
+    // 24-hour coverage check (using UNDERLYING shifts only)
     // ============================================================
     const has24HourCoverage = check24HourCoverage(effectiveRotations, effectiveShifts)
 
     // ============================================================
     // Tariff night hours (for 33.6) and total hours
+    // FIXED: Only count underlying shift hours
     // ============================================================
-    console.log(`\n🌙 TARIFF NIGHT HOURS (${plan.tariffavtale.toUpperCase()} – ${getNightHoursLabel(plan.tariffavtale)})`)
+    console.log(`\n🌙 TARIFF NIGHT HOURS (${plan.tariffavtale.toUpperCase()} – ${getNightHoursLabel(plan.tariffavtale)}) - Fixed`)
     const calculateNightHours = getNightHoursCalculator(plan.tariffavtale)
     const nightHoursLabel = getNightHoursLabel(plan.tariffavtale)
 
@@ -237,14 +256,16 @@ export const threeSplitAverageCheck: LawCheck = {
     let totalNightHoursTariff = 0
 
     // We'll also compute totalHolidayHoursWorked: sum of overlapHours across worked holiday/Sunday zones
-    const totalHolidayHoursWorked = zonesWorked
+    let totalHolidayHoursWorked = zonesWorked
       .filter(z => z.isWorked)
       .reduce((sum, z) => sum + z.overlapHours, 0)
 
     effectiveRotations.forEach(rotation => {
       if (!rotation.shift_id) return
       const shift = effectiveShifts.find(s => s.id === rotation.shift_id)
-      if (!shift || !shift.start_time || !shift.end_time) return
+      
+      // CRITICAL: Skip default shifts (F1-F5)
+      if (!shift || shift.is_default || !shift.start_time || !shift.end_time) return
 
       const shiftHours = calculateShiftHours(shift.start_time, shift.end_time)
       const tariffNight = calculateNightHours(shift.start_time, shift.end_time)
@@ -253,17 +274,74 @@ export const threeSplitAverageCheck: LawCheck = {
 
       if (tariffNight > 0) {
         console.log(
-          `  Week ${rotation.week_index + 1}, Day ${rotation.day_of_week}: ${shift.start_time}-${shift.end_time} → ${tariffNight.toFixed(2)}h night (${nightHoursLabel})`
+          `  Week ${rotation.week_index + 1}, Day ${rotation.day_of_week}: ${shift.name} (${shift.start_time}-${shift.end_time}) → ${tariffNight.toFixed(2)}h night (${nightHoursLabel})`
         )
       }
     })
 
     console.log(`  → Total tariff night hours: ${totalNightHoursTariff.toFixed(2)}h`)
-    console.log(`  → Total holiday/Sunday hours worked (zones): ${totalHolidayHoursWorked.toFixed(2)}h`)
+    console.log(`  → Total holiday/Sunday hours worked (zones - BEFORE F3/F4/F5 adjustment): ${totalHolidayHoursWorked.toFixed(2)}h`)
 
     const nonNightHours = totalHours - totalNightHoursTariff
     const nonNightPercent = totalHours > 0 ? (nonNightHours / totalHours) * 100 : 0
     const meetsNonNightRequirement = nonNightPercent >= requiredNonNightPercent
+
+    // ============================================================
+    // CRITICAL: Calculate F3/F4/F5 overlay hours BEFORE reduction calculation
+    // ============================================================
+    let hoursToSubtractFromHoliday = 0
+    const overlayDays: Array<{ type: string; week: number; day: number; date: string; underlyingShift: string; hours: number }> = []
+    
+    effectiveRotations.forEach(rotation => {
+      // Check if there's an overlay
+      if (rotation.overlay_shift_id) {
+        const overlayShift = effectiveShifts.find(s => s.id === rotation.overlay_shift_id)
+        if (overlayShift && overlayShift.is_default) {
+          const underlyingShift = rotation.shift_id 
+            ? effectiveShifts.find(s => s.id === rotation.shift_id)
+            : null
+          
+          const rotationDate = getRotationDate(planStartDate, rotation.week_index, rotation.day_of_week)
+          
+          // Calculate how many hours this underlying shift contributes
+          let underlayHours = 0
+          if (underlyingShift && underlyingShift.start_time && underlyingShift.end_time) {
+            underlayHours = calculateShiftHours(underlyingShift.start_time, underlyingShift.end_time)
+          }
+          
+          overlayDays.push({
+            type: overlayShift.name,
+            week: rotation.week_index + 1,
+            day: rotation.day_of_week,
+            date: formatDateLocal(rotationDate),
+            underlyingShift: underlyingShift ? underlyingShift.name : 'None',
+            hours: underlayHours
+          })
+          
+          // For F3/F4/F5, check if this day overlaps with a holiday/Sunday zone
+          // If it does, we need to subtract these hours from totalHolidayHoursWorked
+          if (overlayShift.name === 'F3' || overlayShift.name === 'F4' || overlayShift.name === 'F5') {
+            // Find if this rotation overlaps with any zone
+            relevantTimeZones.forEach(zone => {
+              if (underlyingShift && underlyingShift.start_time && underlyingShift.end_time) {
+                const overlap = calculateTimeZoneOverlap(rotation, underlyingShift, zone, planStartDate)
+                if (overlap > 0) {
+                  hoursToSubtractFromHoliday += overlap
+                }
+              }
+            })
+          }
+        }
+      }
+    })
+
+    // Apply the subtraction BEFORE reduction calculation
+    const rawHolidayHoursBeforeAdjustment = totalHolidayHoursWorked
+    console.log(`\n⚠️  OVERLAY HOUR ADJUSTMENT (before reduction calculation):`)
+    console.log(`  Total holiday/Sunday hours (raw from zones): ${totalHolidayHoursWorked.toFixed(2)}h`)
+    console.log(`  Hours to subtract (F3/F4/F5 overlays): ${hoursToSubtractFromHoliday.toFixed(2)}h`)
+    totalHolidayHoursWorked = Math.max(0, totalHolidayHoursWorked - hoursToSubtractFromHoliday)
+    console.log(`  Adjusted holiday/Sunday hours: ${totalHolidayHoursWorked.toFixed(2)}h`)
 
     // ============================================================
     // Qualification checks
@@ -275,7 +353,7 @@ export const threeSplitAverageCheck: LawCheck = {
     const actualAvgHoursPerWeek = totalHours / actualWeeks
 
     // ============================================================
-    // NEW: compute reductions and expectedMaxHours according to your rules
+    // Compute reductions and expectedMaxHours according to rules
     // ============================================================
     const workPercentFactor = plan.work_percent / 100
     const baseStandardWeek = 37.5 * workPercentFactor
@@ -301,16 +379,26 @@ export const threeSplitAverageCheck: LawCheck = {
       reductionFromHolidayPostPercent = (reductionFromHoliday * workPercentFactor)
 
       computedReduction = reductionFromNight + reductionFromHolidayPostPercent
+      appliedReduction = computedReduction
 
-      // minimum reduction is 2 hours (per week)
-      appliedReduction = computedReduction < 2 && computedReduction > 0 ? 2 : computedReduction
-
-      // weekly hours after reduction
+      // Calculate candidate hours after reduction
       computedWeeklyAfterReduction = baseStandardWeek - appliedReduction
 
-      // cap minimum at 33.6h * workPercentFactor
-      const minAllowed = 33.6 * workPercentFactor
-      expectedMaxHours = Math.max(minAllowed, computedWeeklyAfterReduction)
+      // Reference bounds for 33.6h qualification (scaled by work percent)
+      const upperBound = 35.5 * workPercentFactor  // 35.5h reference
+      const lowerBound = 33.6 * workPercentFactor  // 33.6h reference
+
+      // The result MUST be between lowerBound and upperBound
+      if (computedWeeklyAfterReduction > upperBound) {
+        // Reduction wasn't enough, cap at upper bound (35.5h)
+        expectedMaxHours = upperBound
+      } else if (computedWeeklyAfterReduction < lowerBound) {
+        // Reduction was too much, cap at lower bound (33.6h)
+        expectedMaxHours = lowerBound
+      } else {
+        // Reduction puts us within bounds, use computed value
+        expectedMaxHours = computedWeeklyAfterReduction
+      }
     } else if (qualifiesFor35_5) {
       expectedMaxHours = 35.5 * workPercentFactor
       computedReduction = baseStandardWeek - expectedMaxHours
@@ -329,20 +417,60 @@ export const threeSplitAverageCheck: LawCheck = {
     }
 
     const exceedsHourLimit = actualAvgHoursPerWeek > expectedMaxHours
-    if (exceedsHourLimit) {
-      // optional message
-    }
 
-    console.log('\n📊 Qualification Metrics:')
+    console.log('\n📊 Qualification Metrics (FIXED):')
     console.log(`  Qualifies for 35.5h: ${qualifiesFor35_5}`)
     console.log(`  Qualifies for 33.6h: ${qualifiesFor33_6}`)
-    console.log(`  Avg weekly hours (actual): ${actualAvgHoursPerWeek.toFixed(2)}h/week`)
+    console.log(`  Avg weekly hours (actual, excluding F1-F5): ${actualAvgHoursPerWeek.toFixed(2)}h/week`)
     console.log(`  Computed weekly after reduction: ${computedWeeklyAfterReduction.toFixed(2)}h/week`)
     console.log(`  Expected max hours (final): ${expectedMaxHours.toFixed(2)}h/week`)
     console.log(`  Exceeds hour limit: ${exceedsHourLimit}`)
 
     // ============================================================
-    // Prepare result details (single helper)
+    // LIST ALL F3, F4, F5 DAYS FOR DEBUGGING
+    // ============================================================
+    console.log('\n📋 F3/F4/F5 OVERLAY DAYS:')
+
+    // Sort by date
+    overlayDays.sort((a, b) => a.date.localeCompare(b.date))
+
+    // Group by type
+    const f3Days = overlayDays.filter(d => d.type === 'F3')
+    const f4Days = overlayDays.filter(d => d.type === 'F4')
+    const f5Days = overlayDays.filter(d => d.type === 'F5')
+
+    if (f3Days.length > 0) {
+      console.log(`\n  F3 (Helgedags fri) - ${f3Days.length} days:`)
+      f3Days.forEach(d => {
+        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        console.log(`    Week ${d.week}, ${dayNames[d.day]} (${d.date}) - Underlying: ${d.underlyingShift} (${d.hours.toFixed(2)}h)`)
+      })
+    } else {
+      console.log(`\n  F3 (Helgedags fri): None`)
+    }
+
+    if (f4Days.length > 0) {
+      console.log(`\n  F4 (Feriedagar) - ${f4Days.length} days:`)
+      f4Days.forEach(d => {
+        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        console.log(`    Week ${d.week}, ${dayNames[d.day]} (${d.date}) - Underlying: ${d.underlyingShift} (${d.hours.toFixed(2)}h)`)
+      })
+    } else {
+      console.log(`\n  F4 (Feriedagar): None`)
+    }
+
+    if (f5Days.length > 0) {
+      console.log(`\n  F5 (Erstatningsfridagar) - ${f5Days.length} days:`)
+      f5Days.forEach(d => {
+        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        console.log(`    Week ${d.week}, ${dayNames[d.day]} (${d.date}) - Underlying: ${d.underlyingShift} (${d.hours.toFixed(2)}h)`)
+      })
+    } else {
+      console.log(`\n  F5 (Erstatningsfridagar): None`)
+    }
+
+    // ============================================================
+    // Prepare result details
     // ============================================================
     const planTypeDesc = plan.type === 'helping' ? 'Helping plan' :
       plan.type === 'year' && plan.year_plan_mode !== 'rotation_based' ? 'Year plan (non-rotation)' :
@@ -387,21 +515,27 @@ export const threeSplitAverageCheck: LawCheck = {
       totalRedDaysWorked,
       totalHolidayZones,
       planDurationWeeks: actualWeeks,
-      planWorkPercent: plan.work_percent
+      planWorkPercent: plan.work_percent,
+      hoursToSubtractFromHoliday,
+      rawHolidayHoursBeforeAdjustment,
+      f3Days: f3Days.length,
+      f4Days: f4Days.length,
+      f5Days: f5Days.length,
+      overlayDays
     })
 
     // Violations and summary status
     if ((qualifiesFor33_6 || qualifiesFor35_5) && !exceedsHourLimit) {
       result.status = 'pass'
       if (qualifiesFor33_6) {
-        result.message = `Timetalet i turnusen er korrekt. Kvalifiserer for 3-delt snitt med timetal på: ${expectedMaxHours.toFixed(2)}t/veke`
+        result.message = `Timetalet i turnusen er korrekt. Kvalifiserer for 3-delt snitt med timetal på: **${expectedMaxHours.toFixed(2)}t/veke**`
       } else {
-        result.message = `Timetalet i turnusen er korrekt. Kvalifiserer for: ${expectedMaxHours.toFixed(2)}t/veke (35,5t x ${plan.work_percent}%). Kvalifiserer ikkje til 3-delt snitt.`
+        result.message = `Timetalet i turnusen er korrekt. Kvalifiserer for: **${expectedMaxHours.toFixed(2)}t/veke** (35,5t x ${plan.work_percent}%). Kvalifiserer ikkje til 3-delt snitt.`
       }
     } else if ((qualifiesFor33_6 || qualifiesFor35_5) && exceedsHourLimit) {
       result.status = 'fail'
       const reduceBy = actualAvgHoursPerWeek - expectedMaxHours
-      result.message = `Turnusen inneheld: ${actualAvgHoursPerWeek.toFixed(2)}t/veke, men skal innehalde: ${expectedMaxHours.toFixed(2)}t/veke. Turnusen må reduserast med ${reduceBy.toFixed(2)}t/veke.`
+      result.message = `Turnusen inneheld: **${actualAvgHoursPerWeek.toFixed(2)}t/veke**, men skal innehalde: **${expectedMaxHours.toFixed(2)}t/veke**. Turnusen må reduserast med **${(reduceBy*52).toFixed(2)}t** eller **${reduceBy.toFixed(2)}t/veke**.`
 
       result.violations = [{
         weekIndex: -1,
@@ -423,7 +557,7 @@ export const threeSplitAverageCheck: LawCheck = {
 }
 
 // ============================================================
-// Helper Functions
+// Helper Functions (copied from F3HolidayCompensationCheck)
 // ============================================================
 
 /**
@@ -466,136 +600,8 @@ function createSundayTimeZones(startDate: Date, endDate: Date): HolidayTimeZone[
 }
 
 /**
- * Build a standard detailed message showing qualification + calculations.
- * Returns array of string lines suitable for `result.details`.
- */
-function buildThreeSplitDetails(params: {
-  planTypeDesc: string
-  qualifiesFor33_6: boolean
-  qualifiesFor35_5: boolean
-  meetsNightHours35: boolean
-  avgNightHoursPerWeek20to6: number
-  requiredNightHours: number
-  meetsSundayRequirement: boolean
-  sundaysWorked: number
-  totalSundays: number
-  sundayWorkRatio: number
-  has24HourCoverage: boolean
-  meetsNonNightRequirement: boolean
-  nonNightPercent: number
-  requiredNonNightPercent: number
-  totalHours: number
-  totalNightHoursTariff: number
-  nightHoursLabel: string
-  totalHolidayHoursWorked: number
-  reductionFromNight: number        // per week credit (used for final weekly calc)
-  reductionFromHoliday: number      // per week credit (used for final weekly calc)
-  reductionFromNightTotal: number   // total credit (before dividing by weeks)
-  reductionFromHolidayTotal: number // total credit (before dividing by weeks)
-  reductionFromHolidayPostPercent: number // scaled by work_percent
-  computedReduction: number
-  appliedReduction: number
-  baseStandardWeek: number
-  computedWeeklyAfterReduction: number
-  expectedMaxHours: number
-  actualAvgHoursPerWeek: number
-  exceedsHourLimit: boolean
-  totalZonesChecked: number
-  totalRedDaysWorked: number
-  totalHolidayZones: number
-  planDurationWeeks: number         // total number of weeks in the plan
-  planWorkPercent: number           // work_percent of the plan
-}) : string[] {
-  const p = params
-
-  const header = [
-    `Plan type: ${p.planTypeDesc}`,
-    '',
-    '=== QUALIFICATION SUMMARY ===',
-    p.qualifiesFor33_6 ? '✅ Qualifies for 33.6h work week' : '✗ Does NOT qualify for 33.6h work week',
-    p.qualifiesFor35_5 ? '✅ Qualifies for 35.5h work week' : '✗ Does NOT qualify for 35.5h work week',
-    ''
-  ]
-
-  const qualificationLogic = [
-    '=== WHY (decision logic) ===',
-    '33.6h requires: (1) 24-hour coverage AND (2) Sunday frequency AND (3) ≥ required non-night %',
-    `  24-hour coverage: ${p.has24HourCoverage ? '✓' : '✗'}`,
-    `  Sunday requirement: ${p.meetsSundayRequirement ? '✓' : '✗'} (${p.sundaysWorked}/${p.totalSundays} Sundays worked; ratio ≈ ${isFinite(p.sundayWorkRatio) ? ('1 in ' + (p.sundayWorkRatio).toFixed(2)) : 'never worked'})`,
-    `  Non-night requirement: ${p.meetsNonNightRequirement ? '✓' : '✗'} (${p.nonNightPercent.toFixed(1)}% non-night, required: ≥ ${p.requiredNonNightPercent}%)`,
-    '',
-    '35.5h requires ONE of:',
-    `  (A) night hours (20:00–06:00) ≥ required → ${p.avgNightHoursPerWeek20to6.toFixed(2)}h/week (required: ≥${p.requiredNightHours}h) → ${p.meetsNightHours35 ? '✓' : '✗'}`,
-    `  (B) Sunday frequency → ${p.meetsSundayRequirement ? '✓' : '✗'}`,
-    ''
-  ]
-
-const reductionSummary = [
-  '=== REDUCTION CALCULATION (33.6 path) ===',
-  `Base (standard) week: ${p.baseStandardWeek.toFixed(2)} h/week`,
-  `Tariff night hours (used for night credit): ${p.totalNightHoursTariff.toFixed(2)} h → credit: ${p.reductionFromNightTotal.toFixed(2)} h`,
-  `  → per week: ${(p.reductionFromNightTotal / p.planDurationWeeks).toFixed(2)} h/week`,
-  `Holiday/Sunday zone hours worked (used for holiday credit): ${p.totalHolidayHoursWorked.toFixed(2)} h → credit: ${p.reductionFromHolidayTotal.toFixed(2)} h`,
-  `  → per week: ${(p.reductionFromHolidayTotal / p.planDurationWeeks).toFixed(2)} h/week`,
-  `  → scaled by work percent (${p.planWorkPercent}%): ${(p.reductionFromHolidayPostPercent).toFixed(2)} h/week`,
-  `Computed reduction: ${p.computedReduction.toFixed(2)} h/week`,
-  `Applied reduction (minimum 2.00 h if computed > 0): ${p.appliedReduction.toFixed(2)} h/week`,
-  `Candidate weekly after reduction: ${p.computedWeeklyAfterReduction.toFixed(2)} h/week`,
-  `Minimum allowed weekly (33.6 path): ${Math.max(33.6, 33.6 * (p.baseStandardWeek / 37.5)).toFixed(2)} h/week`,
-  `Final allowed weekly after caps: ${p.expectedMaxHours.toFixed(2)} h/week`,
-  ''
-]
-
-  const hoursSummary = [
-    '=== HOURS / METRICS (raw numbers used) ===',
-    `Total hours (sum of shifts across rotations): ${p.totalHours.toFixed(2)} h`,
-    `Total tariff night hours (${p.nightHoursLabel}): ${p.totalNightHoursTariff.toFixed(2)} h`,
-    `Non-night %: ${p.nonNightPercent.toFixed(1)}%`,
-    `Avg night hours (20:00–06:00) used for 35.5h-check: ${p.avgNightHoursPerWeek20to6.toFixed(2)} h/week`,
-    `Average actual hours per week: ${p.actualAvgHoursPerWeek.toFixed(2)} h/week`,
-    `Allowed (final) weekly hours: ${p.expectedMaxHours.toFixed(2)} h/week`,
-    `Exceeds allowed limit: ${p.exceedsHourLimit ? 'YES' : 'NO'}`,
-    ''
-  ]
-
-  const zoneSummary = [
-    '=== TIME ZONE / HOLIDAY CHECKS ===',
-    `Total zones checked (Sundays + relevant holidays): ${p.totalZonesChecked}`,
-    `Sundays worked: ${p.sundaysWorked}/${p.totalSundays}`,
-    `Red days worked (non-Sunday holidays): ${p.totalRedDaysWorked}/${p.totalHolidayZones}`,
-    `Holiday/Sunday hours worked (zones): ${p.totalHolidayHoursWorked.toFixed(2)} h`,
-    ''
-  ]
-
-  const recommendation = [
-    '=== RECOMMENDATION / NEXT ACTIONS ==='
-  ]
-
-  if (p.exceedsHourLimit) {
-    recommendation.push(
-      `Plan exceeds the allowed weekly hours for the qualification. Reduce by ${(p.actualAvgHoursPerWeek - p.expectedMaxHours).toFixed(2)} h/week.`
-    )
-  } else if (!p.qualifiesFor33_6 && !p.qualifiesFor35_5) {
-    const guidance: string[] = []
-    guidance.push(' • Does not qualify for reduced week. Consider increasing night hours or Sunday/holiday coverage, or restructure to achieve 24h coverage and non-night % for 33.6 path.')
-    recommendation.push(...guidance)
-  } else {
-    recommendation.push('No corrective action required; the plan qualifies and is within the allowed weekly hours.')
-  }
-
-  // Combine and return
-  return [
-    ...header,
-    ...qualificationLogic,
-    ...reductionSummary,
-    ...hoursSummary,
-    ...zoneSummary,
-    ...recommendation
-  ]
-}
-
-/**
  * Calculate overlap between a rotation/shift and a time zone
+ * COPIED FROM F3HolidayCompensationCheck for consistency
  */
 function calculateTimeZoneOverlap(
   rotation: Rotation,
@@ -682,6 +688,13 @@ function getRotationDate(planStartDate: Date, weekIndex: number, dayOfWeek: numb
 }
 
 /**
+ * Format date as YYYY-MM-DD in local timezone
+ */
+function formatDateLocal(date: Date): string {
+  return date.toLocaleDateString('sv-SE', { timeZone: 'Europe/Oslo' })
+}
+
+/**
  * Calculate night hours for 20:00-06:00 period (35.5h qualification)
  */
 function calculateNightHours20to6(startTime: string, endTime: string): number {
@@ -723,7 +736,7 @@ function calculateNightHours20to6(startTime: string, endTime: string): number {
 }
 
 /**
- * Check 24-hour coverage
+ * Check 24-hour coverage (only using non-default shifts)
  */
 function check24HourCoverage(rotations: Rotation[], shifts: Shift[]): boolean {
   const timeRanges: Array<{ start: number; end: number }> = []
@@ -731,22 +744,24 @@ function check24HourCoverage(rotations: Rotation[], shifts: Shift[]): boolean {
   rotations.forEach((rotation: Rotation) => {
     if (rotation.shift_id) {
       const shift = shifts.find((s: Shift) => s.id === rotation.shift_id)
-      if (shift && shift.start_time && shift.end_time) {
-        const parseTime = (time: string) => {
-          const [h, m] = time.split(':').map(Number)
-          return h * 60 + m
-        }
+      
+      // CRITICAL: Skip default shifts (F1-F5)
+      if (!shift || shift.is_default || !shift.start_time || !shift.end_time) return
 
-        const startMinutes = parseTime(shift.start_time)
-        const endMinutes = parseTime(shift.end_time)
+      const parseTime = (time: string) => {
+        const [h, m] = time.split(':').map(Number)
+        return h * 60 + m
+      }
 
-        if (endMinutes < startMinutes) {
-          // Night shift - split into two ranges
-          timeRanges.push({ start: startMinutes, end: 24 * 60 })
-          timeRanges.push({ start: 0, end: endMinutes })
-        } else {
-          timeRanges.push({ start: startMinutes, end: endMinutes })
-        }
+      const startMinutes = parseTime(shift.start_time)
+      const endMinutes = parseTime(shift.end_time)
+
+      if (endMinutes < startMinutes) {
+        // Night shift - split into two ranges
+        timeRanges.push({ start: startMinutes, end: 24 * 60 })
+        timeRanges.push({ start: 0, end: endMinutes })
+      } else {
+        timeRanges.push({ start: startMinutes, end: endMinutes })
       }
     }
   })
@@ -772,4 +787,204 @@ function check24HourCoverage(rotations: Rotation[], shifts: Shift[]): boolean {
     mergedRanges[0].start === 0 &&
     mergedRanges[0].end === 24 * 60
 }
-//AMAZIN
+
+/**
+ * Build a standard detailed message showing qualification + calculations.
+ * Returns array of string lines suitable for `result.details`.
+ */
+function buildThreeSplitDetails(params: {
+  planTypeDesc: string
+  qualifiesFor33_6: boolean
+  qualifiesFor35_5: boolean
+  meetsNightHours35: boolean
+  avgNightHoursPerWeek20to6: number
+  requiredNightHours: number
+  meetsSundayRequirement: boolean
+  sundaysWorked: number
+  totalSundays: number
+  sundayWorkRatio: number
+  has24HourCoverage: boolean
+  meetsNonNightRequirement: boolean
+  nonNightPercent: number
+  requiredNonNightPercent: number
+  totalHours: number
+  totalNightHoursTariff: number
+  nightHoursLabel: string
+  totalHolidayHoursWorked: number          // AFTER F3/F4/F5 adjustment
+  reductionFromNight: number               // per week credit (used for final weekly calc)
+  reductionFromHoliday: number             // per week credit (used for final weekly calc)
+  reductionFromNightTotal: number          // total credit (before dividing by weeks)
+  reductionFromHolidayTotal: number        // total credit (before dividing by weeks)
+  reductionFromHolidayPostPercent: number  // scaled by work_percent
+  computedReduction: number
+  appliedReduction: number
+  baseStandardWeek: number
+  computedWeeklyAfterReduction: number
+  expectedMaxHours: number
+  actualAvgHoursPerWeek: number
+  exceedsHourLimit: boolean
+  totalZonesChecked: number
+  totalRedDaysWorked: number
+  totalHolidayZones: number
+  planDurationWeeks: number                // total number of weeks in the plan
+  planWorkPercent: number                  // work_percent of the plan
+  hoursToSubtractFromHoliday: number       // F3/F4/F5 overlay hours subtracted
+  rawHolidayHoursBeforeAdjustment: number  // BEFORE F3/F4/F5 adjustment
+  f3Days: number                           // count of F3 days
+  f4Days: number                           // count of F4 days
+  f5Days: number                           // count of F5 days
+  overlayDays: Array<{ type: string; week: number; day: number; date: string; underlyingShift: string; hours: number }> // overlay details
+}) : string[] {
+  const p = params
+
+  const header = [
+    `Plan type: ${p.planTypeDesc}`,
+    '',
+    '⚠️ FIXED VERSION: Now properly excludes F3/F4/F5 overlay hours',
+    '',
+    '=== QUALIFICATION SUMMARY ===',
+    p.qualifiesFor33_6 ? '✅ Qualifies for 33.6h work week' : '✗ Does NOT qualify for 33.6h work week',
+    p.qualifiesFor35_5 ? '✅ Qualifies for 35.5h work week' : '✗ Does NOT qualify for 35.5h work week',
+    ''
+  ]
+
+  const qualificationLogic = [
+    '=== WHY (decision logic) ===',
+    '33.6h requires: (1) 24-hour coverage AND (2) Sunday frequency AND (3) ≥ required non-night %',
+    `  24-hour coverage: ${p.has24HourCoverage ? '✓' : '✗'}`,
+    `  Sunday requirement: ${p.meetsSundayRequirement ? '✓' : '✗'} (${p.sundaysWorked}/${p.totalSundays} Sundays worked; ratio ≈ ${isFinite(p.sundayWorkRatio) ? ('1 in ' + (p.sundayWorkRatio).toFixed(2)) : 'never worked'})`,
+    `  Non-night requirement: ${p.meetsNonNightRequirement ? '✓' : '✗'} (${p.nonNightPercent.toFixed(1)}% non-night, required: ≥ ${p.requiredNonNightPercent}%)`,
+    '',
+    '35.5h requires ONE of:',
+    `  (A) night hours (20:00–06:00) ≥ required → ${p.avgNightHoursPerWeek20to6.toFixed(2)}h/week (required: ≥${p.requiredNightHours}h) → ${p.meetsNightHours35 ? '✓' : '✗'}`,
+    `  (B) Sunday frequency → ${p.meetsSundayRequirement ? '✓' : '✗'}`,
+    ''
+  ]
+
+  // Calculate raw holiday hours before adjustment (use the passed-in raw value)
+  const rawHolidayHours = p.rawHolidayHoursBeforeAdjustment
+  const rawHolidayCredit = rawHolidayHours * (10 / 60)
+  const adjustedHolidayCredit = p.totalHolidayHoursWorked * (10 / 60)
+  const adjustedHolidayCreditPerWeek = adjustedHolidayCredit / p.planDurationWeeks
+
+  const reductionSummary = [
+    '=== REDUCTION CALCULATION (33.6 path) ===',
+    `Base (standard) week: ${p.baseStandardWeek.toFixed(2)} h/week`,
+    '',
+    '--- Night Hours Credit ---',
+    `Tariff night hours (used for night credit): ${p.totalNightHoursTariff.toFixed(2)} h → credit: ${p.reductionFromNightTotal.toFixed(2)} h`,
+    `  → per week: ${(p.reductionFromNightTotal / p.planDurationWeeks).toFixed(2)} h/week`,
+    '',
+    '--- Holiday/Sunday Hours Credit (with F3/F4/F5 adjustment) ---',
+    `Raw holiday/Sunday zone hours (before adjustment): ${rawHolidayHours.toFixed(2)} h`,
+    ...(p.hoursToSubtractFromHoliday > 0 ? [
+      `  F3 overlay days: ${p.f3Days} (hours to subtract included below)`,
+      `  F4 overlay days: ${p.f4Days} (hours to subtract included below)`,
+      `  F5 overlay days: ${p.f5Days} (hours to subtract included below)`,
+      `  Hours to subtract (F3/F4/F5 that overlap zones): ${p.hoursToSubtractFromHoliday.toFixed(2)} h`,
+      `  Raw holiday credit (before adjustment): ${rawHolidayCredit.toFixed(2)} h`,
+    ] : [
+      `  No F3/F4/F5 overlays found in holiday/Sunday zones`,
+    ]),
+    `Adjusted holiday/Sunday hours (after F3/F4/F5 subtraction): ${p.totalHolidayHoursWorked.toFixed(2)} h`,
+    `  → adjusted credit: ${adjustedHolidayCredit.toFixed(2)} h`,
+    `  → per week (before work % scaling): ${adjustedHolidayCreditPerWeek.toFixed(2)} h/week`,
+    `  → scaled by work percent (${p.planWorkPercent}%): ${adjustedHolidayCreditPerWeek.toFixed(2)} × ${(p.planWorkPercent/100).toFixed(2)} = ${p.reductionFromHolidayPostPercent.toFixed(2)} h/week`,
+    '',
+    '--- Final Reduction Calculation ---',
+    `Total computed reduction (night + holiday credits): ${p.computedReduction.toFixed(2)} h/week`,
+    `Candidate weekly hours: ${p.baseStandardWeek.toFixed(2)} - ${p.appliedReduction.toFixed(2)} = ${p.computedWeeklyAfterReduction.toFixed(2)} h/week`,
+    '',
+    '--- Reference Bounds (33.6h qualification) ---',
+    `Upper bound (35.5h × ${p.planWorkPercent}%): ${(35.5 * (p.planWorkPercent/100)).toFixed(2)} h/week`,
+    `Lower bound (33.6h × ${p.planWorkPercent}%): ${(33.6 * (p.planWorkPercent/100)).toFixed(2)} h/week`,
+    `Candidate value: ${p.computedWeeklyAfterReduction.toFixed(2)} h/week`,
+    ...(p.computedWeeklyAfterReduction > (35.5 * (p.planWorkPercent/100)) ? [
+      `  → Above upper bound, capped to ${(35.5 * (p.planWorkPercent/100)).toFixed(2)} h/week`,
+    ] : p.computedWeeklyAfterReduction < (33.6 * (p.planWorkPercent/100)) ? [
+      `  → Below lower bound, capped to ${(33.6 * (p.planWorkPercent/100)).toFixed(2)} h/week`,
+    ] : [
+      `  → Within bounds, using computed value`,
+    ]),
+    `Final allowed weekly (after bounds check): ${p.expectedMaxHours.toFixed(2)} h/week`,
+    ''
+  ]
+
+  // Add overlay details if any exist
+  if (p.overlayDays.length > 0) {
+    reductionSummary.push('--- F3/F4/F5 Overlay Details ---')
+    const f3List = p.overlayDays.filter(d => d.type === 'F3')
+    const f4List = p.overlayDays.filter(d => d.type === 'F4')
+    const f5List = p.overlayDays.filter(d => d.type === 'F5')
+
+    if (f3List.length > 0) {
+      reductionSummary.push(`F3 (Helgedags fri) - ${f3List.length} days:`)
+      f3List.forEach(d => {
+        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        reductionSummary.push(`  Week ${d.week}, ${dayNames[d.day]} (${d.date}): ${d.underlyingShift} - ${d.hours.toFixed(2)}h`)
+      })
+    }
+    if (f4List.length > 0) {
+      reductionSummary.push(`F4 (Feriedagar) - ${f4List.length} days:`)
+      f4List.forEach(d => {
+        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        reductionSummary.push(`  Week ${d.week}, ${dayNames[d.day]} (${d.date}): ${d.underlyingShift} - ${d.hours.toFixed(2)}h`)
+      })
+    }
+    if (f5List.length > 0) {
+      reductionSummary.push(`F5 (Erstatningsfridagar) - ${f5List.length} days:`)
+      f5List.forEach(d => {
+        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        reductionSummary.push(`  Week ${d.week}, ${dayNames[d.day]} (${d.date}): ${d.underlyingShift} - ${d.hours.toFixed(2)}h`)
+      })
+    }
+    reductionSummary.push('')
+  }
+
+  const hoursSummary = [
+    '=== HOURS / METRICS (raw numbers used) ===',
+    `Total hours (sum of NON-DEFAULT shifts across rotations): ${p.totalHours.toFixed(2)} h`,
+    `Total tariff night hours (${p.nightHoursLabel}): ${p.totalNightHoursTariff.toFixed(2)} h`,
+    `Non-night %: ${p.nonNightPercent.toFixed(1)}%`,
+    `Avg night hours (20:00–06:00) used for 35.5h-check: ${p.avgNightHoursPerWeek20to6.toFixed(2)} h/week`,
+    `Average actual hours per week: ${p.actualAvgHoursPerWeek.toFixed(2)} h/week`,
+    `Allowed (final) weekly hours: ${p.expectedMaxHours.toFixed(2)} h/week`,
+    `Exceeds allowed limit: ${p.exceedsHourLimit ? 'YES' : 'NO'}`,
+    ''
+  ]
+
+  const zoneSummary = [
+    '=== TIME ZONE / HOLIDAY CHECKS ===',
+    `Total zones checked (Sundays + relevant holidays): ${p.totalZonesChecked}`,
+    `Sundays worked: ${p.sundaysWorked}/${p.totalSundays}`,
+    `Red days worked (non-Sunday holidays): ${p.totalRedDaysWorked}/${p.totalHolidayZones}`,
+    `Holiday/Sunday hours worked (after F3/F4/F5 adjustment): ${p.totalHolidayHoursWorked.toFixed(2)} h`,
+    ''
+  ]
+
+  const recommendation = [
+    '=== RECOMMENDATION / NEXT ACTIONS ==='
+  ]
+
+  if (p.exceedsHourLimit) {
+    recommendation.push(
+      `Plan exceeds the allowed weekly hours for the qualification. Reduce by ${(p.actualAvgHoursPerWeek - p.expectedMaxHours).toFixed(2)} h/week.`
+    )
+  } else if (!p.qualifiesFor33_6 && !p.qualifiesFor35_5) {
+    const guidance: string[] = []
+    guidance.push(' • Does not qualify for reduced week. Consider increasing night hours or Sunday/holiday coverage, or restructure to achieve 24h coverage and non-night % for 33.6 path.')
+    recommendation.push(...guidance)
+  } else {
+    recommendation.push('No corrective action required; the plan qualifies and is within the allowed weekly hours.')
+  }
+
+  // Combine and return
+  return [
+    ...header,
+    ...qualificationLogic,
+    ...reductionSummary,
+    ...hoursSummary,
+    ...zoneSummary,
+    ...recommendation
+  ]
+}
