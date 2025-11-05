@@ -3,7 +3,7 @@
 import { LawCheck, LawCheckResult } from '@/types/lawCheck'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
-import { getNightHoursCalculator, getNightHoursLabel } from '@/lib/utils/shiftTimePeriods'
+import { getNightHoursCalculator, getNightHoursLabel, getNightPeriodDefinition } from '@/lib/utils/shiftTimePeriods'
 import { getHolidayTimeZones, HolidayTimeZone } from '@/lib/utils/norwegianHolidayTimeZones'
 import { calculateShiftHours } from '@/lib/utils/shiftCalculations'
 
@@ -292,6 +292,9 @@ export const threeSplitAverageCheck: LawCheck = {
     let hoursToSubtractFromHoliday = 0
     const overlayDays: Array<{ type: string; week: number; day: number; date: string; underlyingShift: string; hours: number }> = []
     
+    // Track night hours that overlap with holiday zones to avoid double-counting
+    let nightHoursInHolidayZones = 0
+    
     effectiveRotations.forEach(rotation => {
       // Check if there's an overlay
       if (rotation.overlay_shift_id) {
@@ -335,12 +338,40 @@ export const threeSplitAverageCheck: LawCheck = {
       }
     })
 
+    // Calculate night hours that overlap with holiday/Sunday zones
+    // These should be subtracted from holiday hours since night credit is higher (0.25 vs 10/60=0.167)
+    effectiveRotations.forEach(rotation => {
+      if (!rotation.shift_id) return
+      const shift = effectiveShifts.find(s => s.id === rotation.shift_id)
+      
+      // Skip default shifts (F1-F5)
+      if (!shift || shift.is_default || !shift.start_time || !shift.end_time) return
+
+      // Check if this shift overlaps with any holiday/Sunday zone
+      relevantTimeZones.forEach(zone => {
+        const zoneOverlap = calculateTimeZoneOverlap(rotation, shift, zone, planStartDate)
+        if (zoneOverlap > 0) {
+          // Calculate how much of this zone overlap is also night hours
+          const nightHoursInThisShift = calculateNightHours(shift.start_time, shift.end_time)
+          
+          // Calculate the overlap between night hours and the holiday zone
+          // This is a simplified approach: we calculate what portion of the shift is both in zone AND in night period
+          const nightOverlapInZone = calculateNightHoursInZone(rotation, shift, zone, planStartDate, plan.tariffavtale)
+          
+          if (nightOverlapInZone > 0) {
+            nightHoursInHolidayZones += nightOverlapInZone
+          }
+        }
+      })
+    })
+
     // Apply the subtraction BEFORE reduction calculation
     const rawHolidayHoursBeforeAdjustment = totalHolidayHoursWorked
     console.log(`\n⚠️  OVERLAY HOUR ADJUSTMENT (before reduction calculation):`)
     console.log(`  Total holiday/Sunday hours (raw from zones): ${totalHolidayHoursWorked.toFixed(2)}h`)
     console.log(`  Hours to subtract (F3/F4/F5 overlays): ${hoursToSubtractFromHoliday.toFixed(2)}h`)
-    totalHolidayHoursWorked = Math.max(0, totalHolidayHoursWorked - hoursToSubtractFromHoliday)
+    console.log(`  Hours to subtract (night hours in zones - avoid double count): ${nightHoursInHolidayZones.toFixed(2)}h`)
+    totalHolidayHoursWorked = Math.max(0, totalHolidayHoursWorked - hoursToSubtractFromHoliday - nightHoursInHolidayZones)
     console.log(`  Adjusted holiday/Sunday hours: ${totalHolidayHoursWorked.toFixed(2)}h`)
 
     // ============================================================
@@ -517,6 +548,7 @@ export const threeSplitAverageCheck: LawCheck = {
       planDurationWeeks: actualWeeks,
       planWorkPercent: plan.work_percent,
       hoursToSubtractFromHoliday,
+      nightHoursInHolidayZones,
       rawHolidayHoursBeforeAdjustment,
       f3Days: f3Days.length,
       f4Days: f4Days.length,
@@ -535,16 +567,17 @@ export const threeSplitAverageCheck: LawCheck = {
     } else if ((qualifiesFor33_6 || qualifiesFor35_5) && exceedsHourLimit) {
       result.status = 'fail'
       const reduceBy = actualAvgHoursPerWeek - expectedMaxHours
-      result.message = `Turnusen inneheld: **${actualAvgHoursPerWeek.toFixed(2)}t/veke**, men skal innehalde: **${expectedMaxHours.toFixed(2)}t/veke**. Turnusen må reduserast med **${(reduceBy*52).toFixed(2)}t** eller **${reduceBy.toFixed(2)}t/veke**.`
+      const totalReduction = reduceBy * actualWeeks
+      result.message = `Turnusen inneheld: **${actualAvgHoursPerWeek.toFixed(2)}t/veke**, men skal innehalde: **${expectedMaxHours.toFixed(2)}t/veke**. Turnusen må reduserast med **${reduceBy.toFixed(2)}t/veke** eller reduser med **${totalReduction.toFixed(2)}t** totalt.`
 
       result.violations = [{
         weekIndex: -1,
         dayOfWeek: -1,
-        description: `Turnusen inneheld: ${actualAvgHoursPerWeek.toFixed(2)}t/veke, men skal innehalde: ${expectedMaxHours.toFixed(2)}t/veke. Turnusen må reduserast med ${reduceBy.toFixed(2)}t/veke.`
+        description: `Turnusen inneheld: ${actualAvgHoursPerWeek.toFixed(2)}t/veke, men skal innehalde: ${expectedMaxHours.toFixed(2)}t/veke. Turnusen må reduserast med ${reduceBy.toFixed(2)}t/veke eller ${totalReduction.toFixed(2)}t totalt.`
       }]
     } else {
       result.status = 'fail'
-      result.message = `Kvalifiserer ikkje for 35,5t/veke eller 3-delt snitt. Du vil vere kvalifisert som turnusarbeidar med 37,5t arbeidsveke.`
+      result.message = `Kvalifiserer ikkje for 35,5t/veke eller 3-delt snitt. Du kan vere kvalifisert som turnusarbeidar med 37,5t arbeidsveke. Så du har rett på tillegg frå Tariffavtalen.`
       result.violations = [{
         weekIndex: -1,
         dayOfWeek: -1,
@@ -736,6 +769,119 @@ function calculateNightHours20to6(startTime: string, endTime: string): number {
 }
 
 /**
+ * Calculate night hours that fall within a specific holiday/Sunday zone
+ * This is used to avoid double-counting hours that qualify for both night credit (0.25) and holiday credit (10/60)
+ * Since night credit is higher, we subtract these overlapping hours from holiday hours
+ */
+function calculateNightHoursInZone(
+  rotation: Rotation,
+  shift: Shift,
+  zone: HolidayTimeZone,
+  planStartDate: Date,
+  tariffavtale: string
+): number {
+  if (!shift.start_time || !shift.end_time) return 0
+
+  const parseTime = (time: string) => {
+    const [h, m] = time.split(':').map(Number)
+    return { hour: h, minute: m }
+  }
+
+  const startTime = parseTime(shift.start_time)
+  const endTime = parseTime(shift.end_time)
+
+  const isNightShift =
+    endTime.hour < startTime.hour ||
+    (endTime.hour === startTime.hour && endTime.minute < startTime.minute)
+
+  const rotationDate = getRotationDate(planStartDate, rotation.week_index, rotation.day_of_week)
+
+  let shiftStartDateTime: Date
+  let shiftEndDateTime: Date
+
+  if (rotation.day_of_week === 6 && isNightShift) {
+    const saturday = new Date(rotationDate)
+    saturday.setDate(saturday.getDate() - 1)
+
+    shiftStartDateTime = new Date(saturday)
+    shiftStartDateTime.setHours(startTime.hour, startTime.minute, 0, 0)
+
+    shiftEndDateTime = new Date(rotationDate)
+    shiftEndDateTime.setHours(endTime.hour, endTime.minute, 0, 0)
+  } else if (isNightShift) {
+    const prevDay = new Date(rotationDate)
+    prevDay.setDate(prevDay.getDate() - 1)
+
+    shiftStartDateTime = new Date(prevDay)
+    shiftStartDateTime.setHours(startTime.hour, startTime.minute, 0, 0)
+
+    shiftEndDateTime = new Date(rotationDate)
+    shiftEndDateTime.setHours(endTime.hour, endTime.minute, 0, 0)
+  } else {
+    shiftStartDateTime = new Date(rotationDate)
+    shiftStartDateTime.setHours(startTime.hour, startTime.minute, 0, 0)
+
+    shiftEndDateTime = new Date(rotationDate)
+    shiftEndDateTime.setHours(endTime.hour, endTime.minute, 0, 0)
+  }
+
+  // Get night period based on tariffavtale
+  const nightPeriod = getNightPeriodDefinition(tariffavtale)
+  
+  // Calculate what time periods we need to check for night hours
+  // Night period wraps around midnight, so we need to check two segments
+  const nightStartToday = new Date(shiftStartDateTime)
+  nightStartToday.setHours(nightPeriod.start, 0, 0, 0)
+  
+  const nightEndToday = new Date(shiftStartDateTime)
+  nightEndToday.setHours(nightPeriod.end, 0, 0, 0)
+  if (nightPeriod.end < nightPeriod.start) {
+    // Night period crosses midnight (e.g., 21:00-06:00)
+    nightEndToday.setDate(nightEndToday.getDate() + 1)
+  }
+
+  // Also check previous day's night period (for shifts that might span it)
+  const nightStartYesterday = new Date(nightStartToday)
+  nightStartYesterday.setDate(nightStartYesterday.getDate() - 1)
+  
+  const nightEndYesterday = new Date(nightEndToday)
+  nightEndYesterday.setDate(nightEndYesterday.getDate() - 1)
+
+  let totalNightInZone = 0
+
+  // Check overlap between: (shift AND zone AND night period)
+  const zoneStart = zone.startDateTime
+  const zoneEnd = zone.endDateTime
+
+  // Helper to calculate triple overlap
+  const calculateTripleOverlap = (nightStart: Date, nightEnd: Date) => {
+    // Find the intersection of all three periods: shift, zone, night
+    const overlapStart = new Date(Math.max(
+      shiftStartDateTime.getTime(),
+      zoneStart.getTime(),
+      nightStart.getTime()
+    ))
+    
+    const overlapEnd = new Date(Math.min(
+      shiftEndDateTime.getTime(),
+      zoneEnd.getTime(),
+      nightEnd.getTime()
+    ))
+
+    if (overlapStart < overlapEnd) {
+      return (overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60)
+    }
+    return 0
+  }
+
+  // Check both today's and yesterday's night periods
+  totalNightInZone += calculateTripleOverlap(nightStartYesterday, nightEndYesterday)
+  totalNightInZone += calculateTripleOverlap(nightStartToday, nightEndToday)
+
+  return totalNightInZone
+}
+
+/**
  * Check 24-hour coverage (only using non-default shifts)
  */
 function check24HourCoverage(rotations: Rotation[], shifts: Shift[]): boolean {
@@ -810,7 +956,7 @@ function buildThreeSplitDetails(params: {
   totalHours: number
   totalNightHoursTariff: number
   nightHoursLabel: string
-  totalHolidayHoursWorked: number          // AFTER F3/F4/F5 adjustment
+  totalHolidayHoursWorked: number          // AFTER all adjustments
   reductionFromNight: number               // per week credit (used for final weekly calc)
   reductionFromHoliday: number             // per week credit (used for final weekly calc)
   reductionFromNightTotal: number          // total credit (before dividing by weeks)
@@ -829,6 +975,7 @@ function buildThreeSplitDetails(params: {
   planDurationWeeks: number                // total number of weeks in the plan
   planWorkPercent: number                  // work_percent of the plan
   hoursToSubtractFromHoliday: number       // F3/F4/F5 overlay hours subtracted
+  nightHoursInHolidayZones: number         // Night hours in zones (avoid double-count)
   rawHolidayHoursBeforeAdjustment: number  // BEFORE F3/F4/F5 adjustment
   f3Days: number                           // count of F3 days
   f4Days: number                           // count of F4 days
@@ -886,7 +1033,11 @@ function buildThreeSplitDetails(params: {
     ] : [
       `  No F3/F4/F5 overlays found in holiday/Sunday zones`,
     ]),
-    `Adjusted holiday/Sunday hours (after F3/F4/F5 subtraction): ${p.totalHolidayHoursWorked.toFixed(2)} h`,
+    ...(p.nightHoursInHolidayZones > 0 ? [
+      `  Hours to subtract (night hours in zones - higher credit): ${p.nightHoursInHolidayZones.toFixed(2)} h`,
+      `  (Night credit: 0.25 vs Holiday credit: ${(10/60).toFixed(3)} → use night, subtract from holiday)`,
+    ] : []),
+    `Adjusted holiday/Sunday hours (after all subtractions): ${p.totalHolidayHoursWorked.toFixed(2)} h`,
     `  → adjusted credit: ${adjustedHolidayCredit.toFixed(2)} h`,
     `  → per week (before work % scaling): ${adjustedHolidayCreditPerWeek.toFixed(2)} h/week`,
     `  → scaled by work percent (${p.planWorkPercent}%): ${adjustedHolidayCreditPerWeek.toFixed(2)} × ${(p.planWorkPercent/100).toFixed(2)} = ${p.reductionFromHolidayPostPercent.toFixed(2)} h/week`,
