@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import ScreenshotCarousel from '@/components/landing/ScreenshotCarousel'
 import LogoutButton from '@/components/LogoutButton'
 import PricingCards from '@/components/pricing/PricingCards'
+import { checkIsAdmin } from '@/lib/admin/checkAdmin'
+
 
 export const metadata = {
   title: 'Turnus-Hjelp',
@@ -13,6 +15,7 @@ export const metadata = {
 export default async function LandingPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const { isAdmin } = await checkIsAdmin()
 
   // Check if user has active subscription (Pro user)
   let isPro = false
@@ -99,6 +102,17 @@ export default async function LandingPage() {
                     Start gratis
                   </Link>
                 </>
+              )}
+              {isAdmin && (
+                <Link
+                  href="/admin/subscriptions"
+                  className="flex items-center gap-2 text-purple-600 hover:text-purple-700 font-semibold"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                  </svg>
+                  Admin Panel
+                </Link>
               )}
             </div>
           </div>
