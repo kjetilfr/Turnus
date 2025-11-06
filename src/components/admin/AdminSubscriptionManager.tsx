@@ -4,11 +4,29 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+interface Subscription {
+  id?: string
+  user_id: string
+  tier?: string
+  status: string
+  stripe_subscription_id?: string
+  stripe_customer_id?: string
+  current_period_start?: string
+  current_period_end?: string
+  trial_end?: string
+  is_manual?: boolean
+  manual_granted_by?: string
+  manual_granted_at?: string
+  canceled_at?: string
+  created_at?: string
+  updated_at?: string
+}
+
 interface User {
   id: string
   email?: string
   created_at: string
-  subscriptions?: any[]
+  subscriptions?: Subscription[]
 }
 
 interface AdminSubscriptionManagerProps {
@@ -16,13 +34,12 @@ interface AdminSubscriptionManagerProps {
 }
 
 export default function AdminSubscriptionManager({ users: initialUsers }: AdminSubscriptionManagerProps) {
-  const [users, setUsers] = useState(initialUsers)
   const [filter, setFilter] = useState<'all' | 'active' | 'manual' | 'stripe' | 'none'>('all')
   const [loading, setLoading] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const router = useRouter()
 
-  const filteredUsers = users.filter(user => {
+  const filteredUsers = initialUsers.filter(user => {
     // Filter by search query
     if (searchQuery && !user.email?.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false
@@ -155,30 +172,30 @@ export default function AdminSubscriptionManager({ users: initialUsers }: AdminS
       {/* Stats Cards */}
       <div className="grid md:grid-cols-5 gap-4">
         <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="text-3xl font-bold text-gray-900">{users.length}</div>
+          <div className="text-3xl font-bold text-gray-900">{initialUsers.length}</div>
           <div className="text-sm text-gray-600">Total Users</div>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="text-3xl font-bold text-green-600">
-            {users.filter(u => u.subscriptions?.[0]?.status === 'active' || u.subscriptions?.[0]?.status === 'trialing').length}
+            {initialUsers.filter(u => u.subscriptions?.[0]?.status === 'active' || u.subscriptions?.[0]?.status === 'trialing').length}
           </div>
           <div className="text-sm text-gray-600">Active Subs</div>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="text-3xl font-bold text-purple-600">
-            {users.filter(u => u.subscriptions?.[0]?.is_manual).length}
+            {initialUsers.filter(u => u.subscriptions?.[0]?.is_manual).length}
           </div>
           <div className="text-sm text-gray-600">Manual Grants</div>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="text-3xl font-bold text-blue-600">
-            {users.filter(u => u.subscriptions?.[0]?.stripe_subscription_id && !u.subscriptions?.[0]?.is_manual).length}
+            {initialUsers.filter(u => u.subscriptions?.[0]?.stripe_subscription_id && !u.subscriptions?.[0]?.is_manual).length}
           </div>
           <div className="text-sm text-gray-600">Stripe Subs</div>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="text-3xl font-bold text-gray-600">
-            {users.filter(u => !u.subscriptions?.[0] || u.subscriptions?.[0]?.status === 'canceled').length}
+            {initialUsers.filter(u => !u.subscriptions?.[0] || u.subscriptions?.[0]?.status === 'canceled').length}
           </div>
           <div className="text-sm text-gray-600">No Sub</div>
         </div>
@@ -205,7 +222,7 @@ export default function AdminSubscriptionManager({ users: initialUsers }: AdminS
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            All ({users.length})
+            All ({initialUsers.length})
           </button>
           <button
             onClick={() => setFilter('active')}
@@ -215,7 +232,7 @@ export default function AdminSubscriptionManager({ users: initialUsers }: AdminS
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            Active ({users.filter(u => u.subscriptions?.[0]?.status === 'active' || u.subscriptions?.[0]?.status === 'trialing').length})
+            Active ({initialUsers.filter(u => u.subscriptions?.[0]?.status === 'active' || u.subscriptions?.[0]?.status === 'trialing').length})
           </button>
           <button
             onClick={() => setFilter('manual')}
@@ -225,7 +242,7 @@ export default function AdminSubscriptionManager({ users: initialUsers }: AdminS
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            Manual ({users.filter(u => u.subscriptions?.[0]?.is_manual).length})
+            Manual ({initialUsers.filter(u => u.subscriptions?.[0]?.is_manual).length})
           </button>
           <button
             onClick={() => setFilter('stripe')}
@@ -235,7 +252,7 @@ export default function AdminSubscriptionManager({ users: initialUsers }: AdminS
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            Stripe ({users.filter(u => u.subscriptions?.[0]?.stripe_subscription_id && !u.subscriptions?.[0]?.is_manual).length})
+            Stripe ({initialUsers.filter(u => u.subscriptions?.[0]?.stripe_subscription_id && !u.subscriptions?.[0]?.is_manual).length})
           </button>
           <button
             onClick={() => setFilter('none')}
@@ -245,7 +262,7 @@ export default function AdminSubscriptionManager({ users: initialUsers }: AdminS
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            No Sub ({users.filter(u => !u.subscriptions?.[0] || u.subscriptions?.[0]?.status === 'canceled').length})
+            No Sub ({initialUsers.filter(u => !u.subscriptions?.[0] || u.subscriptions?.[0]?.status === 'canceled').length})
           </button>
         </div>
       </div>
