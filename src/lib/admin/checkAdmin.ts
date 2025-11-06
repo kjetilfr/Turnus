@@ -1,22 +1,33 @@
 // src/lib/admin/checkAdmin.ts
 import { createClient } from '@/lib/supabase/server'
 
+/**
+ * Check if the current user is an admin
+ * Reads from raw_user_meta_data.is_admin field
+ * This is the same approach used for articles admin access
+ */
 export async function checkIsAdmin() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-  if (!user) {
+  if (userError || !user) {
+    console.log('❌ No authenticated user')
     return { isAdmin: false, user: null }
   }
 
-  // Check if user exists in admin_users view
-  const { data: adminUser, error } = await supabase
-    .from('admin_users')
-    .select('id, email, is_admin')
-    .eq('id', user.id)
-    .single()
+  console.log('✅ User authenticated:', user.email)
 
-  const isAdmin = !error && adminUser?.is_admin === true
+  // Check if user has is_admin = true in raw_user_meta_data
+  // This is the same pattern used in your articles policies
+  const isAdmin = user.user_metadata?.is_admin === true
+
+  console.log('🔍 Admin check:', {
+    userId: user.id,
+    email: user.email,
+    metadata: user.user_metadata,
+    isAdmin
+  })
 
   return { isAdmin, user }
 }
