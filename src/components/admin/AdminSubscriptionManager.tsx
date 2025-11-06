@@ -119,7 +119,7 @@ export default function AdminSubscriptionManager({ users: initialUsers }: AdminS
       return <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">No Subscription</span>
     }
 
-    if (subscription.is_manual) {
+    if (subscription.status === 'active' && subscription.is_manual) {
       return (
         <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
           Manual {subscription.tier?.toUpperCase()}
@@ -290,7 +290,7 @@ export default function AdminSubscriptionManager({ users: initialUsers }: AdminS
                       {getSubscriptionBadge(user)}
                     </td>
                     <td className="px-6 py-4">
-                      {subscription ? (
+                      {subscription && subscription.status !== 'canceled' ? (
                         <div className="text-xs text-gray-600 space-y-1">
                           {subscription.is_manual && (
                             <div className="text-purple-600 font-medium">
@@ -310,7 +310,7 @@ export default function AdminSubscriptionManager({ users: initialUsers }: AdminS
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
-                        {subscription?.is_manual ? (
+                        {subscription?.is_manual && subscription.status !== 'canceled' ? (
                           <button
                             onClick={() => handleRevokeSubscription(user.id, user.email || '')}
                             disabled={loading === user.id}
