@@ -10,6 +10,7 @@ import PlanDetails from '@/components/plan/PlanDetails'
 import ShiftsSummaryCard from '@/components/shift/ShiftsSummaryCard'
 import ManageShiftsButton from '@/components/shift/ManageShiftsButton'
 import ImportRotationButton from '@/components/shift/ImportRotationButton'
+import AIPopulateButton from '@/components/ai/AIPopulateButton'
 import Link from 'next/link'
 
 interface PageProps {
@@ -141,6 +142,7 @@ export default async function PlanDetailPage({ params }: PageProps) {
                   />
                 )}
                 <ManageShiftsButton planId={id} />
+                <AIPopulateButton planId={id} /> 
               </div>
             </div>
 

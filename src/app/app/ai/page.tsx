@@ -2,7 +2,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import TurnusUploader from '@/components/ai/TurnusUploader'
 
 export default async function AIFeaturesPage() {
   const supabase = await createClient()
@@ -60,9 +59,6 @@ export default async function AIFeaturesPage() {
                   Bruk AI til å automatisk lage turnusplanar frå PDF og få smarte forbetringsforslag.
                 </p>
               </div>
-
-              {/* PDF Upload Section */}
-              <TurnusUploader />
 
               {/* AI Recommendations Section */}
               <div className="bg-white rounded-xl shadow-lg p-8">
