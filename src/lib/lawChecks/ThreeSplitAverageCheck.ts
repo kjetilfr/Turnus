@@ -350,10 +350,7 @@ export const threeSplitAverageCheck: LawCheck = {
       // Check if this shift overlaps with any holiday/Sunday zone
       relevantTimeZones.forEach(zone => {
         const zoneOverlap = calculateTimeZoneOverlap(rotation, shift, zone, planStartDate)
-        if (zoneOverlap > 0) {
-          // Calculate how much of this zone overlap is also night hours
-          const nightHoursInThisShift = calculateNightHours(shift.start_time, shift.end_time)
-          
+        if (zoneOverlap > 0) {       
           // Calculate the overlap between night hours and the holiday zone
           // This is a simplified approach: we calculate what portion of the shift is both in zone AND in night period
           const nightOverlapInZone = calculateNightHoursInZone(rotation, shift, zone, planStartDate, plan.tariffavtale)

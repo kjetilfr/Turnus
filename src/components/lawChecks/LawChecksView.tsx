@@ -138,8 +138,6 @@ export default function LawChecksView({
   }, { pass: 0, fail: 0, warning: 0, not_run: 0, disabled: 0 } as Record<LawCheckStatus | 'disabled', number>)
 
   // Count by law type
-  const amlCount = applicableChecks.filter(c => c.lawType === 'aml').length
-  const htaCount = applicableChecks.filter(c => c.lawType === 'hta').length
   const enabledCount = applicableChecks.filter(c => enabledChecks[c.id]).length
 
   return (

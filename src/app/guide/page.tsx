@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { describe } from 'node:test'
 
 export const metadata = {
   title: 'Korleis sjekke turnusen din - Detaljert guide',

@@ -677,7 +677,6 @@ function calculateShiftEndDateTime(shiftDate: Date, shift: Shift): Date {
  */
 function calculateShiftStartDateTime(shiftDate: Date, shift: Shift): Date {
   const [startHour, startMin] = shift.start_time!.split(':').map(Number)
-  const [endHour] = shift.end_time!.split(':').map(Number)
   
   const result = new Date(shiftDate)
   

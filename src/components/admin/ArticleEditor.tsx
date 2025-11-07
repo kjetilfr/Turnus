@@ -133,7 +133,7 @@ export default function ArticleEditor({ article }: ArticleEditorProps) {
 
       if (article) {
         // Update existing article
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('articles')
           .update(articleData)
           .eq('id', article.id)

@@ -182,7 +182,7 @@ export default async function ArticlePage({ params }: PageProps) {
                   </h2>
                 ),
                 h3: ({ children }) => (
-                  <h3 className="text-2xl font-bold text-gray-900 mt-10 mb-4">
+                  <h3 className="text-2xl font-bold text-gray-900 mt-10 mb-4">claude
                     {children}
                   </h3>
                 ),

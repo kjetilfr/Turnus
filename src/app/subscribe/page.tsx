@@ -1,5 +1,4 @@
 // src/app/subscribe/page.tsx - UPDATED with Pro/Premium tiers
-import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { checkSubscription } from '@/lib/supabase/subscriptionCheck'

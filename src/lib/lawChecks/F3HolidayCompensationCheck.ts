@@ -6,21 +6,6 @@ import { Shift } from '@/types/shift'
 import { getHolidayTimeZones, HolidayTimeZone } from '@/lib/utils/norwegianHolidayTimeZones'
 
 /**
- * Merge overlapping timezones (e.g., when a holiday falls on Sunday)
- * This prevents double-counting the same calendar day
- * Only merges zones that share the same end date AND have actual overlapping time (not just touching at boundaries)
- */
-function areSameLocalDate(a: Date, b: Date): boolean {
-  const ad = new Date(a)
-  const bd = new Date(b)
-  // Use Oslo local date by shifting to midnight in Europe/Oslo
-  // (formatDateLocal returns 'YYYY-MM-DD' but numeric compare is more robust)
-  const aStr = ad.toLocaleDateString('sv-SE', { timeZone: 'Europe/Oslo' })
-  const bStr = bd.toLocaleDateString('sv-SE', { timeZone: 'Europe/Oslo' })
-  return aStr === bStr
-}
-
-/**
  * Robust merge: merge intervals that overlap or fall on the same local calendar day.
  * Also merge when intervals are within `toleranceMs` of each other (to avoid tiny-millis edge cases).
  */

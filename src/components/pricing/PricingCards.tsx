@@ -2,7 +2,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 
 interface PricingTier {
   name: string
@@ -51,7 +50,6 @@ const tiers: PricingTier[] = [
 
 export default function PricingCards() {
   const [loading, setLoading] = useState<string | null>(null)
-  const router = useRouter()
 
   const handleSubscribe = async (tier: 'pro' | 'premium') => {
     try {

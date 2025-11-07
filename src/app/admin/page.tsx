@@ -1,5 +1,4 @@
 // src/app/admin/page.tsx
-import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/service'
 import { redirect } from 'next/navigation'
 import { checkIsAdmin } from '@/lib/admin/checkAdmin'
