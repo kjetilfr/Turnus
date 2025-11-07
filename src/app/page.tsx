@@ -105,7 +105,7 @@ export default async function LandingPage() {
               )}
               {isAdmin && (
                 <Link
-                  href="/admin/subscriptions"
+                  href="/admin"
                   className="flex items-center gap-2 text-purple-600 hover:text-purple-700 font-semibold"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

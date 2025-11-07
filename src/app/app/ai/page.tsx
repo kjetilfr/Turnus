@@ -2,7 +2,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import PDFUploader from '@/components/ai/PDFUploader'
+import TurnusUploader from '@/components/ai/TurnusUploader'
 
 export default async function AIFeaturesPage() {
   const supabase = await createClient()
@@ -62,7 +62,7 @@ export default async function AIFeaturesPage() {
               </div>
 
               {/* PDF Upload Section */}
-              <PDFUploader />
+              <TurnusUploader />
 
               {/* AI Recommendations Section */}
               <div className="bg-white rounded-xl shadow-lg p-8">

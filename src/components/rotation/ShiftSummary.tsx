@@ -46,23 +46,36 @@ export default function ShiftSummary({ rotations, shifts, plan, planType }: Shif
     })
     
     // Count occurrences and calculate total hours
-    rotations.forEach(rotation => {
-      if (rotation.shift_id) {
-        const stats = statsMap.get(rotation.shift_id)
-        if (stats) {
-          const shiftHours = calculateShiftHours(stats.shift.start_time, stats.shift.end_time)
-          const eveningHours = calculateEveningHours(stats.shift.start_time, stats.shift.end_time)
-          const nightHours = calculateNightHours(stats.shift.start_time, stats.shift.end_time)
-          const weekendHours = calculateWeekendHours(stats.shift.start_time, stats.shift.end_time, rotation.day_of_week)
-          
-          stats.count++
-          stats.totalHours += shiftHours
-          stats.eveningHours += eveningHours
-          stats.nightHours += nightHours
-          stats.weekendHours += weekendHours
+      rotations.forEach(rotation => {
+        const overlayShift = rotation.overlay_shift_id ? statsMap.get(rotation.overlay_shift_id) : null
+
+        // 🟣 Case 1: F3 overlay compensation
+        if (rotation.overlay_type === 'f3_compensation' && overlayShift) {
+          // Count the F3 overlay itself (0 hours)
+          overlayShift.count++
+          // Do not add hours for the replaced base shift
+          return
         }
-      }
-    })
+
+        // 🟢 Case 2: Normal shift (no F3 overlay)
+        if (rotation.shift_id) {
+          const stats = statsMap.get(rotation.shift_id)
+          if (stats) {
+            const shiftHours = calculateShiftHours(stats.shift.start_time, stats.shift.end_time)
+            const eveningHours = calculateEveningHours(stats.shift.start_time, stats.shift.end_time)
+            const nightHours = calculateNightHours(stats.shift.start_time, stats.shift.end_time)
+            const weekendHours = calculateWeekendHours(stats.shift.start_time, stats.shift.end_time, rotation.day_of_week)
+
+            stats.count++
+            stats.totalHours += shiftHours
+            stats.eveningHours += eveningHours
+            stats.nightHours += nightHours
+            stats.weekendHours += weekendHours
+          }
+        }
+      })
+
+
     
     // Filter and sort based on plan type
     return Array.from(statsMap.values())
@@ -76,7 +89,7 @@ export default function ShiftSummary({ rotations, shifts, plan, planType }: Shif
         }
         // For helping/year plans, exclude F shifts that aren't used
         if ((planType === 'helping' || planType === 'year') && stat.shift.is_default) {
-          // Only include F3-F5 if they're actually used
+          // Include F3-F5 if they're actually used (count > 0)
           if (['F3', 'F4', 'F5'].includes(stat.shift.name)) {
             return stat.count > 0
           }
@@ -161,6 +174,9 @@ export default function ShiftSummary({ rotations, shifts, plan, planType }: Shif
                 </tr>
                 {defaultShiftStats.map((stat) => {
                   const shiftHours = calculateShiftHours(stat.shift.start_time, stat.shift.end_time)
+                  // F3 shifts should display 0 hours
+                  const isF3 = stat.shift.name === 'F3'
+                  
                   return (
                     <tr key={stat.shift.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -172,7 +188,11 @@ export default function ShiftSummary({ rotations, shifts, plan, planType }: Shif
                         {stat.shift.description || '-'}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900 text-center">
-                        {formatTime(stat.shift.start_time)} - {formatTime(stat.shift.end_time)} ({formatHours(shiftHours)})
+                        {isF3 ? (
+                          <span className="text-gray-500">-</span>
+                        ) : (
+                          `${formatTime(stat.shift.start_time)} - ${formatTime(stat.shift.end_time)} (${formatHours(shiftHours)})`
+                        )}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900 text-center font-semibold">
                         {stat.count}
