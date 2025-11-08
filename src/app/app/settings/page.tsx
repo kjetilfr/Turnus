@@ -71,15 +71,15 @@ export default async function SettingsPage() {
     if (tier === 'premium') {
       return {
         name: 'Premium',
-        price: '199',
-        description: 'AI-assistert planlegging + alle Pro-funksjonar',
+        price: '79',
+        description: 'KI-assistert planlegging + alle Pro-funksjonar',
         color: 'purple'
       }
     }
     // Default to Pro
     return {
       name: 'Pro',
-      price: '99',
+      price: '49',
       description: 'Ubegrensa turnussjekkar og kalendereksport',
       color: 'indigo'
     }

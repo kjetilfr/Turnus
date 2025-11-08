@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import ScreenshotCarousel from '@/components/landing/ScreenshotCarousel'
 import LogoutButton from '@/components/LogoutButton'
 import PricingCards from '@/components/pricing/PricingCards'
-import { checkIsAdmin } from '@/lib/admin/checkAdmin'
+import { checkIsAdmin, isSubscribed, returnUserType } from '@/lib/admin/checkAdmin'
 
 
 export const metadata = {
@@ -17,17 +17,8 @@ export default async function LandingPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const { isAdmin } = await checkIsAdmin()
 
-  // Check if user has active subscription (Pro user)
-  let isPro = false
-  if (user) {
-    const { data: subscription } = await supabase
-      .from('subscriptions')
-      .select('status')
-      .eq('user_id', user.id)
-      .maybeSingle()
-    
-    isPro = subscription?.status === 'active' || subscription?.status === 'trialing'
-  }
+  const userType = returnUserType()
+  const isUserSubscribed = isSubscribed()
 
   // Fetch latest blog articles - with error handling
   let articles = null
@@ -59,7 +50,7 @@ export default async function LandingPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-8">
               <Link href="/" className="text-2xl font-bold text-red-600 hover:text-red-700 transition-colors">
-                Turnus-Hjelp {user && <span className="text-lg font-normal text-red-500">Pro</span>}
+                Turnus-Hjelp {await userType === 'pro' && <span className="text-lg font-normal text-red-500">Pro</span>}{await userType === 'premium' && <span className="text-lg font-normal text-red-500">Premium</span>}
               </Link>
               <div className="hidden md:flex items-center gap-6">
                 <Link href="/blog" className="text-gray-600 hover:text-red-600 transition-colors font-medium">
@@ -129,7 +120,7 @@ export default async function LandingPage() {
             {/* Left Column - Text Content */}
             <div className="space-y-8">
               {/* Free Trial Badge */}
-              {!isPro && !user && (
+              {!isUserSubscribed && !user && (
                 <div className="inline-block">
                   <span className="bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm font-bold border-2 border-green-300 shadow-sm">
                     🎉 7 DAGAR GRATIS PRØVEPERIODE
@@ -143,7 +134,7 @@ export default async function LandingPage() {
               </h1>
               
               <p className="text-xl text-gray-600 leading-relaxed">
-                {isPro ? (
+                {await isUserSubscribed? (
                   <>
                     Velkommen tilbake! Sjekk turnusen din automatisk mot arbeidsmiljøloven og tariffavtalar med <strong>Turnus-Hjelp Pro</strong>.
                   </>
@@ -162,7 +153,7 @@ export default async function LandingPage() {
                       href="/app"
                       className="bg-red-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-red-700 transition-all hover:shadow-xl transform hover:-translate-y-1 text-center"
                     >
-                      {isPro ? "Gå til mine turnusar" : "Gå til app"}
+                      {await isUserSubscribed? "Gå til mine turnusar" : "Gå til app"}
                     </Link>
                     <Link
                       href="/blog"
@@ -192,7 +183,7 @@ export default async function LandingPage() {
                 )}
               </div>
 
-              {!isPro && (
+              {!isUserSubscribed && (
                 <div className="flex items-center gap-8 pt-4">
                   <div className="flex items-center gap-2">
                     <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
@@ -244,7 +235,7 @@ export default async function LandingPage() {
 
             <ScreenshotCarousel />
 
-            {!isPro && !user && (
+            {!isUserSubscribed && !user && (
               <div className="text-center mt-12">
                 <Link
                   href="/login"
@@ -592,7 +583,7 @@ export default async function LandingPage() {
                 </div>
               </div>
 
-              {!isPro && !user && (
+              {!isUserSubscribed && !user && (
                 <div className="text-center">
                   <Link
                     href="/login"
@@ -611,7 +602,7 @@ export default async function LandingPage() {
       </section>
 
             {/* Pricing Section - Only show for non-Pro users */}
-            {!isPro && !user && (
+            {!isUserSubscribed && !user && (
               <section id="pricing" className="py-20 bg-white">
                 <div className="container mx-auto px-4">
                   <div className="text-center mb-16">

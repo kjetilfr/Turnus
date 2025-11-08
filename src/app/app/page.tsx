@@ -5,6 +5,7 @@ import LogoutButton from '@/components/LogoutButton'
 import PlansList from '@/components/plan/PlansList'
 import CreatePlanButton from '@/components/plan/CreatePlanButton'
 import Link from 'next/link'
+import { returnUserType } from '@/lib/admin/checkAdmin'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -14,6 +15,8 @@ export default async function DashboardPage() {
   if (!user) {
     redirect('/login')
   }
+
+  const userType = returnUserType()
 
   // Fetch all plans for the user
   const { data: plans, error } = await supabase
@@ -53,7 +56,9 @@ export default async function DashboardPage() {
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Turnus Hjelp</h1>
+          <Link href="/" className="text-2xl font-bold text-red-600 hover:text-red-700 transition-colors">
+                Turnus-Hjelp {await userType === 'pro' && <span className="text-lg font-normal text-red-500">Pro</span>}{await userType === 'premium' && <span className="text-lg font-normal text-red-500">Premium</span>}
+              </Link>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600 hidden sm:block">{user.email}</span>
             
