@@ -187,7 +187,7 @@ export function createSundayTimeZones(
     if (saturdayZoneEnd >= startDate && saturdayZoneStart <= endDate) {
       zones.push({
         holidayName: 'Sunday',
-        localName: 'Lørdag (Søndag)',
+        localName: 'Laurdag (Søndag)',
         startDateTime: saturdayZoneStart,
         endDateTime: saturdayZoneEnd,
         type: 'standard'
@@ -243,6 +243,7 @@ export function formatDateLocal(date: Date): string {
 
 /**
  * Calculate overlap between a rotation/shift and a time zone
+ * (LEGACY - kept for backward compatibility)
  */
 export function calculateTimeZoneOverlap(
   rotation: Rotation,
@@ -312,8 +313,133 @@ export function calculateTimeZoneOverlap(
 }
 
 /**
+ * Calculate overlap between a rotation/shift and a time zone, 
+ * EXCLUDING any hours that fall during night period.
+ * 
+ * This prevents double-counting: hours that are both in a holiday/Sunday zone
+ * AND during night hours will only be credited as night hours (better rate: 0.25 vs 10/60).
+ */
+export function calculateTimeZoneOverlapExcludingNight(
+  rotation: Rotation,
+  shift: Shift,
+  zone: HolidayTimeZone,
+  planStartDate: Date,
+  tariffavtale: string
+): number {
+  if (!shift.start_time || !shift.end_time) return 0
+
+  const parseTime = (time: string) => {
+    const [h, m] = time.split(':').map(Number)
+    return { hour: h, minute: m }
+  }
+
+  const startTime = parseTime(shift.start_time)
+  const endTime = parseTime(shift.end_time)
+
+  const isNightShift =
+    endTime.hour < startTime.hour ||
+    (endTime.hour === startTime.hour && endTime.minute < startTime.minute)
+
+  const rotationDate = getRotationDate(planStartDate, rotation.week_index, rotation.day_of_week)
+
+  let shiftStartDateTime: Date
+  let shiftEndDateTime: Date
+
+  if (rotation.day_of_week === 6 && isNightShift) {
+    const saturday = new Date(rotationDate)
+    saturday.setDate(saturday.getDate() - 1)
+
+    shiftStartDateTime = new Date(saturday)
+    shiftStartDateTime.setHours(startTime.hour, startTime.minute, 0, 0)
+
+    shiftEndDateTime = new Date(rotationDate)
+    shiftEndDateTime.setHours(endTime.hour, endTime.minute, 0, 0)
+  } else if (isNightShift) {
+    const prevDay = new Date(rotationDate)
+    prevDay.setDate(prevDay.getDate() - 1)
+
+    shiftStartDateTime = new Date(prevDay)
+    shiftStartDateTime.setHours(startTime.hour, startTime.minute, 0, 0)
+
+    shiftEndDateTime = new Date(rotationDate)
+    shiftEndDateTime.setHours(endTime.hour, endTime.minute, 0, 0)
+  } else {
+    shiftStartDateTime = new Date(rotationDate)
+    shiftStartDateTime.setHours(startTime.hour, startTime.minute, 0, 0)
+
+    shiftEndDateTime = new Date(rotationDate)
+    shiftEndDateTime.setHours(endTime.hour, endTime.minute, 0, 0)
+  }
+
+  // Get night period for this tariffavtale
+  const nightPeriod = getNightPeriodDefinition(tariffavtale)
+  
+  // Calculate total overlap with zone
+  const overlapStart = shiftStartDateTime > zone.startDateTime
+    ? shiftStartDateTime
+    : zone.startDateTime
+
+  const overlapEnd = shiftEndDateTime < zone.endDateTime
+    ? shiftEndDateTime
+    : zone.endDateTime
+
+  if (overlapStart >= overlapEnd) {
+    return 0 // No overlap with zone at all
+  }
+
+  // Now subtract any portion that falls during night hours
+  // We need to check both "yesterday's night" and "today's night"
+  
+  const nightStartToday = new Date(shiftStartDateTime)
+  nightStartToday.setHours(nightPeriod.start, 0, 0, 0)
+  
+  const nightEndToday = new Date(shiftStartDateTime)
+  nightEndToday.setHours(nightPeriod.end, 0, 0, 0)
+  if (nightPeriod.end < nightPeriod.start) {
+    nightEndToday.setDate(nightEndToday.getDate() + 1)
+  }
+
+  const nightStartYesterday = new Date(nightStartToday)
+  nightStartYesterday.setDate(nightStartYesterday.getDate() - 1)
+  
+  const nightEndYesterday = new Date(nightEndToday)
+  nightEndYesterday.setDate(nightEndYesterday.getDate() - 1)
+
+  // Calculate how much of the zone overlap is during night
+  let nightOverlapHours = 0
+
+  const calculateTripleOverlap = (nightStart: Date, nightEnd: Date) => {
+    // Find intersection of: shift AND zone AND night period
+    const tripleOverlapStart = new Date(Math.max(
+      overlapStart.getTime(), // Already intersection of shift + zone
+      nightStart.getTime()
+    ))
+    
+    const tripleOverlapEnd = new Date(Math.min(
+      overlapEnd.getTime(), // Already intersection of shift + zone
+      nightEnd.getTime()
+    ))
+
+    if (tripleOverlapStart < tripleOverlapEnd) {
+      return (tripleOverlapEnd.getTime() - tripleOverlapStart.getTime()) / (1000 * 60 * 60)
+    }
+    return 0
+  }
+
+  nightOverlapHours += calculateTripleOverlap(nightStartYesterday, nightEndYesterday)
+  nightOverlapHours += calculateTripleOverlap(nightStartToday, nightEndToday)
+
+  // Total zone overlap minus night overlap = non-night zone hours
+  const totalZoneOverlap = (overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60)
+  const nonNightZoneHours = Math.max(0, totalZoneOverlap - nightOverlapHours)
+
+  return nonNightZoneHours
+}
+
+/**
  * Calculate night hours that fall within a specific holiday/Sunday zone
- * Used to avoid double-counting hours that qualify for both night credit (0.25) and holiday credit (10/60)
+ * Used for diagnostic purposes only (the new function handles this automatically)
+ * @deprecated Use calculateTimeZoneOverlapExcludingNight instead
  */
 export function calculateNightHoursInZone(
   rotation: Rotation,
@@ -498,9 +624,8 @@ export function buildThreeSplitDetails(params: {
   hoursToSubtractFromFShiftsNight: number
   hoursToSubtractFromVacation: number
   hoursToSubtractFromVacationNight: number
-  nightHoursInHolidayZones: number
-  rawHolidayHoursBeforeAdjustment: number
-  rawNightHoursBeforeAdjustment: number
+  totalHolidayHoursWithoutOverlays: number
+  totalNightHoursWithoutOverlays: number
   f3Days: number
   f4Days: number
   f5Days: number
@@ -512,8 +637,8 @@ export function buildThreeSplitDetails(params: {
   const header = [
     `Plan type: ${p.planTypeDesc}`,
     '',
-    '✅ FIXED VERSION: Zones are merged FIRST, then adjusted for night boundaries',
-    '   Order: Create zones → Merge overlaps → Adjust for night start → Calculate',
+    '✅ REFACTORED VERSION: Night hours excluded directly during zone calculation',
+    '   Holiday/Sunday hours never include night hours → no post-adjustment needed',
     '',
     '=== QUALIFICATION SUMMARY ===',
     p.qualifiesFor33_6 ? '✅ Qualifies for 33.6h work week' : '✗ Does NOT qualify for 33.6h work week',
@@ -534,13 +659,11 @@ export function buildThreeSplitDetails(params: {
     ''
   ]
 
-  const rawNightHours = p.rawNightHoursBeforeAdjustment
-  const adjustedNightHours = rawNightHours - p.hoursToSubtractFromFShiftsNight - p.hoursToSubtractFromVacationNight
+  const adjustedNightHours = p.totalNightHoursWithoutOverlays
   const nightCredit = adjustedNightHours * 0.25
   const nightCreditPerWeek = nightCredit / p.planDurationWeeks
 
-  const rawHolidayHours = p.rawHolidayHoursBeforeAdjustment
-  const adjustedHolidayHours = rawHolidayHours - p.hoursToSubtractFromFShifts - p.hoursToSubtractFromVacation - p.nightHoursInHolidayZones
+  const adjustedHolidayHours = p.totalHolidayHoursWithoutOverlays
   const holidayCredit = adjustedHolidayHours * (10 / 60)
   const holidayCreditPerWeek = holidayCredit / p.planDurationWeeks
   const holidayCreditScaled = holidayCreditPerWeek * (p.planWorkPercent / 100)
@@ -556,32 +679,17 @@ export function buildThreeSplitDetails(params: {
     `Upper bound (35.5h × ${p.planWorkPercent}%): ${(35.5 * (p.planWorkPercent/100)).toFixed(2)} h/week`,
     '',
     '--- Night Hours Credit ---',
-    `Night hours (raw): ${rawNightHours.toFixed(2)} h`,
-    ...(p.hoursToSubtractFromFShiftsNight > 0 ? [
-      `  - F3/F4/F5 night hours: -${p.hoursToSubtractFromFShiftsNight.toFixed(2)} h`,
-    ] : []),
-    ...(p.hoursToSubtractFromVacationNight > 0 ? [
-      `  - Vacation night hours: -${p.hoursToSubtractFromVacationNight.toFixed(2)} h`,
-    ] : []),
-    `Night hours (adjusted): ${adjustedNightHours.toFixed(2)} h`,
-    `Converted to credit (15 min per hour = 0.25h credit per hour): ${nightCredit.toFixed(2)} h total`,
-    `Night credit per week: ${nightCreditPerWeek.toFixed(2)} h/week`,
+    `Night hours (overlays already excluded):         ${p.totalNightHoursWithoutOverlays.toFixed(2)} h`,
+    `  → F3/F4/F5/FE already excluded during calculation`,
+    `Converted to credit (0.25h per hour):            ${nightCredit.toFixed(2)} h total`,
+    `Night credit per week:                           ${nightCreditPerWeek.toFixed(2)} h/week`,
     '',
     '--- Holiday/Sunday Hours Credit ---',
-    `Holiday/Sunday hours (raw): ${rawHolidayHours.toFixed(2)} h`,
-    ...(p.hoursToSubtractFromFShifts > 0 ? [
-      `  - F3/F4/F5 hours in zones: -${p.hoursToSubtractFromFShifts.toFixed(2)} h`,
-    ] : []),
-    ...(p.hoursToSubtractFromVacation > 0 ? [
-      `  - Vacation hours in zones: -${p.hoursToSubtractFromVacation.toFixed(2)} h`,
-    ] : []),
-    ...(p.nightHoursInHolidayZones > 0 ? [
-      `  - Night hours in zones (avoid double-count): -${p.nightHoursInHolidayZones.toFixed(2)} h`,
-    ] : []),
-    `Holiday/Sunday hours (adjusted): ${adjustedHolidayHours.toFixed(2)} h`,
-    `Converted to credit (10 min per hour = ${(10/60).toFixed(3)}h credit per hour): ${holidayCredit.toFixed(2)} h total`,
-    `Holiday credit per week (before work % scaling): ${holidayCreditPerWeek.toFixed(2)} h/week`,
-    `Holiday credit per week (scaled by ${p.planWorkPercent}%): ${holidayCreditScaled.toFixed(2)} h/week`,
+    `Holiday hours (overlays already excluded):       ${p.totalHolidayHoursWithoutOverlays.toFixed(2)} h`,
+    `  → F3/F4/F5/FE already excluded during calculation`,
+    `Converted to credit (${(10/60).toFixed(3)}h per hour):   ${holidayCredit.toFixed(2)} h total`,
+    `Holiday credit per week (before scaling):        ${holidayCreditPerWeek.toFixed(2)} h/week`,
+    `Holiday credit per week (${p.planWorkPercent}% scaled):         ${holidayCreditScaled.toFixed(2)} h/week`,
     '',
     '--- Final Calculation ---',
     `Base (standard) week: ${p.baseStandardWeek.toFixed(2)} h/week`,
@@ -653,7 +761,7 @@ export function buildThreeSplitDetails(params: {
     `Total zones checked (Sundays + relevant holidays): ${p.totalZonesChecked}`,
     `Sundays worked: ${p.sundaysWorked}/${p.totalSundays}`,
     `Red days worked (non-Sunday holidays): ${p.totalRedDaysWorked}/${p.totalHolidayZones}`,
-    `Holiday/Sunday hours worked (after adjustments, NO night overlap): ${p.totalHolidayHoursWorked.toFixed(2)} h`,
+    `Holiday/Sunday hours worked (night hours automatically excluded): ${p.totalHolidayHoursWorked.toFixed(2)} h`,
     ''
   ]
 
