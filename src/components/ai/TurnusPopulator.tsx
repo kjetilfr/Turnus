@@ -1,8 +1,9 @@
-// src/components/ai/TurnusPopulator.tsx - Populates existing plan with AI
+// src/components/ai/TurnusPopulator.tsx
 'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import AIModelSelector from './AIModelSelector'
 
 interface TurnusPopulatorProps {
   planId: string
@@ -26,6 +27,7 @@ const SUPPORTED_EXTENSIONS = ['.pdf', '.docx', '.doc', '.rtf']
 
 export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProps) {
   const [file, setFile] = useState<File | null>(null)
+  const [selectedModel, setSelectedModel] = useState<'claude' | 'gpt4o' | 'gemini' | 'auto'>('auto')
   const [progress, setProgress] = useState<UploadProgress>({
     stage: 'idle',
     message: '',
@@ -34,6 +36,7 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
   const [extractedData, setExtractedData] = useState<{
     custom_shifts_count: number
     rotation_entries_count: number
+    ai_model?: string
   } | null>(null)
   const router = useRouter()
 
@@ -58,6 +61,30 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
     setError('')
   }
 
+  const getApiEndpoint = () => {
+    // Auto mode: Choose based on file type
+    if (selectedModel === 'auto') {
+      const fileExtension = file?.name.toLowerCase().substring(file.name.lastIndexOf('.'))
+      // PDF works best with GPT-4o in our testing
+      if (fileExtension === '.pdf') {
+        return '/api/ai/populate-turnus-gpt4o'
+      }
+      // DOCX works well with Claude
+      return '/api/ai/populate-turnus'
+    }
+
+    // Manual selection
+    switch (selectedModel) {
+      case 'gpt4o':
+        return '/api/ai/populate-turnus-gpt4o'
+      case 'gemini':
+        return '/api/ai/populate-turnus-gemini'
+      case 'claude':
+      default:
+        return '/api/ai/populate-turnus'
+    }
+  }
+
   const handleUpload = async () => {
     if (!file) return
 
@@ -69,7 +96,8 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
       formData.append('file', file)
       formData.append('planId', planId)
 
-      const response = await fetch('/api/ai/populate-turnus', {
+      const endpoint = getApiEndpoint()
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       })
@@ -92,6 +120,7 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
       setExtractedData({
         custom_shifts_count: data.data.custom_shifts_count,
         rotation_entries_count: data.data.rotation_entries_count,
+        ai_model: data.ai_model,
       })
       setProgress({ stage: 'done', message: 'Ferdig! 🎉' })
 
@@ -103,11 +132,6 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
 
     } catch (err) {
       console.error('Upload error:', err)
-      console.error('Error details:', err instanceof Error ? {
-        message: err.message,
-        stack: err.stack,
-        name: err.name
-      } : err)
       setError(err instanceof Error ? err.message : 'Kunne ikkje laste opp fil')
       setProgress({ stage: 'idle', message: '' })
     }
@@ -170,6 +194,13 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
           </button>
         )}
       </div>
+
+      {/* AI Model Selector */}
+      <AIModelSelector 
+        selectedModel={selectedModel}
+        onModelSelect={setSelectedModel}
+        fileType={file ? file.name.toLowerCase().substring(file.name.lastIndexOf('.')) : undefined}
+      />
       
       <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-400 transition-colors">
         {file ? (
@@ -244,6 +275,9 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
           <div className="text-sm text-green-800 space-y-1">
             <p>✓ {extractedData.custom_shifts_count} vaktypar oppretta</p>
             <p>✓ {extractedData.rotation_entries_count} rotasjonsinnslag fylt</p>
+            {extractedData.ai_model && (
+              <p className="text-xs text-green-700 mt-2">Brukt modell: {extractedData.ai_model}</p>
+            )}
           </div>
         </div>
       )}

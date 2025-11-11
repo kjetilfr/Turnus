@@ -123,22 +123,24 @@ export async function POST(request: Request) {
     const base64 = Buffer.from(bytes).toString('base64')
 
     // Determine media type
-    let mediaType: string = 'application/pdf'
-    
-    if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
-        fileExtension === '.docx') {
-      mediaType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    } else if (file.type === 'application/msword' || fileExtension === '.doc') {
-      mediaType = 'application/msword'
-    } else if (file.type === 'application/rtf' || file.type === 'text/rtf' || fileExtension === '.rtf') {
-      mediaType = 'application/rtf'
+    const isPDF = file.type === 'application/pdf' || fileExtension === '.pdf'
+
+    if (!isPDF) {
+      // For non-PDF files, return an error or convert them
+      // You could add a PDF conversion step here, or direct users to use PDF
+      return NextResponse.json(
+        { 
+          error: 'For Claude AI, berre PDF er støtta. Prøv å konvertere dokumentet til PDF eller bruk ein annan AI-modell (GPT-4o eller Gemini).',
+          suggestion: 'Du kan bruke "Auto" modell som automatisk vel beste modell for filtypen din.'
+        },
+        { status: 400 }
+      )
     }
 
     // Send to Claude for extraction
-    // Configure with explicit timeout to prevent SDK auto-calculation issues
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
-      timeout: 180000, // 3 minutes - plenty for simplified output
+      timeout: 180000,
       maxRetries: 2,
     })
 
@@ -149,7 +151,7 @@ export async function POST(request: Request) {
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 8192, // Reduced - rotation pattern is much smaller than full shifts
+      max_tokens: 8192,
       messages: [
         {
           role: 'user',
@@ -158,7 +160,7 @@ export async function POST(request: Request) {
               type: 'document',
               source: {
                 type: 'base64',
-                media_type: mediaType as any,
+                media_type: 'application/pdf', // Claude only supports PDF
                 data: base64,
               },
             },

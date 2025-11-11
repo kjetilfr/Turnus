@@ -241,7 +241,7 @@ export const threeSplitAverageCheck: LawCheck = {
       })
     })
 
-    let totalHolidayHoursWorked = zonesWorked
+    const totalHolidayHoursWorked = zonesWorked
       .filter(z => z.isWorked)
       .reduce((sum, z) => sum + z.overlapHours, 0)
 

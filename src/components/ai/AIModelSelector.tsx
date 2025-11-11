@@ -1,14 +1,30 @@
-// src/components/ai/AIModelSelector.tsx - Let user choose AI model
+// src/components/ai/AIModelSelector.tsx
 'use client'
-
-import { useState } from 'react'
 
 interface AIModelSelectorProps {
   onModelSelect: (model: 'claude' | 'gpt4o' | 'gemini' | 'auto') => void
   selectedModel: 'claude' | 'gpt4o' | 'gemini' | 'auto'
+  fileType?: string
 }
 
-export default function AIModelSelector({ onModelSelect, selectedModel }: AIModelSelectorProps) {
+export default function AIModelSelector({ onModelSelect, selectedModel, fileType }: AIModelSelectorProps) {
+  const getModelCompatibility = (model: string) => {
+    if (!fileType) return true
+    
+    const ext = fileType.toLowerCase()
+    
+    switch (model) {
+      case 'claude':
+        return ext === '.pdf'
+      case 'gpt4o':
+        return ['.pdf', '.docx', '.doc', '.rtf'].includes(ext)
+      case 'gemini':
+        return ['.pdf', '.docx', '.doc', '.rtf'].includes(ext)
+      default:
+        return true
+    }
+  }
+
   return (
     <div className="mb-4">
       <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -34,51 +50,72 @@ export default function AIModelSelector({ onModelSelect, selectedModel }: AIMode
         {/* GPT-4o */}
         <button
           onClick={() => onModelSelect('gpt4o')}
+          disabled={!getModelCompatibility('gpt4o')}
           className={`p-3 rounded-lg border-2 transition-all ${
             selectedModel === 'gpt4o'
               ? 'border-green-600 bg-green-50'
-              : 'border-gray-200 hover:border-green-300'
+              : getModelCompatibility('gpt4o')
+              ? 'border-gray-200 hover:border-green-300'
+              : 'border-gray-200 opacity-50 cursor-not-allowed'
           }`}
         >
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">⚡</span>
             <span className="font-bold text-sm">GPT-4o</span>
           </div>
-          <p className="text-xs text-gray-600">Rask & presis (OpenAI)</p>
+          <p className="text-xs text-gray-600">
+            {getModelCompatibility('gpt4o') ? 'Rask & presis (OpenAI)' : 'Støttar alle format'}
+          </p>
         </button>
 
         {/* Claude */}
         <button
           onClick={() => onModelSelect('claude')}
+          disabled={!getModelCompatibility('claude')}
           className={`p-3 rounded-lg border-2 transition-all ${
             selectedModel === 'claude'
               ? 'border-blue-600 bg-blue-50'
-              : 'border-gray-200 hover:border-blue-300'
+              : getModelCompatibility('claude')
+              ? 'border-gray-200 hover:border-blue-300'
+              : 'border-gray-200 opacity-50 cursor-not-allowed'
           }`}
         >
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">🧠</span>
             <span className="font-bold text-sm">Claude</span>
           </div>
-          <p className="text-xs text-gray-600">Djup forståing (Anthropic)</p>
+          <p className="text-xs text-gray-600">
+            {getModelCompatibility('claude') ? 'Djup forståing (Anthropic)' : 'Berre PDF'}
+          </p>
         </button>
 
         {/* Gemini */}
         <button
           onClick={() => onModelSelect('gemini')}
+          disabled={!getModelCompatibility('gemini')}
           className={`p-3 rounded-lg border-2 transition-all ${
             selectedModel === 'gemini'
               ? 'border-orange-600 bg-orange-50'
-              : 'border-gray-200 hover:border-orange-300'
+              : getModelCompatibility('gemini')
+              ? 'border-gray-200 hover:border-orange-300'
+              : 'border-gray-200 opacity-50 cursor-not-allowed'
           }`}
         >
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">💎</span>
             <span className="font-bold text-sm">Gemini</span>
           </div>
-          <p className="text-xs text-gray-600">Stor kontekst (Google)</p>
+          <p className="text-xs text-gray-600">
+            {getModelCompatibility('gemini') ? 'Stor kontekst (Google)' : 'Støttar alle format'}
+          </p>
         </button>
       </div>
+      
+      {fileType && !getModelCompatibility(selectedModel) && selectedModel !== 'auto' && (
+        <div className="mt-2 text-xs text-orange-600">
+          ⚠️ Denne modellen støttar ikkje {fileType}-filer. Vel "Auto" eller ein annan modell.
+        </div>
+      )}
     </div>
   )
 }
