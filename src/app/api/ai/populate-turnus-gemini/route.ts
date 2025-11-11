@@ -1,4 +1,4 @@
-// src/app/api/ai/populate-turnus-gemini/route.ts - Gemini version
+// src/app/api/ai/populate-turnus-gemini/route.ts - WITH OVERLAY SUPPORT AND RETRY
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
@@ -12,9 +12,15 @@ interface CustomShiftDefinition {
   description?: string
 }
 
+interface RotationEntry {
+  shift: string | null
+  overlay: string | null
+  day: number  // 0-6 (Monday-Sunday)
+}
+
 interface ExtractedPlanData {
   custom_shifts: CustomShiftDefinition[]
-  rotation_pattern: (string | null)[]
+  rotation_pattern: RotationEntry[]
 }
 
 const SUPPORTED_TYPES = [
@@ -54,6 +60,7 @@ export async function POST(request: Request) {
   const formData = await request.formData()
   const file = formData.get('file') as File
   const planId = formData.get('planId') as string
+  const geminiModel = formData.get('geminiModel') as string || 'gemini-2.0-flash-exp'
   
   if (!file || !planId) {
     return NextResponse.json({ error: 'File and planId required' }, { status: 400 })
@@ -105,57 +112,128 @@ export async function POST(request: Request) {
       mimeType = 'application/msword'
     }
 
+    // Validate and use the selected Gemini model
+    const validModels = ['gemini-2.0-flash-exp', 'gemini-2.5-flash', 'gemini-2.5-pro']
+    const selectedModel = validModels.includes(geminiModel) ? geminiModel : 'gemini-2.0-flash-exp'
+
+    // Model fallback chain
+    const modelFallbacks: Record<string, string[]> = {
+      'gemini-2.5-pro': ['gemini-2.5-flash', 'gemini-2.0-flash-exp'],
+      'gemini-2.5-flash': ['gemini-2.0-flash-exp'],
+      'gemini-2.0-flash-exp': []
+    }
+
     // Initialize Gemini
     const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY)
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-pro',
-      generationConfig: {
-        responseMimeType: 'application/json'
-      }
-    })
-
-    console.log('🤖 Calling Gemini API...')
+    
+    console.log(`🤖 Attempting Gemini API with model: ${selectedModel}`)
     console.log('📄 File size:', (file.size / 1024 / 1024).toFixed(2), 'MB')
 
     const startTime = Date.now()
 
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          data: base64,
-          mimeType: mimeType
-        }
-      },
-      `Du analyserer eit norsk turnusdokument frå helsesektoren.
+    // Retry logic with model fallback
+    let result = null
+    let actualModelUsed = selectedModel
+    let lastError: Error | null = null
+    const maxRetries = 2
+    
+    const modelsToTry = [
+      ...Array(maxRetries).fill(selectedModel),
+      ...(modelFallbacks[selectedModel] || [])
+    ]
+    
+    for (let i = 0; i < modelsToTry.length; i++) {
+      actualModelUsed = modelsToTry[i]
+      
+      try {
+        console.log(`🔄 Attempt ${i + 1}/${modelsToTry.length} with model: ${actualModelUsed}`)
+        
+        const model = genAI.getGenerativeModel({ 
+          model: actualModelUsed,
+          generationConfig: {
+            responseMimeType: 'application/json'
+          }
+        })
 
-**VIKTIG: Tell kolonnane NØYE**
+        result = await model.generateContent([
+          {
+            inlineData: {
+              data: base64,
+              mimeType: mimeType
+            }
+          },
+          `Du analyserer eit norsk turnusdokument frå helsesektoren.
 
-Kvar veke-rad har EKSAKT 7 kolonnar separert med |:
-Kolonne 1=Man, 2=Tir, 3=Ons, 4=Tor, 5=Fre, 6=Lør, 7=Søn
+**KRITISK: Overlay-handling**
 
-**Eksempel:**
-Uke 50: | D1 | D1 | L1 | L1 | | | F1
+rotation_pattern skal vere ein array av objekt:
 
-Tell kvar kolonne:
-1=D1, 2=D1, 3=L1, 4=L1, 5=TOM, 6=TOM, 7=F1
+{
+  "shift": "VAKTNAMN" eller null,
+  "overlay": "OVERLAY" eller null,
+  "day": 0-6
+}
 
-Output: ["D1", "D1", "L1", "L1", null, null, "F1"]
+**Regel:**
+- "(K1) FE" → {"shift": "K1", "overlay": "FE", "day": 0}
+- "FE" (utan parentes) → {"shift": "FE", "overlay": null, "day": 0}
+- "D1" → {"shift": "D1", "overlay": null, "day": 0}
 
-**Reglar:**
-- ALLTID 7 element per veke
-- Tom kolonne || = null
-- F1 kan vere på kva som helst dag
-- FE: Fjern parentesar "(K1) FE" → "FE"
+**Eksempel - Uke 26:**
+Input: (K1) FE | (K1) FE | FE | | (N1) FE | FE | (F1) FE
+
+Output (7 objekt):
+[
+  {"shift": "K1", "overlay": "FE", "day": 0},
+  {"shift": "K1", "overlay": "FE", "day": 1},
+  {"shift": "FE", "overlay": null, "day": 2},
+  {"shift": null, "overlay": null, "day": 3},
+  {"shift": "N1", "overlay": "FE", "day": 4},
+  {"shift": "FE", "overlay": null, "day": 5},
+  {"shift": "F1", "overlay": "FE", "day": 6}
+]
+
+**VIKTIG:**
+- ALLTID 7 objekt per veke
+- day går 0-6, start på 0 for neste veke
 
 Returner JSON:
 {
   "custom_shifts": [{"name": "D1", "start_time": "07:45", "end_time": "15:15", "hours": 7.5}],
-  "rotation_pattern": ["D1", "D1", null, ...]
+  "rotation_pattern": [{"shift": "D1", "overlay": null, "day": 0}, ...]
 }`
-    ])
+        ])
+        
+        console.log(`✅ Success with model: ${actualModelUsed}`)
+        break
+        
+      } catch (error) {
+        lastError = error as Error
+        console.error(`❌ Attempt ${i + 1} failed with ${actualModelUsed}:`, error)
+        
+        const is503 = error instanceof Error && error.message.includes('503')
+        const is429 = error instanceof Error && error.message.includes('429')
+        
+        if (is503 || is429) {
+          console.log(`⚠️ Model ${actualModelUsed} is overloaded or rate limited`)
+          
+          const waitTime = Math.min(1000 * Math.pow(2, i), 5000)
+          console.log(`⏳ Waiting ${waitTime}ms before next attempt...`)
+          await new Promise(resolve => setTimeout(resolve, waitTime))
+        }
+        
+        if (i === modelsToTry.length - 1) {
+          throw lastError
+        }
+      }
+    }
+
+    if (!result) {
+      throw lastError || new Error('All model attempts failed')
+    }
 
     const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(2)
-    console.log(`✅ Gemini responded in ${elapsedTime}s`)
+    console.log(`✅ Gemini responded in ${elapsedTime}s using ${actualModelUsed}`)
 
     const responseText = result.response.text()
     console.log('📄 Response length:', responseText.length)
@@ -181,14 +259,14 @@ Returner JSON:
       weeks
     })
 
-    // Track usage (Gemini doesn't provide token count easily)
+    // Track usage
     await supabase.from('ai_usage').insert({
       user_id: user.id,
-      feature_type: 'turnus_populate_gemini',
-      tokens_used: 0, // Gemini doesn't expose this easily
+      feature_type: `turnus_populate_${actualModelUsed}`,
+      tokens_used: 0,
     })
 
-    // Create shifts & rotations (same logic)
+    // Create shifts & rotations
     const shiftNameToIdMap = new Map<string, string>()
     
     for (const customShift of extracted.custom_shifts) {
@@ -230,24 +308,36 @@ Returner JSON:
 
     await supabase.from('rotations').delete().eq('plan_id', planId)
 
+    // Create rotations
     const rotations = []
+    let currentWeek = 0
+    
     for (let i = 0; i < extracted.rotation_pattern.length; i++) {
-      const weekIndex = Math.floor(i / 7)
-      const dayOfWeek = i % 7
-      const shiftName = extracted.rotation_pattern[i]
+      const entry = extracted.rotation_pattern[i]
       
-      if (!shiftName) continue
-      
-      const shiftId = shiftNameToIdMap.get(shiftName)
-      if (shiftId) {
-        rotations.push({
-          plan_id: planId,
-          week_index: weekIndex,
-          day_of_week: dayOfWeek,
-          shift_id: shiftId,
-        })
+      if (i > 0) {
+        const prevEntry = extracted.rotation_pattern[i - 1]
+        if (prevEntry.day === 6 && entry.day === 0) {
+          currentWeek++
+        }
       }
+      
+      const shiftId = entry.shift ? shiftNameToIdMap.get(entry.shift) : null
+      const overlayShiftId = entry.overlay ? shiftNameToIdMap.get(entry.overlay) : null
+      
+      if (!shiftId && !overlayShiftId) continue
+      
+      rotations.push({
+        plan_id: planId,
+        week_index: currentWeek,
+        day_of_week: entry.day,
+        shift_id: shiftId,
+        overlay_shift_id: overlayShiftId,
+        overlay_type: entry.overlay || null,
+      })
     }
+
+    console.log(`📅 Created ${rotations.length} rotation entries across ${currentWeek + 1} weeks`)
 
     if (rotations.length > 0) {
       await supabase.from('rotations').insert(rotations)
@@ -255,7 +345,7 @@ Returner JSON:
 
     return NextResponse.json({
       success: true,
-      ai_model: 'gemini-1.5-pro',
+      ai_model: actualModelUsed,
       data: {
         custom_shifts_count: extracted.custom_shifts.length,
         rotation_entries_count: extracted.rotation_pattern.length,
@@ -264,12 +354,32 @@ Returner JSON:
 
   } catch (error) {
     console.error('💥 Gemini processing error:', error)
+    
+    let userMessage = 'Kunne ikkje prosessere fila med Gemini'
+    let isModelBusy = false
+    
+    if (error instanceof Error) {
+      if (error.message.includes('503') || error.message.includes('overloaded')) {
+        userMessage = '⚠️ Gemini-modellen er oppteken for augneblinken. Alle modellar er overlasta.'
+        isModelBusy = true
+      } else if (error.message.includes('429')) {
+        userMessage = 'For mange førespurnader. Vent eit minutt og prøv igjen.'
+      } else if (error.message.includes('404')) {
+        userMessage = 'Modellen er ikkje tilgjengeleg. Prøv ein annan Gemini-versjon eller ein annan AI-modell.'
+      }
+    }
+    
     return NextResponse.json(
       { 
-        error: 'Kunne ikkje prosessere fila med Gemini', 
-        details: error instanceof Error ? error.message : 'Ukjend feil'
+        error: userMessage, 
+        details: error instanceof Error ? error.message : 'Ukjend feil',
+        suggestion: isModelBusy 
+          ? '💡 Prøv ein av desse i staden: GPT-4o (anbefalt) eller Claude' 
+          : 'Prøv å velje "Auto" eller "GPT-4o" som modell i staden.',
+        modelBusy: isModelBusy,
+        busyModel: 'actualModelUsed'
       },
-      { status: 500 }
+      { status: 503 }
     )
   }
 }

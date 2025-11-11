@@ -1,4 +1,4 @@
-// src/components/ai/TurnusPopulator.tsx
+// src/components/ai/TurnusPopulator.tsx - WITH MODEL BUSY WARNING
 'use client'
 
 import { useState } from 'react'
@@ -28,11 +28,17 @@ const SUPPORTED_EXTENSIONS = ['.pdf', '.docx', '.doc', '.rtf']
 export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProps) {
   const [file, setFile] = useState<File | null>(null)
   const [selectedModel, setSelectedModel] = useState<'claude' | 'gpt4o' | 'gemini' | 'auto'>('auto')
+  const [geminiVersion, setGeminiVersion] = useState<'gemini-2.0-flash-exp' | 'gemini-2.5-flash' | 'gemini-2.5-pro'>('gemini-2.0-flash-exp')
   const [progress, setProgress] = useState<UploadProgress>({
     stage: 'idle',
     message: '',
   })
   const [error, setError] = useState('')
+  const [modelBusyWarning, setModelBusyWarning] = useState<{
+    show: boolean
+    busyModel?: string
+    suggestion?: string
+  }>({ show: false })
   const [extractedData, setExtractedData] = useState<{
     custom_shifts_count: number
     rotation_entries_count: number
@@ -59,21 +65,18 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
 
     setFile(selectedFile)
     setError('')
+    setModelBusyWarning({ show: false })
   }
 
   const getApiEndpoint = () => {
-    // Auto mode: Choose based on file type
     if (selectedModel === 'auto') {
       const fileExtension = file?.name.toLowerCase().substring(file.name.lastIndexOf('.'))
-      // PDF works best with GPT-4o in our testing
       if (fileExtension === '.pdf') {
         return '/api/ai/populate-turnus-gpt4o'
       }
-      // DOCX works well with Claude
       return '/api/ai/populate-turnus'
     }
 
-    // Manual selection
     switch (selectedModel) {
       case 'gpt4o':
         return '/api/ai/populate-turnus-gpt4o'
@@ -90,11 +93,17 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
 
     try {
       setError('')
+      setModelBusyWarning({ show: false })
       setProgress({ stage: 'uploading', message: 'Lastar opp fil...' })
 
       const formData = new FormData()
       formData.append('file', file)
       formData.append('planId', planId)
+      
+      // Add Gemini model selection if Gemini is selected
+      if (selectedModel === 'gemini') {
+        formData.append('geminiModel', geminiVersion)
+      }
 
       const endpoint = getApiEndpoint()
       const response = await fetch(endpoint, {
@@ -108,6 +117,17 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
         if (response.status === 403) {
           throw new Error('Du treng Premium-abonnement for å bruke denne funksjonen')
         }
+        
+        // Handle model busy error (503)
+        if (response.status === 503 && data.modelBusy) {
+          setModelBusyWarning({
+            show: true,
+            busyModel: data.busyModel,
+            suggestion: data.suggestion
+          })
+          throw new Error(data.error || 'Modellen er oppteken')
+        }
+        
         throw new Error(data.error || 'Noko gjekk galt')
       }
 
@@ -124,7 +144,6 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
       })
       setProgress({ stage: 'done', message: 'Ferdig! 🎉' })
 
-      // Refresh the page after a short delay
       setTimeout(() => {
         router.refresh()
         if (onClose) onClose()
@@ -179,7 +198,7 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
             </svg>
           </div>
           <div>
-            <h3 className="text-lg font-bold">Fyll plan med AI</h3>
+            <h3 className="text-gray-500 text-lg font-bold">Fyll plan med AI</h3>
             <p className="text-gray-600 text-sm">Last opp turnus-dokument</p>
           </div>
         </div>
@@ -198,9 +217,94 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
       {/* AI Model Selector */}
       <AIModelSelector 
         selectedModel={selectedModel}
-        onModelSelect={setSelectedModel}
+        onModelSelect={(model) => {
+          setSelectedModel(model)
+          setModelBusyWarning({ show: false })
+        }}
         fileType={file ? file.name.toLowerCase().substring(file.name.lastIndexOf('.')) : undefined}
       />
+
+      {/* Gemini Version Selector - Only show if Gemini is selected */}
+      {selectedModel === 'gemini' && (
+        <div className="mb-4">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Gemini versjon
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              onClick={() => setGeminiVersion('gemini-2.0-flash-exp')}
+              className={`p-2 rounded-lg border-2 transition-all text-xs ${
+                geminiVersion === 'gemini-2.0-flash-exp'
+                  ? 'border-orange-600 bg-orange-50'
+                  : 'border-gray-200 hover:border-orange-300'
+              }`}
+            >
+              <div className="font-bold">2.0 Flash</div>
+              <div className="text-gray-600">Mest stabil</div>
+            </button>
+            <button
+              onClick={() => setGeminiVersion('gemini-2.5-flash')}
+              className={`p-2 rounded-lg border-2 transition-all text-xs ${
+                geminiVersion === 'gemini-2.5-flash'
+                  ? 'border-orange-600 bg-orange-50'
+                  : 'border-gray-200 hover:border-orange-300'
+              }`}
+            >
+              <div className="font-bold">2.5 Flash</div>
+              <div className="text-gray-600">Rask</div>
+            </button>
+            <button
+              onClick={() => setGeminiVersion('gemini-2.5-pro')}
+              className={`p-2 rounded-lg border-2 transition-all text-xs ${
+                geminiVersion === 'gemini-2.5-pro'
+                  ? 'border-orange-600 bg-orange-50'
+                  : 'border-gray-200 hover:border-orange-300'
+              }`}
+            >
+              <div className="font-bold">2.5 Pro</div>
+              <div className="text-gray-600">Kraftig</div>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Model Busy Warning */}
+      {modelBusyWarning.show && (
+        <div className="mb-4 bg-orange-50 border-2 border-orange-300 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <svg className="w-6 h-6 text-orange-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div className="flex-1">
+              <h4 className="font-bold text-orange-900 mb-1">
+                ⚠️ {modelBusyWarning.busyModel} er oppteken
+              </h4>
+              <p className="text-sm text-orange-800 mb-3">
+                Modellen er overlasta med førespurnader akkurat no. Alle Gemini-modellar prøvde å køyre, men ingen var tilgjengelege.
+              </p>
+              {modelBusyWarning.suggestion && (
+                <p className="text-sm text-orange-900 font-semibold bg-orange-100 p-2 rounded">
+                  {modelBusyWarning.suggestion}
+                </p>
+              )}
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => setSelectedModel('gpt4o')}
+                  className="px-3 py-1.5 bg-green-600 text-white text-sm font-semibold rounded hover:bg-green-700 transition-colors"
+                >
+                  Bytt til GPT-4o
+                </button>
+                <button
+                  onClick={() => setSelectedModel('claude')}
+                  className="px-3 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700 transition-colors"
+                >
+                  Bytt til Claude
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-400 transition-colors">
         {file ? (
@@ -215,6 +319,7 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
                 setFile(null)
                 setError('')
                 setProgress({ stage: 'idle', message: '' })
+                setModelBusyWarning({ show: false })
               }}
               className="text-red-600 text-sm font-semibold hover:text-red-700"
             >
@@ -298,12 +403,12 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
         disabled={!file || progress.stage !== 'idle'}
         className="w-full mt-4 bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
-        {progress.stage !== 'idle' ? 'Prosesserer...' : 'Fyll plan med AI 🤖'}
+        {progress.stage !== 'idle' ? 'Prosesserer...' : 'Fyll plan med KI 🤖'}
       </button>
 
       <div className="mt-4 bg-gray-50 rounded-lg p-3">
         <p className="text-xs text-gray-600">
-          AI vil ekstrahere alle vaktkoder og fylle rotasjonsgridet automatisk. Eksisterande data vil bli overskrive.
+          💡 Tips: Bruk &quot;Auto&quot; eller &quot;GPT-4o&quot; for mest stabil opplevelse. Gemini kan vere oppteken i periodar med høg trafikk.
         </p>
       </div>
     </div>

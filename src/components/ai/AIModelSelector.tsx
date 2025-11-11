@@ -42,7 +42,7 @@ export default function AIModelSelector({ onModelSelect, selectedModel, fileType
         >
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">🤖</span>
-            <span className="font-bold text-sm">Auto (Anbefalt)</span>
+            <span className="font-bold text-gray-500 text-sm">Auto (Anbefalt)</span>
           </div>
           <p className="text-xs text-gray-600">Vel beste modell automatisk</p>
         </button>
@@ -61,7 +61,7 @@ export default function AIModelSelector({ onModelSelect, selectedModel, fileType
         >
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">⚡</span>
-            <span className="font-bold text-sm">GPT-4o</span>
+            <span className="font-bold text-gray-500 text-sm">GPT-4o</span>
           </div>
           <p className="text-xs text-gray-600">
             {getModelCompatibility('gpt4o') ? 'Rask & presis (OpenAI)' : 'Støttar alle format'}
@@ -82,7 +82,7 @@ export default function AIModelSelector({ onModelSelect, selectedModel, fileType
         >
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">🧠</span>
-            <span className="font-bold text-sm">Claude</span>
+            <span className="font-bold text-gray-500 text-sm">Claude</span>
           </div>
           <p className="text-xs text-gray-600">
             {getModelCompatibility('claude') ? 'Djup forståing (Anthropic)' : 'Berre PDF'}
@@ -103,7 +103,7 @@ export default function AIModelSelector({ onModelSelect, selectedModel, fileType
         >
           <div className="flex items-center gap-2 mb-1">
             <span className="text-lg">💎</span>
-            <span className="font-bold text-sm">Gemini</span>
+            <span className="font-bold text-gray-500 text-sm">Gemini</span>
           </div>
           <p className="text-xs text-gray-600">
             {getModelCompatibility('gemini') ? 'Stor kontekst (Google)' : 'Støttar alle format'}

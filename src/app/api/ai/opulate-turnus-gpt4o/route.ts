@@ -1,4 +1,4 @@
-// src/app/api/ai/populate-turnus-gpt4o/route.ts - GPT-4o version
+// src/app/api/ai/populate-turnus-gpt4o/route.ts - WITH OVERLAY SUPPORT
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
@@ -12,9 +12,15 @@ interface CustomShiftDefinition {
   description?: string
 }
 
+interface RotationEntry {
+  shift: string | null
+  overlay: string | null
+  day: number  // 0-6 (Monday-Sunday)
+}
+
 interface ExtractedPlanData {
   custom_shifts: CustomShiftDefinition[]
-  rotation_pattern: (string | null)[]
+  rotation_pattern: RotationEntry[]
 }
 
 // Supported file types
@@ -109,7 +115,7 @@ export async function POST(request: Request) {
 
     const startTime = Date.now()
 
-    // Create message with base64 PDF
+    // Create message with base64 file
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
@@ -120,51 +126,55 @@ export async function POST(request: Request) {
               type: 'text',
               text: `Du analyserer eit norsk turnusdokument frå helsesektoren.
 
-**STEG-FOR-STEG: Korleis lese kvar rad**
+**KRITISK: Overlay-handling (FE/F3/F4/F5)**
 
-Kvar veke-rad har NØYAKTIG 7 kolonnar separert med | (strekår):
-Man | Tir | Ons | Tor | Fre | Lør | Søn
+rotation_pattern skal vere ein array av objekt med 3 felt:
 
-**Eksempel 1:**
-Uke 50: 08.12.2025 - 14.12.2025 | D1 | D1 | L1 | L1 | | | F1
+{
+  "shift": "VAKTNAMN" eller null,
+  "overlay": "OVERLAY" eller null,
+  "day": 0-6
+}
 
-Tell NØYE frå venstre:
-1. Man = D1
-2. Tir = D1  
-3. Ons = L1
-4. Tor = L1
-5. Fre = TOM (ingen tekst mellom ||)
-6. Lør = TOM
-7. Søn = F1
+**Tolking av dokumentet:**
 
-Output: ["D1", "D1", "L1", "L1", null, null, "F1"]
+"(K1) FE" → {"shift": "K1", "overlay": "FE", "day": 0}
+"FE" (utan parentes) → {"shift": "FE", "overlay": null, "day": 0}
+"D1" → {"shift": "D1", "overlay": null, "day": 0}
+"" (tom) → {"shift": null, "overlay": null, "day": 0}
 
-**Eksempel 2 (F1 på torsdag!):**
-Uke 51: 15.12.2025 - 21.12.2025 | K2 | D1 | | F1 | L1 | L1H | L1H
+**Eksempel 1 - Uke 26 (ferie med overlays):**
+Input: (K1) FE | (K1) FE | FE | | (N1) FE | FE | (F1) FE
 
-Tell NØYE:
-1. Man = K2
-2. Tir = D1
-3. Ons = TOM (sjå || mellom D1 og F1)
-4. Tor = F1
-5. Fre = L1
-6. Lør = L1H
-7. Søn = L1H
+Output (7 objekt, ein per dag):
+[
+  {"shift": "K1", "overlay": "FE", "day": 0},
+  {"shift": "K1", "overlay": "FE", "day": 1},
+  {"shift": "FE", "overlay": null, "day": 2},
+  {"shift": null, "overlay": null, "day": 3},
+  {"shift": "N1", "overlay": "FE", "day": 4},
+  {"shift": "FE", "overlay": null, "day": 5},
+  {"shift": "F1", "overlay": "FE", "day": 6}
+]
 
-Output: ["K2", "D1", null, "F1", "L1", "L1H", "L1H"]
+**Eksempel 2 - Uke 50 (vanleg veke):**
+Input: D1 | D1 | L1 | L1 | | | F1
 
-**KRITISKE REGLAR:**
-1. Alltid NØYAKTIG 7 element per veke
-2. Tom kolonne (||) = null
-3. Les frå venstre til høgre, tell ALLE kolonnar
-4. F1 kan vere på kva som helst dag (ikkje berre søndag!)
-5. FE: Skriv berre "FE" (fjern parentesar)
+Output (7 objekt):
+[
+  {"shift": "D1", "overlay": null, "day": 0},
+  {"shift": "D1", "overlay": null, "day": 1},
+  {"shift": "L1", "overlay": null, "day": 2},
+  {"shift": "L1", "overlay": null, "day": 3},
+  {"shift": null, "overlay": null, "day": 4},
+  {"shift": null, "overlay": null, "day": 5},
+  {"shift": "F1", "overlay": null, "day": 6}
+]
 
-**Din oppgave:**
-1. Hent alle vaktkode-definisjonar frå "Vaktkode" tabellen
-2. Les KVAR veke-rad
-3. Tell kolonnane 1-7 frå venstre
-4. Output: NØYAKTIG 7 element per veke
+**VIKTIG:**
+- ALLTID 7 objekt per veke
+- day går frå 0-6, start på 0 for neste veke
+- overlay er null når det IKKJE er parentes
 
 Returner BERRE gyldig JSON (ingen markdown):
 
@@ -172,7 +182,10 @@ Returner BERRE gyldig JSON (ingen markdown):
   "custom_shifts": [
     {"name": "D1", "start_time": "07:45", "end_time": "15:15", "hours": 7.5, "description": "..."}
   ],
-  "rotation_pattern": ["D1", "D1", "L1", "L1", null, null, "F1", "K2", ...]
+  "rotation_pattern": [
+    {"shift": "D1", "overlay": null, "day": 0},
+    ...
+  ]
 }`
             }
           ]
@@ -211,10 +224,6 @@ Returner BERRE gyldig JSON (ingen markdown):
       throw new Error('Ufullstendig data frå GPT-4o')
     }
 
-    if (extracted.rotation_pattern.length % 7 !== 0) {
-      console.warn(`⚠️ Pattern length ${extracted.rotation_pattern.length} not divisible by 7`)
-    }
-
     const weeks = Math.floor(extracted.rotation_pattern.length / 7)
     console.log('✅ Extracted:', {
       custom_shifts: extracted.custom_shifts.length,
@@ -229,7 +238,7 @@ Returner BERRE gyldig JSON (ingen markdown):
       tokens_used: response.usage?.total_tokens || 0,
     })
 
-    // Create shifts & rotations (same logic as Claude version)
+    // Create shifts & rotations (same logic as Claude)
     const shiftNameToIdMap = new Map<string, string>()
     
     // Create custom shifts
@@ -289,25 +298,41 @@ Returner BERRE gyldig JSON (ingen markdown):
     // Delete existing rotations
     await supabase.from('rotations').delete().eq('plan_id', planId)
 
-    // Create rotations
+    // Create rotations from pattern
     const rotations = []
+    let currentWeek = 0
+    
     for (let i = 0; i < extracted.rotation_pattern.length; i++) {
-      const weekIndex = Math.floor(i / 7)
-      const dayOfWeek = i % 7
-      const shiftName = extracted.rotation_pattern[i]
+      const entry = extracted.rotation_pattern[i]
       
-      if (!shiftName) continue
-      
-      const shiftId = shiftNameToIdMap.get(shiftName)
-      if (shiftId) {
-        rotations.push({
-          plan_id: planId,
-          week_index: weekIndex,
-          day_of_week: dayOfWeek,
-          shift_id: shiftId,
-        })
+      // Detect week boundaries
+      if (i > 0) {
+        const prevEntry = extracted.rotation_pattern[i - 1]
+        if (prevEntry.day === 6 && entry.day === 0) {
+          currentWeek++
+        }
       }
+      
+      // Get shift IDs
+      const shiftId = entry.shift ? shiftNameToIdMap.get(entry.shift) : null
+      const overlayShiftId = entry.overlay ? shiftNameToIdMap.get(entry.overlay) : null
+      
+      // Skip if completely empty
+      if (!shiftId && !overlayShiftId) {
+        continue
+      }
+      
+      rotations.push({
+        plan_id: planId,
+        week_index: currentWeek,
+        day_of_week: entry.day,
+        shift_id: shiftId,
+        overlay_shift_id: overlayShiftId,
+        overlay_type: entry.overlay || null,
+      })
     }
+
+    console.log(`📅 Created ${rotations.length} rotation entries across ${currentWeek + 1} weeks`)
 
     if (rotations.length > 0) {
       await supabase.from('rotations').insert(rotations)

@@ -1,4 +1,4 @@
-// src/app/api/ai/populate-turnus/route.ts - IMPROVED JSON PARSING
+// src/app/api/ai/populate-turnus/route.ts - WITH OVERLAY SUPPORT
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
@@ -12,9 +12,15 @@ interface CustomShiftDefinition {
   description?: string
 }
 
+interface RotationEntry {
+  shift: string | null
+  overlay: string | null
+  day: number  // 0-6 (Monday-Sunday)
+}
+
 interface ExtractedPlanData {
   custom_shifts: CustomShiftDefinition[]
-  rotation_pattern: string[]
+  rotation_pattern: RotationEntry[]
 }
 
 // Supported file types
@@ -29,7 +35,7 @@ const SUPPORTED_TYPES = [
 const SUPPORTED_EXTENSIONS = ['.pdf', '.docx', '.doc', '.rtf']
 
 // Increase route timeout for PDF processing
-export const maxDuration = 300 // 5 minutes (max for Vercel Hobby/Pro)
+export const maxDuration = 300 // 5 minutes
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -126,8 +132,6 @@ export async function POST(request: Request) {
     const isPDF = file.type === 'application/pdf' || fileExtension === '.pdf'
 
     if (!isPDF) {
-      // For non-PDF files, return an error or convert them
-      // You could add a PDF conversion step here, or direct users to use PDF
       return NextResponse.json(
         { 
           error: 'For Claude AI, berre PDF er støtta. Prøv å konvertere dokumentet til PDF eller bruk ein annan AI-modell (GPT-4o eller Gemini).',
@@ -144,7 +148,7 @@ export async function POST(request: Request) {
       maxRetries: 2,
     })
 
-    console.log('🤖 Calling Claude API with simplified prompt...')
+    console.log('🤖 Calling Claude API...')
     console.log('📄 File size:', (file.size / 1024 / 1024).toFixed(2), 'MB')
 
     const startTime = Date.now()
@@ -160,7 +164,7 @@ export async function POST(request: Request) {
               type: 'document',
               source: {
                 type: 'base64',
-                media_type: 'application/pdf', // Claude only supports PDF
+                media_type: 'application/pdf',
                 data: base64,
               },
             },
@@ -180,94 +184,81 @@ Kolonne 5 = Fredag (Fre)
 Kolonne 6 = Laurdag (Lør)
 Kolonne 7 = Søndag (Søn)
 
-**Eksempel 1 frå dokumentet:**
-\`\`\`
-Uke 50: 08.12.2025 - 14.12.2025 | D1 | D1 | L1 | L1 | | | F1
-\`\`\`
+**KRITISK: Overlay-handling (FE/F3/F4/F5)**
 
-Les kolonnane frå venstre mot høgre:
-- Kolonne 1 (Måndag 08.12): D1
-- Kolonne 2 (Tysdag 09.12): D1
-- Kolonne 3 (Onsdag 10.12): L1
-- Kolonne 4 (Torsdag 11.12): L1
-- Kolonne 5 (Fredag 12.12): TOM (|| betyr tom dag)
-- Kolonne 6 (Laurdag 13.12): TOM
-- Kolonne 7 (Søndag 14.12): F1
+rotation_pattern skal vere ein array av objekt med 3 felt:
 
-Output: ["D1", "D1", "L1", "L1", null, null, "F1"]
+{
+  "shift": "VAKTNAMN" eller null,
+  "overlay": "OVERLAY" eller null,
+  "day": 0-6
+}
 
-**Eksempel 2 - F1 PÅ TORSDAG (ikkje søndag):**
-\`\`\`
-Uke 51: 15.12.2025 - 21.12.2025 | K2 | D1 | | F1 | L1 | L1H | L1H
-\`\`\`
+**Tolking av dokumentet:**
 
-Tell kolonnane nøye - det er 7 stykk:
-- Kolonne 1: K2
-- Kolonne 2: D1
-- Kolonne 3: TOM (sjå || mellom D1 og F1)
-- Kolonne 4: F1
-- Kolonne 5: L1
-- Kolonne 6: L1H
-- Kolonne 7: L1H
+"(K1) FE" → {"shift": "K1", "overlay": "FE", "day": 0}
+"FE" (utan parentes) → {"shift": "FE", "overlay": null, "day": 0}
+"D1" → {"shift": "D1", "overlay": null, "day": 0}
+"" (tom) → {"shift": null, "overlay": null, "day": 0}
 
-Output: ["K2", "D1", null, "F1", "L1", "L1H", "L1H"]
-
-Merk: F1 er på TORSDAG (kolonne 4), ikkje søndag! Dette er rett - ikkje flytt den!
-
-**Eksempel 3:**
-\`\`\`
-Uke 2: 05.01.2026 - 11.01.2026 | K1 | K1 | N1 | N1 | | | F1
-\`\`\`
-
-- Kolonne 1 (Måndag): K1
-- Kolonne 2 (Tysdag): K1
-- Kolonne 3 (Onsdag): N1
-- Kolonne 4 (Torsdag): N1
-- Kolonne 5 (Fredag): TOM
-- Kolonne 6 (Laurdag): TOM
-- Kolonne 7 (Søndag): F1
-
-Output: ["K1", "K1", "N1", "N1", null, null, "F1"]
-
-**Eksempel 4 - Mange tomme dagar:**
-\`\`\`
-Uke 52: 22.12.2025 - 28.12.2025 | | K1 | | | | | F1
-\`\`\`
-
-- Kolonne 1: TOM
-- Kolonne 2: K1
-- Kolonne 3: TOM
-- Kolonne 4: TOM
-- Kolonne 5: TOM
-- Kolonne 6: TOM
-- Kolonne 7: F1
-
-Output: [null, "K1", null, null, null, null, "F1"]
-
-**Eksempel 5 - Ferie (FE):**
+**Eksempel 1 - Uke 26 (ferie med overlays):**
 \`\`\`
 Uke 26: 22.06.2026 - 28.06.2026 | (K1) FE | (K1) FE | FE | (N1) FE | (N1) FE | FE | (F1) FE
 \`\`\`
 
-Når du ser "(K1) FE", betyr det:
-- Underliggjande vakt er K1
-- FE (ferie) ligg oppå
-- Du skal BERRE skrive "FE" (ikkje "(K1) FE")
+Dag-for-dag analyse:
+- Måndag (day 0): "(K1) FE" → {"shift": "K1", "overlay": "FE", "day": 0}
+- Tysdag (day 1): "(K1) FE" → {"shift": "K1", "overlay": "FE", "day": 1}
+- Onsdag (day 2): "FE" → {"shift": "FE", "overlay": null, "day": 2}
+- Torsdag (day 3): [tom] → {"shift": null, "overlay": null, "day": 3}
+- Fredag (day 4): "(N1) FE" → {"shift": "N1", "overlay": "FE", "day": 4}
+- Laurdag (day 5): "FE" → {"shift": "FE", "overlay": null, "day": 5}
+- Søndag (day 6): "(F1) FE" → {"shift": "F1", "overlay": "FE", "day": 6}
 
-Output: ["FE", "FE", "FE", "FE", "FE", "FE", "FE"]
+Output for uke 26 (7 objekt, ein per dag):
+[
+  {"shift": "K1", "overlay": "FE", "day": 0},
+  {"shift": "K1", "overlay": "FE", "day": 1},
+  {"shift": "FE", "overlay": null, "day": 2},
+  {"shift": null, "overlay": null, "day": 3},
+  {"shift": "N1", "overlay": "FE", "day": 4},
+  {"shift": "FE", "overlay": null, "day": 5},
+  {"shift": "F1", "overlay": "FE", "day": 6}
+]
 
-**KRITISKE REGLAR:**
+**Eksempel 2 - Uke 50 (vanleg veke utan overlays):**
+\`\`\`
+Uke 50: 08.12.2025 - 14.12.2025 | D1 | D1 | L1 | L1 | | | F1
+\`\`\`
 
-1. **Tom kolonne = null**: Når du ser ||, betyr det tom dag → bruk null
-2. **ALLTID 7 kolonnar**: Kvar veke MÅ ha nøyaktig 7 element
-3. **Ikkje hopp over tomme kolonnar**: Dei MÅ teljast og representerast som null
-4. **Les tabellen slik den er**: Ikkje flytt vakter, ikkje gjer antagelsar
-5. **F1 er IKKJE alltid på søndag**: 
-   - F1 er ukefridagen
-   - Vanlegvis på søndag (kolonne 7)
-   - Men dersom søndag har ei vakt (L1H, L2 osv), står F1 ein annan stad
-   - Les kvar kolonne F1 faktisk står i tabellen
-6. **Tomme celler er synlege i tabellen**: || (to strekår med ingenting mellom) = tom dag
+Output (7 objekt):
+[
+  {"shift": "D1", "overlay": null, "day": 0},
+  {"shift": "D1", "overlay": null, "day": 1},
+  {"shift": "L1", "overlay": null, "day": 2},
+  {"shift": "L1", "overlay": null, "day": 3},
+  {"shift": null, "overlay": null, "day": 4},
+  {"shift": null, "overlay": null, "day": 5},
+  {"shift": "F1", "overlay": null, "day": 6}
+]
+
+**Eksempel 3 - F3 compensation:**
+\`\`\`
+Uke 14: | K1 | K1 | F3 | F3 | | | F1
+\`\`\`
+
+Onsdag (day 2): "F3" (ingen parentes) → {"shift": "F3", "overlay": null, "day": 2}
+Torsdag (day 3): "F3" (ingen parentes) → {"shift": "F3", "overlay": null, "day": 3}
+
+Men hvis det var "(D1) F3" → {"shift": "D1", "overlay": "F3", "day": 2}
+
+**VIKTIG REGLAR:**
+
+1. **Alltid 7 objekt per veke** (ein per dag, Måndag-Søndag)
+2. **day går frå 0-6** for kvar veke, start på 0 igjen for neste veke
+3. **Parentes betyr overlay**: "(K1) FE" = K1-vakt med FE oppå
+4. **Ingen parentes = berre shift**: "FE" = berre ferie, "D1" = berre dagvakt
+5. **Tom kolonne** = {"shift": null, "overlay": null, "day": X}
 
 **Din oppgave:**
 
@@ -275,10 +266,9 @@ Output: ["FE", "FE", "FE", "FE", "FE", "FE", "FE"]
 2. Les KVAR VEKE-RAD i turnustabellen
 3. For kvar veke:
    - Tell kolonnane frå venstre: 1=Mån, 2=Tys, 3=Ons, 4=Tor, 5=Fre, 6=Lau, 7=Søn
-   - Skriv ned vaktkoden for kvar kolonne
-   - Dersom kolonna er tom, skriv null
-   - Du skal ha NØYAKTIG 7 element per veke
-4. Set saman alle vekene til ein flat "rotation_pattern" array
+   - Output nøyaktig 7 objekt (ein per dag)
+   - Bruk day 0-6 for dagane (0=Måndag, 6=Søndag)
+4. For neste veke, start på day 0 igjen
 
 **Returner BERRE denne JSON-strukturen:**
 
@@ -292,16 +282,19 @@ Output: ["FE", "FE", "FE", "FE", "FE", "FE", "FE"]
       "description": "07:45 - 15:15 (7,50t)"
     }
   ],
-  "rotation_pattern": ["D1", "D1", "L1", "L1", null, null, "F1", "K2", "D1", null, "F1", ...]
+  "rotation_pattern": [
+    {"shift": "D1", "overlay": null, "day": 0},
+    {"shift": "D1", "overlay": null, "day": 1},
+    ...
+  ]
 }
 
 **Validering før du returnerer:**
-✓ rotation_pattern.length er deleleg med 7
-✓ Kvar 7-element blokk representerer Mån-Søn for éin veke
-✓ Tomme dagar er null (ikkje hoppa over)
-✓ F1 er i den EKSAKTE kolonnen den vises i tabellen
-✓ FE har ikkje parentes
-✓ Alle custom shifts frå Vaktkode-tabellen er med
+✓ rotation_pattern har objekt med shift, overlay, og day
+✓ Nøyaktig 7 objekt per veke
+✓ day er 0-6, start på 0 for kvar nye veke
+✓ overlay er null når det IKKJE er parentes
+✓ overlay har verdi når det ER parentes: (VAKT) OVERLAY
 
 **VIKTIG: Returner BERRE gyldig JSON. Ingen markdown, ingen forklaringar, ingen kodeblokkar.**`,
             },
@@ -318,17 +311,17 @@ Output: ["FE", "FE", "FE", "FE", "FE", "FE", "FE"]
       total: message.usage.input_tokens + message.usage.output_tokens
     })
 
-    // Parse Claude's response with multiple strategies
+    // Parse Claude's response
     const responseText = message.content[0].type === 'text' 
       ? message.content[0].text 
       : ''
 
     console.log('📄 Raw Claude response length:', responseText.length)
 
-    // Extract JSON from response - try multiple strategies
+    // Extract JSON from response
     let extracted: ExtractedPlanData | null = null
     
-    // Strategy 1: Look for JSON between code blocks
+    // Try multiple extraction strategies
     const codeBlockMatch = responseText.match(/```json\n?([\s\S]*?)\n?```/)
     if (codeBlockMatch) {
       console.log('✅ Found JSON in code block')
@@ -339,43 +332,35 @@ Output: ["FE", "FE", "FE", "FE", "FE", "FE", "FE"]
       }
     }
     
-    // Strategy 2: Find largest JSON object in response
     if (!extracted) {
-      console.log('🔍 Searching for JSON object...')
       const jsonMatches = responseText.match(/\{[\s\S]*?\}/g)
       
       if (jsonMatches && jsonMatches.length > 0) {
-        // Try each match, starting with the largest
         const sortedMatches = jsonMatches.sort((a, b) => b.length - a.length)
         
         for (const match of sortedMatches) {
           try {
             const parsed = JSON.parse(match)
-            // Validate it has the expected structure
             if (parsed.custom_shifts && parsed.rotation_pattern) {
               console.log('✅ Successfully parsed JSON object')
               extracted = parsed
               break
             }
           } catch (e) {
-            // Try next match
             continue
           }
         }
       }
     }
 
-    // Strategy 3: Try to clean and parse the entire response
     if (!extracted) {
       console.log('🧹 Attempting to clean response...')
       try {
-        // Remove markdown code blocks
         let cleaned = responseText
           .replace(/```json\n?/g, '')
           .replace(/```\n?/g, '')
           .trim()
         
-        // Try to find the first { and last }
         const firstBrace = cleaned.indexOf('{')
         const lastBrace = cleaned.lastIndexOf('}')
         
@@ -391,78 +376,21 @@ Output: ["FE", "FE", "FE", "FE", "FE", "FE", "FE"]
 
     if (!extracted) {
       console.error('❌ All JSON extraction strategies failed')
-      console.error('Response preview (first 1000 chars):', responseText.substring(0, 1000))
-      console.error('Response preview (last 1000 chars):', responseText.substring(Math.max(0, responseText.length - 1000)))
-      throw new Error('Kunne ikkje ekstrahere gyldig JSON frå Claude sitt svar. Prøv igjen eller last opp ein enklare turnus.')
+      throw new Error('Kunne ikkje ekstrahere gyldig JSON frå Claude sitt svar.')
     }
 
     // Validate extracted data
     if (!extracted.custom_shifts || !extracted.rotation_pattern || extracted.rotation_pattern.length === 0) {
-      console.error('❌ Invalid extracted data structure:', {
-        has_custom_shifts: !!extracted.custom_shifts,
-        has_rotation_pattern: !!extracted.rotation_pattern,
-        pattern_length: extracted.rotation_pattern?.length || 0
-      })
+      console.error('❌ Invalid extracted data structure')
       throw new Error('Ufullstendig data ekstrahert frå dokumentet')
-    }
-
-    // Validate rotation_pattern is divisible by 7
-    if (extracted.rotation_pattern.length % 7 !== 0) {
-      console.warn(`⚠️ rotation_pattern length not divisible by 7: ${extracted.rotation_pattern.length}`)
-      console.warn('This might indicate day-of-week alignment issues')
     }
 
     const weeks = Math.floor(extracted.rotation_pattern.length / 7)
     console.log('✅ Extracted data:', {
       custom_shifts: extracted.custom_shifts.length,
       rotation_pattern_length: extracted.rotation_pattern.length,
-      weeks: weeks,
-      expected_weeks: plan.duration_weeks
+      weeks: weeks
     })
-
-    // Log first week as example
-    if (extracted.rotation_pattern.length >= 7) {
-      const firstWeek = extracted.rotation_pattern.slice(0, 7)
-      console.log('📅 Week 1 (Mon-Sun):', firstWeek)
-      console.log('   Expected: D1, D1, L1, L1, empty, empty, F1')
-    }
-
-    // Log second week to check alignment
-    if (extracted.rotation_pattern.length >= 14) {
-      const secondWeek = extracted.rotation_pattern.slice(7, 14)
-      console.log('📅 Week 2 (Mon-Sun):', secondWeek)
-      console.log('   Expected: K1, K1, N1, N1, empty, empty, F1')
-      
-      // Check if F1 is in correct position (should be position 6 = Sunday)
-      if (secondWeek[6] !== 'F1' && secondWeek.includes('F1')) {
-        const f1Position = secondWeek.indexOf('F1')
-        console.warn(`⚠️ Week 2: F1 found at position ${f1Position} instead of 6 (Sunday)`)
-        console.warn('   This indicates day-of-week misalignment!')
-      }
-    }
-
-    // Log a week with F1 NOT on Sunday (week 51)
-    if (extracted.rotation_pattern.length >= 14) {
-      const week51Index = 50 * 7 // Week 51 is index 350-356
-      if (extracted.rotation_pattern.length > week51Index + 7) {
-        const week51 = extracted.rotation_pattern.slice(week51Index, week51Index + 7)
-        console.log('📅 Week 51 (example of F1 NOT on Sunday):', week51)
-        console.log('   Expected: K2, D1, empty, F1, L1, L1H, L1H')
-        console.log('   Note: F1 is on Thursday (position 3) because weekend has shifts')
-      }
-    }
-
-    // Log any FE shifts found
-    const feCount = extracted.rotation_pattern.filter(s => s === 'FE').length
-    if (feCount > 0) {
-      console.log(`🏖️ Found ${feCount} vacation (FE) days`)
-    }
-
-    // Check for F3 shifts
-    const f3Count = extracted.rotation_pattern.filter(s => s === 'F3').length
-    if (f3Count > 0) {
-      console.log(`💰 Found ${f3Count} F3 compensation days`)
-    }
 
     // Track AI usage
     await supabase.from('ai_usage').insert({
@@ -472,7 +400,7 @@ Output: ["FE", "FE", "FE", "FE", "FE", "FE", "FE"]
     })
 
     // Create custom shifts
-    const customShiftMap = new Map<string, string>()
+    const shiftNameToIdMap = new Map<string, string>()
     
     if (extracted.custom_shifts && extracted.custom_shifts.length > 0) {
       for (const customShift of extracted.custom_shifts) {
@@ -481,7 +409,6 @@ Output: ["FE", "FE", "FE", "FE", "FE", "FE", "FE"]
           continue
         }
 
-        // Check if shift already exists
         const { data: existingShift } = await supabase
           .from('shifts')
           .select('id')
@@ -490,8 +417,7 @@ Output: ["FE", "FE", "FE", "FE", "FE", "FE", "FE"]
           .maybeSingle()
 
         if (existingShift) {
-          // Update existing shift
-          const { data: updatedShift } = await supabase
+          await supabase
             .from('shifts')
             .update({
               description: customShift.description,
@@ -499,14 +425,9 @@ Output: ["FE", "FE", "FE", "FE", "FE", "FE", "FE"]
               end_time: customShift.end_time,
             })
             .eq('id', existingShift.id)
-            .select()
-            .single()
-
-          if (updatedShift) {
-            customShiftMap.set(customShift.name, updatedShift.id)
-          }
+          
+          shiftNameToIdMap.set(customShift.name, existingShift.id)
         } else {
-          // Create new shift
           const { data: createdShift, error: shiftError } = await supabase
             .from('shifts')
             .insert({
@@ -526,7 +447,7 @@ Output: ["FE", "FE", "FE", "FE", "FE", "FE", "FE"]
           }
 
           if (createdShift) {
-            customShiftMap.set(customShift.name, createdShift.id)
+            shiftNameToIdMap.set(customShift.name, createdShift.id)
           }
         }
       }
@@ -538,7 +459,6 @@ Output: ["FE", "FE", "FE", "FE", "FE", "FE", "FE"]
       .select('*')
       .eq('plan_id', planId)
 
-    const shiftNameToIdMap = new Map<string, string>()
     allShifts?.forEach(shift => {
       shiftNameToIdMap.set(shift.name, shift.id)
     })
@@ -552,29 +472,39 @@ Output: ["FE", "FE", "FE", "FE", "FE", "FE", "FE"]
     // Create new rotation from pattern
     if (extracted.rotation_pattern && extracted.rotation_pattern.length > 0) {
       const rotations = []
-      const patternLength = extracted.rotation_pattern.length
+      let currentWeek = 0
       
-      for (let i = 0; i < patternLength; i++) {
-        const weekIndex = Math.floor(i / 7)
-        const dayOfWeek = i % 7
-        const shiftName = extracted.rotation_pattern[i]
+      for (let i = 0; i < extracted.rotation_pattern.length; i++) {
+        const entry = extracted.rotation_pattern[i]
         
-        // Skip null or empty entries
-        if (!shiftName || shiftName === 'null' || shiftName === '') {
+        // Detect week boundaries (when day wraps from 6 to 0)
+        if (i > 0) {
+          const prevEntry = extracted.rotation_pattern[i - 1]
+          if (prevEntry.day === 6 && entry.day === 0) {
+            currentWeek++
+          }
+        }
+        
+        // Get shift IDs
+        const shiftId = entry.shift ? shiftNameToIdMap.get(entry.shift) : null
+        const overlayShiftId = entry.overlay ? shiftNameToIdMap.get(entry.overlay) : null
+        
+        // Skip if completely empty day (no shift and no overlay)
+        if (!shiftId && !overlayShiftId) {
           continue
         }
         
-        const shiftId = shiftNameToIdMap.get(shiftName)
-
-        if (shiftId) {
-          rotations.push({
-            plan_id: planId,
-            week_index: weekIndex,
-            day_of_week: dayOfWeek,
-            shift_id: shiftId,
-          })
-        }
+        rotations.push({
+          plan_id: planId,
+          week_index: currentWeek,
+          day_of_week: entry.day,
+          shift_id: shiftId,
+          overlay_shift_id: overlayShiftId,
+          overlay_type: entry.overlay || null,
+        })
       }
+
+      console.log(`📅 Created ${rotations.length} rotation entries across ${currentWeek + 1} weeks`)
 
       if (rotations.length > 0) {
         const { error: rotationError } = await supabase
@@ -590,6 +520,7 @@ Output: ["FE", "FE", "FE", "FE", "FE", "FE", "FE"]
 
     return NextResponse.json({
       success: true,
+      ai_model: 'claude-sonnet-4',
       data: {
         custom_shifts_count: extracted.custom_shifts?.length || 0,
         rotation_entries_count: extracted.rotation_pattern?.length || 0,
@@ -600,7 +531,6 @@ Output: ["FE", "FE", "FE", "FE", "FE", "FE", "FE"]
     console.error('💥 File processing error:', error)
     console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error)
     console.error('Error message:', error instanceof Error ? error.message : String(error))
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     
     return NextResponse.json(
       { 
