@@ -309,11 +309,11 @@ const handleShiftSelect = async (
                           {/* Display overlay indicators */}
                           {shiftDisplay.hasOverlay && (
                             <div className="text-xs text-purple-600 mt-1">
-                              {rotation.overlay_type === 'f3_compensation' && '⚖️ Holiday compensation'}
-                              {rotation.overlay_type === 'f4_compensation' && '💰 Compensation'}
-                              {rotation.overlay_type === 'f5_replacement' && '🔄 Replacement day'}
+                              {rotation.overlay_type === 'f3_compensation' && 'Helgedagsfri'}
+                              {rotation.overlay_type === 'f4_compensation' && 'Godtgjeringsfri'}
+                              {rotation.overlay_type === 'f5_replacement' && 'Erstatningsfridag'}
                               {rotation.overlay_type === 'vacation' && overlayShift?.name === 'FE' && '🏖️ Ferie'}
-                              {rotation.overlay_type === 'vacation' && overlayShift?.name !== 'FE' && '🏖️ Vacation'}
+                              {rotation.overlay_type === 'vacation' && overlayShift?.name !== 'FE' && '🏖️ Ferie'}
                               {rotation.overlay_type === 'other' && '📝 Other'}
                             </div>
                           )}

@@ -1,4 +1,4 @@
-// src/app/api/ai/populate-turnus/route.ts - Populates existing plan with AI
+// src/app/api/ai/populate-turnus/route.ts - IMPROVED JSON PARSING
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
@@ -27,6 +27,9 @@ const SUPPORTED_TYPES = [
 ]
 
 const SUPPORTED_EXTENSIONS = ['.pdf', '.docx', '.doc', '.rtf']
+
+// Increase route timeout for PDF processing
+export const maxDuration = 300 // 5 minutes (max for Vercel Hobby/Pro)
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -132,13 +135,21 @@ export async function POST(request: Request) {
     }
 
     // Send to Claude for extraction
+    // Configure with explicit timeout to prevent SDK auto-calculation issues
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
+      timeout: 180000, // 3 minutes - plenty for simplified output
+      maxRetries: 2,
     })
+
+    console.log('🤖 Calling Claude API with simplified prompt...')
+    console.log('📄 File size:', (file.size / 1024 / 1024).toFixed(2), 'MB')
+
+    const startTime = Date.now()
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 16384,
+      max_tokens: 8192, // Reduced - rotation pattern is much smaller than full shifts
       messages: [
         {
           role: 'user',
@@ -153,156 +164,302 @@ export async function POST(request: Request) {
             },
             {
               type: 'text',
-              text: `You are analyzing a Norwegian healthcare turnus/shift schedule document.
+              text: `Du analyserer eit norsk turnusdokument frå helsesektoren.
 
-**CRITICAL: Day-of-Week Positioning Rules**
+**KRITISK: Korleis lese tabellen**
 
-Norwegian turnus documents show weekly schedules with 7 columns representing:
-1. Man (Monday)
-2. Tir (Tuesday) 
-3. Ons (Wednesday)
-4. Tor (Thursday)
-5. Fre (Friday)
-6. Lør (Saturday)
-7. Søn (Sunday)
+Kvar rad i dokumentet representerer ÉIN VEKE med NØYAKTIG 7 kolonnar:
 
-**IMPORTANT**: 
-- Empty columns mean NO SHIFT on that day - NOT that the day doesn't exist
-- You MUST preserve the exact column/position for each shift
-- Count from left to right starting at Monday (0) to Sunday (6)
-- If a shift code appears in the 7th column, it is SUNDAY, even if previous columns are empty
+Kolonne 1 = Måndag (Man)
+Kolonne 2 = Tysdag (Tir)
+Kolonne 3 = Onsdag (Ons)
+Kolonne 4 = Torsdag (Tor)
+Kolonne 5 = Fredag (Fre)
+Kolonne 6 = Laurdag (Lør)
+Kolonne 7 = Søndag (Søn)
 
-**Example Parsing:**
-Input:  "D1    D1    L1    L1         F1"
-Means:  [D1, D1, L1, L1, null, null, F1]
-Days:   Mon  Tue  Wed  Thu  Fri   Lør   Søn
+**Eksempel 1 frå dokumentet:**
+\`\`\`
+Uke 50: 08.12.2025 - 14.12.2025 | D1 | D1 | L1 | L1 | | | F1
+\`\`\`
 
-NOT:    [D1, D1, L1, L1, F1, null, null]  ❌ WRONG!
+Les kolonnane frå venstre mot høgre:
+- Kolonne 1 (Måndag 08.12): D1
+- Kolonne 2 (Tysdag 09.12): D1
+- Kolonne 3 (Onsdag 10.12): L1
+- Kolonne 4 (Torsdag 11.12): L1
+- Kolonne 5 (Fredag 12.12): TOM (|| betyr tom dag)
+- Kolonne 6 (Laurdag 13.12): TOM
+- Kolonne 7 (Søndag 14.12): F1
 
-**Document Structure:**
+Output: ["D1", "D1", "L1", "L1", null, null, "F1"]
 
-1. Header with employee info
-2. Weekly schedule table with format:
-   Uke [number]: [date range] | Man | Tir | Ons | Tor | Fre | Lør | Søn | Timer
-3. Vaktkode (shift code) definitions table
-4. Optional comments
+**Eksempel 2 - F1 PÅ TORSDAG (ikkje søndag):**
+\`\`\`
+Uke 51: 15.12.2025 - 21.12.2025 | K2 | D1 | | F1 | L1 | L1H | L1H
+\`\`\`
 
-**Your Task:**
+Tell kolonnane nøye - det er 7 stykk:
+- Kolonne 1: K2
+- Kolonne 2: D1
+- Kolonne 3: TOM (sjå || mellom D1 og F1)
+- Kolonne 4: F1
+- Kolonne 5: L1
+- Kolonne 6: L1H
+- Kolonne 7: L1H
 
-1. Extract vaktkode definitions (custom shifts) from the vaktkode table
-2. Parse the weekly schedule, **PRESERVING EXACT COLUMN POSITIONS**
-3. Map each shift to its correct date by:
-   - Start with the week's start date (Monday)
-   - For each of the 7 day columns (0-6):
-     - If column has shift code → create shift for that date
-     - If column is empty → skip to next day
-   - Increment date by 1 for each column
+Output: ["K2", "D1", null, "F1", "L1", "L1H", "L1H"]
 
-**Return JSON Format:**
+Merk: F1 er på TORSDAG (kolonne 4), ikkje søndag! Dette er rett - ikkje flytt den!
+
+**Eksempel 3:**
+\`\`\`
+Uke 2: 05.01.2026 - 11.01.2026 | K1 | K1 | N1 | N1 | | | F1
+\`\`\`
+
+- Kolonne 1 (Måndag): K1
+- Kolonne 2 (Tysdag): K1
+- Kolonne 3 (Onsdag): N1
+- Kolonne 4 (Torsdag): N1
+- Kolonne 5 (Fredag): TOM
+- Kolonne 6 (Laurdag): TOM
+- Kolonne 7 (Søndag): F1
+
+Output: ["K1", "K1", "N1", "N1", null, null, "F1"]
+
+**Eksempel 4 - Mange tomme dagar:**
+\`\`\`
+Uke 52: 22.12.2025 - 28.12.2025 | | K1 | | | | | F1
+\`\`\`
+
+- Kolonne 1: TOM
+- Kolonne 2: K1
+- Kolonne 3: TOM
+- Kolonne 4: TOM
+- Kolonne 5: TOM
+- Kolonne 6: TOM
+- Kolonne 7: F1
+
+Output: [null, "K1", null, null, null, null, "F1"]
+
+**Eksempel 5 - Ferie (FE):**
+\`\`\`
+Uke 26: 22.06.2026 - 28.06.2026 | (K1) FE | (K1) FE | FE | (N1) FE | (N1) FE | FE | (F1) FE
+\`\`\`
+
+Når du ser "(K1) FE", betyr det:
+- Underliggjande vakt er K1
+- FE (ferie) ligg oppå
+- Du skal BERRE skrive "FE" (ikkje "(K1) FE")
+
+Output: ["FE", "FE", "FE", "FE", "FE", "FE", "FE"]
+
+**KRITISKE REGLAR:**
+
+1. **Tom kolonne = null**: Når du ser ||, betyr det tom dag → bruk null
+2. **ALLTID 7 kolonnar**: Kvar veke MÅ ha nøyaktig 7 element
+3. **Ikkje hopp over tomme kolonnar**: Dei MÅ teljast og representerast som null
+4. **Les tabellen slik den er**: Ikkje flytt vakter, ikkje gjer antagelsar
+5. **F1 er IKKJE alltid på søndag**: 
+   - F1 er ukefridagen
+   - Vanlegvis på søndag (kolonne 7)
+   - Men dersom søndag har ei vakt (L1H, L2 osv), står F1 ein annan stad
+   - Les kvar kolonne F1 faktisk står i tabellen
+6. **Tomme celler er synlege i tabellen**: || (to strekår med ingenting mellom) = tom dag
+
+**Din oppgave:**
+
+1. Hent ut ALLE vaktkode-definisjonar frå "Vaktkode" tabellen (med tider)
+2. Les KVAR VEKE-RAD i turnustabellen
+3. For kvar veke:
+   - Tell kolonnane frå venstre: 1=Mån, 2=Tys, 3=Ons, 4=Tor, 5=Fre, 6=Lau, 7=Søn
+   - Skriv ned vaktkoden for kvar kolonne
+   - Dersom kolonna er tom, skriv null
+   - Du skal ha NØYAKTIG 7 element per veke
+4. Set saman alle vekene til ein flat "rotation_pattern" array
+
+**Returner BERRE denne JSON-strukturen:**
 
 {
-  "plan_name": "Employee name and ID",
-  "start_date": "YYYY-MM-DD",
-  "end_date": "YYYY-MM-DD", 
-  "employee_name": "Name if visible",
-  "work_percent": 100,
-  "duration_weeks": 52,
   "custom_shifts": [
     {
       "name": "D1",
       "start_time": "07:45",
-      "end_time": "15:15", 
+      "end_time": "15:15",
       "hours": 7.5,
-      "description": "Dagvakt"
+      "description": "07:45 - 15:15 (7,50t)"
     }
   ],
-  "shifts": [
-    {
-      "date": "2025-12-08",
-      "shift_type": "D1",
-      "day_of_week": 0,
-      "start_time": "07:45",
-      "end_time": "15:15",
-      "hours": 7.5
-    },
-    {
-      "date": "2025-12-09", 
-      "shift_type": "D1",
-      "day_of_week": 1,
-      "start_time": "07:45",
-      "end_time": "15:15",
-      "hours": 7.5
-    },
-    {
-      "date": "2025-12-14",
-      "shift_type": "F1",
-      "day_of_week": 6,
-      "start_time": "00:00",
-      "end_time": "00:00",
-      "hours": 0
-    }
-  ]
+  "rotation_pattern": ["D1", "D1", "L1", "L1", null, null, "F1", "K2", "D1", null, "F1", ...]
 }
 
-**Field Descriptions:**
+**Validering før du returnerer:**
+✓ rotation_pattern.length er deleleg med 7
+✓ Kvar 7-element blokk representerer Mån-Søn for éin veke
+✓ Tomme dagar er null (ikkje hoppa over)
+✓ F1 er i den EKSAKTE kolonnen den vises i tabellen
+✓ FE har ikkje parentes
+✓ Alle custom shifts frå Vaktkode-tabellen er med
 
-- **day_of_week**: 0=Monday, 1=Tuesday, 2=Wednesday, 3=Thursday, 4=Friday, 5=Saturday, 6=Sunday
-  - This helps verify you've parsed the correct day
-  - If day_of_week doesn't match the date's actual day, you've made an error
-
-- **shifts**: One entry per scheduled shift
-  - Skip empty days entirely (don't create shift entries)
-  - Each shift must have the date that corresponds to its column position
-  - F1/FE shifts have 0 hours
-
-**Special Cases:**
-
-1. **FE (Ferie/Vacation)**: These may show as "(K1) FE" meaning overlay or just FE
-   - If (K1) FE first add shift in parenthesis then overlay with FE if no parantheses just add FE overlay
-
-2. **F3 (Compensation days)**: May show as just "F3" 
-   - Create shift with type "F3"
-
-3. **F5 (Extra)**: shown as (K1) AF5
-   - Create the shift in paranthesis and then add F5 as overlay
-
-**Validation Rules:**
-
-✅ DO:
-- Preserve exact column positions
-- Create shifts only for days with shift codes
-- Calculate correct dates based on week start + day offset
-- Include day_of_week for verification
-
-❌ DON'T:
-- Shift codes to fill gaps
-- Assume consecutive days all have shifts
-- Place Sunday shifts on Friday
-- Create shifts for empty columns
-
-**Return only valid JSON with no other text or explanations.**`,
+**VIKTIG: Returner BERRE gyldig JSON. Ingen markdown, ingen forklaringar, ingen kodeblokkar.**`,
             },
           ],
         },
       ],
     })
 
-    // Parse Claude's response
+    const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(2)
+    console.log(`✅ Claude API responded in ${elapsedTime}s`)
+    console.log('📊 Token usage:', {
+      input: message.usage.input_tokens,
+      output: message.usage.output_tokens,
+      total: message.usage.input_tokens + message.usage.output_tokens
+    })
+
+    // Parse Claude's response with multiple strategies
     const responseText = message.content[0].type === 'text' 
       ? message.content[0].text 
       : ''
 
-    // Extract JSON from response
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      throw new Error('Kunne ikkje ekstrahere JSON frå Claude sitt svar')
+    console.log('📄 Raw Claude response length:', responseText.length)
+
+    // Extract JSON from response - try multiple strategies
+    let extracted: ExtractedPlanData | null = null
+    
+    // Strategy 1: Look for JSON between code blocks
+    const codeBlockMatch = responseText.match(/```json\n?([\s\S]*?)\n?```/)
+    if (codeBlockMatch) {
+      console.log('✅ Found JSON in code block')
+      try {
+        extracted = JSON.parse(codeBlockMatch[1].trim())
+      } catch (e) {
+        console.error('❌ Failed to parse code block JSON:', e)
+      }
+    }
+    
+    // Strategy 2: Find largest JSON object in response
+    if (!extracted) {
+      console.log('🔍 Searching for JSON object...')
+      const jsonMatches = responseText.match(/\{[\s\S]*?\}/g)
+      
+      if (jsonMatches && jsonMatches.length > 0) {
+        // Try each match, starting with the largest
+        const sortedMatches = jsonMatches.sort((a, b) => b.length - a.length)
+        
+        for (const match of sortedMatches) {
+          try {
+            const parsed = JSON.parse(match)
+            // Validate it has the expected structure
+            if (parsed.custom_shifts && parsed.rotation_pattern) {
+              console.log('✅ Successfully parsed JSON object')
+              extracted = parsed
+              break
+            }
+          } catch (e) {
+            // Try next match
+            continue
+          }
+        }
+      }
     }
 
-    const extracted = JSON.parse(jsonMatch[0]) as ExtractedPlanData
+    // Strategy 3: Try to clean and parse the entire response
+    if (!extracted) {
+      console.log('🧹 Attempting to clean response...')
+      try {
+        // Remove markdown code blocks
+        let cleaned = responseText
+          .replace(/```json\n?/g, '')
+          .replace(/```\n?/g, '')
+          .trim()
+        
+        // Try to find the first { and last }
+        const firstBrace = cleaned.indexOf('{')
+        const lastBrace = cleaned.lastIndexOf('}')
+        
+        if (firstBrace !== -1 && lastBrace !== -1) {
+          cleaned = cleaned.substring(firstBrace, lastBrace + 1)
+          extracted = JSON.parse(cleaned)
+          console.log('✅ Successfully parsed cleaned response')
+        }
+      } catch (e) {
+        console.error('❌ Failed to parse cleaned response:', e)
+      }
+    }
+
+    if (!extracted) {
+      console.error('❌ All JSON extraction strategies failed')
+      console.error('Response preview (first 1000 chars):', responseText.substring(0, 1000))
+      console.error('Response preview (last 1000 chars):', responseText.substring(Math.max(0, responseText.length - 1000)))
+      throw new Error('Kunne ikkje ekstrahere gyldig JSON frå Claude sitt svar. Prøv igjen eller last opp ein enklare turnus.')
+    }
 
     // Validate extracted data
     if (!extracted.custom_shifts || !extracted.rotation_pattern || extracted.rotation_pattern.length === 0) {
+      console.error('❌ Invalid extracted data structure:', {
+        has_custom_shifts: !!extracted.custom_shifts,
+        has_rotation_pattern: !!extracted.rotation_pattern,
+        pattern_length: extracted.rotation_pattern?.length || 0
+      })
       throw new Error('Ufullstendig data ekstrahert frå dokumentet')
+    }
+
+    // Validate rotation_pattern is divisible by 7
+    if (extracted.rotation_pattern.length % 7 !== 0) {
+      console.warn(`⚠️ rotation_pattern length not divisible by 7: ${extracted.rotation_pattern.length}`)
+      console.warn('This might indicate day-of-week alignment issues')
+    }
+
+    const weeks = Math.floor(extracted.rotation_pattern.length / 7)
+    console.log('✅ Extracted data:', {
+      custom_shifts: extracted.custom_shifts.length,
+      rotation_pattern_length: extracted.rotation_pattern.length,
+      weeks: weeks,
+      expected_weeks: plan.duration_weeks
+    })
+
+    // Log first week as example
+    if (extracted.rotation_pattern.length >= 7) {
+      const firstWeek = extracted.rotation_pattern.slice(0, 7)
+      console.log('📅 Week 1 (Mon-Sun):', firstWeek)
+      console.log('   Expected: D1, D1, L1, L1, empty, empty, F1')
+    }
+
+    // Log second week to check alignment
+    if (extracted.rotation_pattern.length >= 14) {
+      const secondWeek = extracted.rotation_pattern.slice(7, 14)
+      console.log('📅 Week 2 (Mon-Sun):', secondWeek)
+      console.log('   Expected: K1, K1, N1, N1, empty, empty, F1')
+      
+      // Check if F1 is in correct position (should be position 6 = Sunday)
+      if (secondWeek[6] !== 'F1' && secondWeek.includes('F1')) {
+        const f1Position = secondWeek.indexOf('F1')
+        console.warn(`⚠️ Week 2: F1 found at position ${f1Position} instead of 6 (Sunday)`)
+        console.warn('   This indicates day-of-week misalignment!')
+      }
+    }
+
+    // Log a week with F1 NOT on Sunday (week 51)
+    if (extracted.rotation_pattern.length >= 14) {
+      const week51Index = 50 * 7 // Week 51 is index 350-356
+      if (extracted.rotation_pattern.length > week51Index + 7) {
+        const week51 = extracted.rotation_pattern.slice(week51Index, week51Index + 7)
+        console.log('📅 Week 51 (example of F1 NOT on Sunday):', week51)
+        console.log('   Expected: K2, D1, empty, F1, L1, L1H, L1H')
+        console.log('   Note: F1 is on Thursday (position 3) because weekend has shifts')
+      }
+    }
+
+    // Log any FE shifts found
+    const feCount = extracted.rotation_pattern.filter(s => s === 'FE').length
+    if (feCount > 0) {
+      console.log(`🏖️ Found ${feCount} vacation (FE) days`)
+    }
+
+    // Check for F3 shifts
+    const f3Count = extracted.rotation_pattern.filter(s => s === 'F3').length
+    if (f3Count > 0) {
+      console.log(`💰 Found ${f3Count} F3 compensation days`)
     }
 
     // Track AI usage
