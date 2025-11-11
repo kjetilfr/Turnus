@@ -113,7 +113,7 @@ export default function AIModelSelector({ onModelSelect, selectedModel, fileType
       
       {fileType && !getModelCompatibility(selectedModel) && selectedModel !== 'auto' && (
         <div className="mt-2 text-xs text-orange-600">
-          ⚠️ Denne modellen støttar ikkje {fileType}-filer. Vel "Auto" eller ein annan modell.
+          ⚠️ Denne modellen støttar ikkje {fileType}-filer. Vel &quot;Auto&quot; eller ein annan modell.
         </div>
       )}
     </div>
