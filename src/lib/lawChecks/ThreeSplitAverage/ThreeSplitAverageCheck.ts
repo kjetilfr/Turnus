@@ -1,3 +1,5 @@
+// src/lib/lawChecks/ThreeSplitAverageCheck.ts
+
 import { LawCheck, LawCheckResult } from '@/types/lawCheck'
 import { Rotation } from '@/types/rotation'
 import { Shift } from '@/types/shift'
@@ -10,7 +12,9 @@ import { check24HourCoverage } from '@/lib/lawChecks/ThreeSplitAverage/24HourCov
 import { checkVacationOverlays } from '@/lib/lawChecks/ThreeSplitAverage/VacationCheck'
 import {
   createSundayTimeZones,
-  calculateTimeZoneOverlapExcludingNight,
+  createCombinedSundayZones,
+  calculateTimeZoneOverlap,
+  calculateNightHoursInZone,
   calculateNightHours20to6,
   getRotationDate,
   formatDateLocal,
@@ -20,14 +24,13 @@ import {
 } from '@/lib/lawChecks/ThreeSplitAverage/ThreeSplitAverageUtils'
 
 /**
- * Three-Split Average Check (Refactored - Night Hours Excluded at Source)
+ * Three-Split Average Check (Refactored with helper files)
  *
  * This check properly handles overlays (F3/F4/F5/FE) by:
  * 1. Only counting the UNDERLYING shift's hours (not F3/F4/F5 themselves)
  * 2. Using robust timezone overlap calculations
  * 3. Properly tracking which shifts are in holiday/Sunday zones
- * 4. Avoiding double-counting: Night hours are excluded directly during zone calculation
- *    (hours that are BOTH night AND in holiday zones are only counted as NIGHT - better credit)
+ * 4. Avoiding double-counting: hours that are BOTH night AND in holiday zones are counted as NIGHT only (better credit)
  *
  * Qualifications:
  *
@@ -168,6 +171,8 @@ export const threeSplitAverageCheck: LawCheck = {
       const endYear = planEndDate.getFullYear()
       for (let year = startYear; year <= endYear; year++) {
         const holidayZones = getHolidayTimeZones(year)
+        // Add holiday zones as-is (they already have correct times from the holiday definition)
+        // DO NOT extend them to full day - they end when they end (e.g., 22:00 for Constitution Day)
         allTimeZones.push(...holidayZones)
       }
     }
@@ -178,11 +183,14 @@ export const threeSplitAverageCheck: LawCheck = {
     )
 
     // ⭐ CRITICAL ORDER: Merge FIRST (overlapping zones only), then adjust for night
+    // Step 1: Merge overlapping zones (e.g., Sunday + Constitution Day that actually overlap in time)
     console.log(`\n🔄 MERGING overlapping zones BEFORE night adjustment`)
     console.log(`   Only zones that overlap in TIME will be merged`)
     console.log(`   Merged zones take EARLIEST end time to respect holiday boundaries`)
+    console.log(`   (e.g., Constitution Day 22:00 + Sunday 23:59 → merged ends at 22:00)`)
     relevantTimeZones = mergeOverlappingTimeZones(relevantTimeZones)
     
+    // Step 2: NOW adjust ALL zones (including merged ones) to end at night start
     console.log(`\n🔧 ADJUSTING merged zones to end at night start`)
     relevantTimeZones = adjustHolidayZonesForNightStart(relevantTimeZones, plan.tariffavtale)
 
@@ -193,8 +201,7 @@ export const threeSplitAverageCheck: LawCheck = {
       console.log(`  ${zone.localName} (${formatDateLocal(zone.startDateTime)} ${zone.startDateTime.getHours()}:${zone.startDateTime.getMinutes().toString().padStart(2,'0')} → ${formatDateLocal(zone.endDateTime)} ${zone.endDateTime.getHours()}:${zone.endDateTime.getMinutes().toString().padStart(2,'0')})`)
     })
 
-    // Calculate zones worked (only counting underlying shifts, excluding overlays)
-    // ✨ NOW USING calculateTimeZoneOverlapExcludingNight - night hours automatically excluded!
+    // Calculate zones worked (NOW INCLUDING overlays - we'll subtract later based on checkboxes)
     const zonesWorked: Array<{
       zone: HolidayTimeZone
       overlapHours: number
@@ -210,22 +217,12 @@ export const threeSplitAverageCheck: LawCheck = {
         if (!rotation.shift_id) return
         const shift = effectiveShifts.find(s => s.id === rotation.shift_id)
         
-        // Skip default shifts (F1-F5, FE) AND skip if there's an overlay (F3/F4/F5/FE)
+        // Skip default shifts that are NOT underlays (F1-F5, FE that stand alone)
         if (!shift || shift.is_default || !shift.start_time || !shift.end_time) return
-        if (rotation.overlay_shift_id) {
-          const overlayShift = effectiveShifts.find(s => s.id === rotation.overlay_shift_id)
-          if (overlayShift && overlayShift.is_default) return // Skip this rotation entirely
-        }
-
-        // ✨ USE NEW FUNCTION: Calculate zone overlap EXCLUDING night hours
-        const overlapHours = calculateTimeZoneOverlapExcludingNight(
-          rotation, 
-          shift, 
-          zone, 
-          planStartDate,
-          plan.tariffavtale
-        )
         
+        // NOW WE INCLUDE rotations with overlays - they contribute to the BEFORE total
+
+        const overlapHours = calculateTimeZoneOverlap(rotation, shift, zone, planStartDate)
         if (overlapHours > 0) {
           totalOverlapHours += overlapHours
           const rotationDate = getRotationDate(planStartDate, rotation.week_index, rotation.day_of_week)
@@ -248,25 +245,21 @@ export const threeSplitAverageCheck: LawCheck = {
       .filter(z => z.isWorked)
       .reduce((sum, z) => sum + z.overlapHours, 0)
 
-    // ✨ NOW totalHolidayHoursWorked already excludes night hours!
-    // No need for separate nightHoursInHolidayZones calculation
-
     // Debug: log worked zones
-    console.log('\n🟥 RED DAY / SUNDAY ZONES (Excluding F3/F4/F5/FE overlays, night hours automatically excluded)')
+    console.log('\n🟥 RED DAY / SUNDAY ZONES (NOW INCLUDING F3/F4/F5/FE - will subtract later based on checkboxes)')
     let totalStuff = 0
     zonesWorked.forEach(zw => {
       if (zw.isWorked && zw.overlapHours > 0) {
         const datesStr = zw.rotationDates.join(', ')
         totalStuff += zw.overlapHours
         console.log(
-          `  ${datesStr} | ${zw.zone.holidayName.padEnd(10)} | ${zw.overlapHours.toFixed(2)}h worked (non-night only)`
+          `  ${datesStr} | ${zw.zone.holidayName.padEnd(10)} | ${zw.overlapHours.toFixed(2)}h worked`
         )
       }
     })
-    console.log(`  Total non-night holiday/Sunday hours: ${totalStuff.toFixed(2)}h`)
-
-    // Calculate night hours (20:00–06:00) for 35.5 criterion (excluding overlays)
-    console.log('\n🌙 NIGHT HOURS CALCULATION (20:00–06:00 for 35.5h check) - Excluding overlays')
+  console.log(totalStuff)
+    // Calculate night hours (20:00–06:00) for 35.5 criterion (NOW INCLUDING overlays)
+    console.log('\n🌙 NIGHT HOURS CALCULATION (20:00–06:00 for 35.5h check) - Including overlays')
     let totalNightHours20to6 = 0
 
     effectiveRotations.forEach((rotation: Rotation) => {
@@ -275,11 +268,7 @@ export const threeSplitAverageCheck: LawCheck = {
       
       if (!shift || shift.is_default || !shift.start_time || !shift.end_time) return
       
-      // Skip if there's an overlay (F3/F4/F5/FE)
-      if (rotation.overlay_shift_id) {
-        const overlayShift = effectiveShifts.find(s => s.id === rotation.overlay_shift_id)
-        if (overlayShift && overlayShift.is_default) return
-      }
+      // NOW WE INCLUDE rotations with overlays in the calculation
 
       const nightHours = calculateNightHours20to6(shift.start_time, shift.end_time)
       if (nightHours > 0) {
@@ -293,12 +282,48 @@ export const threeSplitAverageCheck: LawCheck = {
     const avgNightHoursPerWeek20to6 = totalNightHours20to6 / actualWeeks
     console.log(`  → Average per week: ${avgNightHoursPerWeek20to6.toFixed(2)}h`)
 
-    // Sunday frequency check
-    const sundayZones = zonesWorked.filter(zw =>
-      zw.zone.holidayName === 'Sunday' || zw.zone.localName === 'Søndag'
-    )
-    const totalSundays = sundayZones.length
-    const sundaysWorked = sundayZones.filter(z => z.isWorked).length
+    // Sunday frequency check - use COMBINED weekend zones (not split)
+    // For counting if a Sunday was worked, we want Saturday 18:00 - Sunday 24:00 as ONE zone
+    console.log('\n📅 SUNDAY FREQUENCY CHECK (using combined weekend zones)')
+    const sundayZonesForCounting = createCombinedSundayZones(planStartDate, planEndDate, plan.tariffavtale)
+    
+    const sundaysWorkedCount = sundayZonesForCounting.filter(zone => {
+      let hasWork = false
+      effectiveRotations.forEach(rotation => {
+        if (!rotation.shift_id || hasWork) return
+        const shift = effectiveShifts.find(s => s.id === rotation.shift_id)
+        if (!shift || shift.is_default || !shift.start_time || !shift.end_time) return
+        
+        const overlap = calculateTimeZoneOverlap(rotation, shift, zone, planStartDate)
+        if (overlap > 0) {
+          hasWork = true
+        }
+      })
+      return hasWork
+    }).length
+    
+    const totalSundays = sundayZonesForCounting.length
+    const sundaysWorked = sundaysWorkedCount
+
+    console.log(`  Total Sundays in period: ${totalSundays}`)
+    console.log(`  Sundays worked: ${sundaysWorked}`)
+    
+    sundayZonesForCounting.forEach(zone => {
+      let hasWork = false
+      effectiveRotations.forEach(rotation => {
+        if (!rotation.shift_id || hasWork) return
+        const shift = effectiveShifts.find(s => s.id === rotation.shift_id)
+        if (!shift || shift.is_default || !shift.start_time || !shift.end_time) return
+        
+        const overlap = calculateTimeZoneOverlap(rotation, shift, zone, planStartDate)
+        if (overlap > 0) {
+          hasWork = true
+        }
+      })
+      
+      const status = hasWork ? '✓ WORKED' : '✗ not worked'
+      console.log(`  ${formatDateLocal(zone.startDateTime)} - ${formatDateLocal(zone.endDateTime)}: ${status}`)
+    })
 
     const workedFraction = totalSundays > 0 ? sundaysWorked / totalSundays : 0
     const requiredFraction = 1 / requiredSundayFreq
@@ -322,13 +347,15 @@ export const threeSplitAverageCheck: LawCheck = {
     // 24-hour coverage check
     const has24HourCoverage = check24HourCoverage(effectiveRotations, effectiveShifts)
 
-    // Tariff night hours and total hours (excluding overlays)
-    console.log(`\n🌙 TARIFF NIGHT HOURS (${plan.tariffavtale.toUpperCase()} – ${getNightHoursLabel(plan.tariffavtale)}) - Excluding overlays`)
+    // Tariff night hours and total hours (NOW INCLUDING overlays)
+    console.log(`\n🌙 TARIFF NIGHT HOURS (${plan.tariffavtale.toUpperCase()} – ${getNightHoursLabel(plan.tariffavtale)}) - Including overlays`)
     const calculateNightHours = getNightHoursCalculator(plan.tariffavtale)
     const nightHoursLabel = getNightHoursLabel(plan.tariffavtale)
 
     let totalHours = 0
     let totalNightHoursTariff = 0
+    let overlayCount = 0
+    let nonOverlayCount = 0
 
     effectiveRotations.forEach(rotation => {
       if (!rotation.shift_id) return
@@ -336,10 +363,11 @@ export const threeSplitAverageCheck: LawCheck = {
       
       if (!shift || shift.is_default || !shift.start_time || !shift.end_time) return
       
-      // Skip if there's an overlay (F3/F4/F5/FE)
-      if (rotation.overlay_shift_id) {
-        const overlayShift = effectiveShifts.find(s => s.id === rotation.overlay_shift_id)
-        if (overlayShift && overlayShift.is_default) return
+      const hasOverlay = rotation.overlay_shift_id !== null && rotation.overlay_shift_id !== undefined
+      if (hasOverlay) {
+        overlayCount++
+      } else {
+        nonOverlayCount++
       }
 
       const shiftHours = calculateShiftHours(shift.start_time, shift.end_time)
@@ -348,28 +376,93 @@ export const threeSplitAverageCheck: LawCheck = {
       totalNightHoursTariff += tariffNight
 
       if (tariffNight > 0) {
+        const overlayInfo = hasOverlay ? ' [HAS OVERLAY]' : ''
         console.log(
-          `  Week ${rotation.week_index + 1}, Day ${rotation.day_of_week}: ${shift.name} (${shift.start_time}-${shift.end_time}) → ${tariffNight.toFixed(2)}h night (${nightHoursLabel})`
+          `  Week ${rotation.week_index + 1}, Day ${rotation.day_of_week}: ${shift.name} (${shift.start_time}-${shift.end_time}) → ${tariffNight.toFixed(2)}h night (${nightHoursLabel})${overlayInfo}`
         )
       }
     })
 
-    console.log(`  → Total tariff night hours: ${totalNightHoursTariff.toFixed(2)}h`)
+    console.log(`  → Total tariff night hours (including overlays): ${totalNightHoursTariff.toFixed(2)}h`)
+    console.log(`  → Rotations with overlays: ${overlayCount}`)
+    console.log(`  → Rotations without overlays: ${nonOverlayCount}`)
 
     const nonNightHours = totalHours - totalNightHoursTariff
     const nonNightPercent = totalHours > 0 ? (nonNightHours / totalHours) * 100 : 0
     const meetsNonNightRequirement = nonNightPercent >= requiredNonNightPercent
 
-    // ✨ Store the values (overlays already excluded during calculation)
-    const totalHolidayHoursWithoutOverlays = totalHolidayHoursWorked
-    const totalNightHoursWithoutOverlays = totalNightHoursTariff
-    
-    console.log(`\n✅ HOLIDAY/SUNDAY HOURS (night hours automatically excluded):`)
-    console.log(`  Total holiday/Sunday hours worked (overlays already excluded): ${totalHolidayHoursWorked.toFixed(2)}h`)
-    console.log(`  → Night hours already excluded during calculation (credited separately at 0.25)`)
-    console.log(`  → These hours will be credited at ${(10/60).toFixed(3)} (holiday rate)`)
+    // Adjust holiday hours by subtracting night hours that fall in zones
+    const rawHolidayHoursBeforeAdjustment = totalHolidayHoursWorked
+    console.log(`\n⚠️ HOLIDAY HOURS (no adjustment needed - overlays handle both night and zone):`)
+    console.log(`  Holiday/Sunday hours (from zones): ${totalHolidayHoursWorked.toFixed(2)}h`)
+    console.log(`  Note: Overlay subtractions will handle both night and zone hours automatically`)
 
-    // Calculate F3/F4/F5 overlay hours - these are now purely informational since overlays were excluded from calculations
+    // Calculate F3/F4/F5/vacation hours to subtract based on checkbox settings
+    // We need to subtract the TOTAL underlying hours for these overlays
+    let hoursToSubtractFromFShifts = 0 // holiday zone hours
+    let hoursToSubtractFromFShiftsNight = 0 // TOTAL night hours (not just in zones)
+    let hoursToSubtractFromVacation = 0 // holiday zone hours
+    let hoursToSubtractFromVacationNight = 0 // TOTAL night hours (not just in zones)
+
+    console.log('\n📊 CALCULATING OVERLAY SUBTRACTIONS:')
+
+    // Calculate total underlying hours for F3/F4/F5/vacation overlays
+    effectiveRotations.forEach(rotation => {
+      if (!rotation.overlay_shift_id) return
+      
+      const overlayShift = effectiveShifts.find(s => s.id === rotation.overlay_shift_id)
+      if (!overlayShift || !overlayShift.is_default) return
+      
+      const underlyingShift = rotation.shift_id 
+        ? effectiveShifts.find(s => s.id === rotation.shift_id)
+        : null
+      
+      if (!underlyingShift || !underlyingShift.start_time || !underlyingShift.end_time) return
+      
+      // Calculate TOTAL night hours for this shift (for tariff night calculation)
+      const underlayNightHours = calculateNightHours(underlyingShift.start_time, underlyingShift.end_time)
+      
+      // Calculate holiday zone overlap for this specific rotation
+      let holidayZoneOverlap = 0
+      relevantTimeZones.forEach(zone => {
+        holidayZoneOverlap += calculateTimeZoneOverlap(rotation, underlyingShift, zone, planStartDate)
+      })
+      
+      // Determine which type and if we should subtract based on checkbox
+      const shouldSubtract = 
+        (overlayShift.name === 'F3' && inputs.reduceByF3) ||
+        (overlayShift.name === 'F4' && inputs.reduceByF4) ||
+        (overlayShift.name === 'F5' && inputs.reduceByF5) ||
+        (overlayShift.name === 'FE' && inputs.reduceByVacation)
+      
+      if (shouldSubtract) {
+        console.log(`  Week ${rotation.week_index + 1}, Day ${rotation.day_of_week}: ${overlayShift.name} over ${underlyingShift.name} - Night: ${underlayNightHours.toFixed(2)}h, Zone overlap: ${holidayZoneOverlap.toFixed(2)}h`)
+      }
+      
+      if (overlayShift.name === 'F3' && inputs.reduceByF3) {
+        hoursToSubtractFromFShifts += holidayZoneOverlap
+        hoursToSubtractFromFShiftsNight += underlayNightHours
+      } else if (overlayShift.name === 'F4' && inputs.reduceByF4) {
+        hoursToSubtractFromFShifts += holidayZoneOverlap
+        hoursToSubtractFromFShiftsNight += underlayNightHours
+      } else if (overlayShift.name === 'F5' && inputs.reduceByF5) {
+        hoursToSubtractFromFShifts += holidayZoneOverlap
+        hoursToSubtractFromFShiftsNight += underlayNightHours
+      } else if (overlayShift.name === 'FE' && inputs.reduceByVacation) {
+        hoursToSubtractFromVacation += holidayZoneOverlap
+        hoursToSubtractFromVacationNight += underlayNightHours
+      }
+    })
+
+    console.log('\n📊 TOTAL HOURS TO SUBTRACT (based on checkbox settings):')
+    console.log(`  F3/F4/F5 holiday zone hours: ${hoursToSubtractFromFShifts.toFixed(2)}h`)
+    console.log(`  F3/F4/F5 TOTAL night hours: ${hoursToSubtractFromFShiftsNight.toFixed(2)}h`)
+    console.log(`  Vacation holiday zone hours: ${hoursToSubtractFromVacation.toFixed(2)}h`)
+    console.log(`  Vacation TOTAL night hours: ${hoursToSubtractFromVacationNight.toFixed(2)}h`)
+    console.log(`  COMBINED night hours to subtract: ${(hoursToSubtractFromFShiftsNight + hoursToSubtractFromVacationNight).toFixed(2)}h`)
+    console.log(`  Expected AFTER subtraction: ${(totalNightHoursTariff - hoursToSubtractFromFShiftsNight - hoursToSubtractFromVacationNight).toFixed(2)}h`)
+
+    // Calculate F3/F4/F5 overlay information for display
     const overlayDays: Array<{ type: string; week: number; day: number; date: string; underlyingShift: string; hours: number }> = []
     
     effectiveRotations.forEach(rotation => {
@@ -399,70 +492,18 @@ export const threeSplitAverageCheck: LawCheck = {
       }
     })
 
-    console.log(`\n⚠️ OVERLAY INFORMATION (F3/F4/F5/FE already excluded from all calculations):`)
+    const rawNightHoursBeforeAdjustment = totalNightHoursTariff
+    
+    console.log(`\n⚠️ OVERLAY INFORMATION (checkboxes control what gets subtracted):`)
     console.log(`  Total overlays found: ${overlayDays.length}`)
-    console.log(`  These hours were automatically excluded from:`)
-    console.log(`    - Total hours calculation`)
-    console.log(`    - Night hours calculation`)
-    console.log(`    - Holiday/Sunday zone hours calculation`)
-    console.log(`  → No adjustment needed - already excluded at source`)
-
-    // Check F3/F4/F5 overlays and calculate their impact
-    const f3 = inputs.reduceByF3 ? checkF3Overlays(effectiveRotations, effectiveShifts, relevantTimeZones, planStartDate, plan.tariffavtale) : null
-    const f4 = inputs.reduceByF4 ? checkF4Overlays(effectiveRotations, effectiveShifts, relevantTimeZones, planStartDate, plan.tariffavtale) : null
-    const f5 = inputs.reduceByF5 ? checkF5Overlays(effectiveRotations, effectiveShifts, relevantTimeZones, planStartDate, plan.tariffavtale) : null
-    const vacation = inputs.reduceByVacation ? checkVacationOverlays(effectiveRotations, effectiveShifts, relevantTimeZones, planStartDate, plan.tariffavtale, calculateNightHours) : null
-
-    // Calculate total F overlay hours (for holiday and night separately)
-    let totalF3HolidayHours = 0
-    let totalF3NightHours = 0
-    let totalF4HolidayHours = 0
-    let totalF4NightHours = 0
-    let totalF5HolidayHours = 0
-    let totalF5NightHours = 0
-    let totalVacationHolidayHours = 0
-    let totalVacationNightHours = 0
-
-    if (f3) {
-      totalF3HolidayHours = f3.totals.totalHolidayOverlapHours || 0
-      totalF3NightHours = f3.totals.totalNightOverlapHours || 0
-    }
-    if (f4) {
-      totalF4HolidayHours = f4.totals.totalHolidayOverlapHours || 0
-      totalF4NightHours = f4.totals.totalNightOverlapHours || 0
-    }
-    if (f5) {
-      totalF5HolidayHours = f5.totals.totalHolidayOverlapHours || 0
-      totalF5NightHours = f5.totals.totalNightOverlapHours || 0
-    }
-    if (vacation) {
-      totalVacationHolidayHours = vacation.hoursToSubtractHoliday || 0
-      totalVacationNightHours = vacation.hoursToSubtractNight || 0
-    }
-
-    // Apply adjustments
-    const hoursToSubtractFromFShifts = totalF3HolidayHours + totalF4HolidayHours + totalF5HolidayHours
-    const hoursToSubtractFromFShiftsNight = totalF3NightHours + totalF4NightHours + totalF5NightHours
-    const hoursToSubtractFromVacation = totalVacationHolidayHours
-    const hoursToSubtractFromVacationNight = totalVacationNightHours
-
-    // Show pre-adjustment values and adjustments
-    console.log(`\n📊 HOURS ADJUSTMENT BREAKDOWN:`)
-    console.log(`\n  🌙 NIGHT HOURS:`)
-    console.log(`    Night hours (overlays already excluded):      ${totalNightHoursWithoutOverlays.toFixed(2)}h`)
-    console.log(`    → No adjustment needed - F3/F4/F5/FE already excluded during calculation`)
-    const adjustedNightHours = totalNightHoursWithoutOverlays
-    console.log(`    Night hours (final):                          ${adjustedNightHours.toFixed(2)}h`)
-
-    console.log(`\n  🏖️ HOLIDAY/SUNDAY HOURS:`)
-    console.log(`    Holiday hours (overlays already excluded):    ${totalHolidayHoursWithoutOverlays.toFixed(2)}h`)
-    console.log(`    → No adjustment needed - F3/F4/F5/FE already excluded during calculation`)
-    const adjustedHolidayHours = totalHolidayHoursWithoutOverlays
-    console.log(`    Holiday hours (final):                        ${adjustedHolidayHours.toFixed(2)}h`)
-
-    // Update the totals for later calculations
-    totalHolidayHoursWorked = adjustedHolidayHours
-    totalNightHoursTariff = adjustedNightHours
+    console.log(`  Checkbox settings:`)
+    console.log(`    - Reduce by F3: ${inputs.reduceByF3 ? 'YES' : 'NO'}`)
+    console.log(`    - Reduce by F4: ${inputs.reduceByF4 ? 'YES' : 'NO'}`)
+    console.log(`    - Reduce by F5: ${inputs.reduceByF5 ? 'YES' : 'NO'}`)
+    console.log(`    - Reduce by Vacation: ${inputs.reduceByVacation ? 'YES' : 'NO'}`)
+    console.log(`  Hours to subtract based on active checkboxes:`)
+    console.log(`    - Holiday zone hours: ${hoursToSubtractFromFShifts + hoursToSubtractFromVacation}h`)
+    console.log(`    - Night hours: ${hoursToSubtractFromFShiftsNight + hoursToSubtractFromVacationNight}h`)
 
     // Qualification checks
     const meetsNightHours35 = avgNightHoursPerWeek20to6 >= requiredNightHours
@@ -484,16 +525,59 @@ export const threeSplitAverageCheck: LawCheck = {
     let appliedReduction = 0
     let computedWeeklyAfterReduction = baseStandardWeek
 
+    // Calculate adjusted weeks if vacation is being reduced
+    let effectiveWeeks = actualWeeks
+    if (inputs.reduceByVacation) {
+      // Count ALL vacation days - both as overlays AND as main shifts
+      // FE can be either:
+      // 1. An overlay (rotation.overlay_shift_id points to FE)
+      // 2. The main shift (rotation.shift_id points to FE, no overlay)
+      const totalVacationDays = effectiveRotations.filter(rotation => {
+        // Check if overlay is FE
+        if (rotation.overlay_shift_id) {
+          const overlayShift = effectiveShifts.find(s => s.id === rotation.overlay_shift_id)
+          if (overlayShift && overlayShift.name === 'FE' && overlayShift.is_default) {
+            return true
+          }
+        }
+        
+        // Check if main shift is FE (and there's no overlay on top)
+        if (rotation.shift_id && !rotation.overlay_shift_id) {
+          const mainShift = effectiveShifts.find(s => s.id === rotation.shift_id)
+          if (mainShift && mainShift.name === 'FE' && mainShift.is_default) {
+            return true
+          }
+        }
+        
+        return false
+      }).length
+      
+      const vacationWeeks = totalVacationDays / 7
+      effectiveWeeks = actualWeeks - vacationWeeks
+      
+      console.log(`\n📅 VACATION ADJUSTMENT:`)
+      console.log(`  Plan weeks: ${actualWeeks}`)
+      console.log(`  Vacation days (ALL FE - both overlay and main shift): ${totalVacationDays}`)
+      console.log(`  Vacation weeks: ${vacationWeeks.toFixed(2)}`)
+      console.log(`  Effective weeks (after vacation): ${effectiveWeeks.toFixed(2)}`)
+    }
+
     if (qualifiesFor33_6) {
-      const weeks = actualWeeks
+      // Use ADJUSTED hours (after subtracting F3/F4/F5/vacation)
+      const adjustedNightHours = totalNightHoursTariff - hoursToSubtractFromFShiftsNight - hoursToSubtractFromVacationNight
+      const adjustedHolidayHours = totalHolidayHoursWorked - hoursToSubtractFromFShifts - hoursToSubtractFromVacation
 
-      reductionFromNight = totalNightHoursTariff * 0.25 / weeks
-      reductionFromHoliday = (totalHolidayHoursWorked * (10 / 60)) / weeks
-
-      reductionFromNightTotal = totalNightHoursTariff * 0.25
-      reductionFromHolidayTotal = (totalHolidayHoursWorked * (10 / 60))
-
-      reductionFromHolidayPostPercent = (reductionFromHoliday * workPercentFactor)
+      // Calculate TOTAL credits
+      reductionFromNightTotal = adjustedNightHours * 0.25
+      reductionFromHolidayTotal = (adjustedHolidayHours * (10 / 60))
+      
+      // Scale holiday by work percent BEFORE dividing by weeks
+      const holidayCreditScaled = reductionFromHolidayTotal * workPercentFactor
+      
+      // Now divide by effective weeks
+      reductionFromNight = reductionFromNightTotal / effectiveWeeks
+      reductionFromHoliday = reductionFromHolidayTotal / effectiveWeeks
+      reductionFromHolidayPostPercent = holidayCreditScaled / effectiveWeeks
 
       computedReduction = reductionFromNight + reductionFromHolidayPostPercent
       appliedReduction = computedReduction
@@ -513,8 +597,13 @@ export const threeSplitAverageCheck: LawCheck = {
     } else if (qualifiesFor35_5) {
       expectedMaxHours = 35.5 * workPercentFactor
       computedReduction = baseStandardWeek - expectedMaxHours
-      reductionFromNight = totalNightHoursTariff * 0.25
-      reductionFromHoliday = totalHolidayHoursWorked * (10 / 60)
+      
+      // Use ADJUSTED hours (after subtracting F3/F4/F5/vacation)
+      const adjustedNightHours = totalNightHoursTariff - hoursToSubtractFromFShiftsNight - hoursToSubtractFromVacationNight
+      const adjustedHolidayHours = totalHolidayHoursWorked - hoursToSubtractFromFShifts - hoursToSubtractFromVacation
+      
+      reductionFromNight = adjustedNightHours * 0.25
+      reductionFromHoliday = adjustedHolidayHours * (10 / 60)
       appliedReduction = computedReduction
       computedWeeklyAfterReduction = expectedMaxHours
     } else {
@@ -528,7 +617,7 @@ export const threeSplitAverageCheck: LawCheck = {
 
     const exceedsHourLimit = actualAvgHoursPerWeek > expectedMaxHours
 
-    console.log('\n📊 Qualification Metrics (REFACTORED - Night excluded at source):')
+    console.log('\n📊 Qualification Metrics (FIXED):')
     console.log(`  Qualifies for 35.5h: ${qualifiesFor35_5}`)
     console.log(`  Qualifies for 33.6h: ${qualifiesFor33_6}`)
     console.log(`  Avg weekly hours (actual, excluding F1-F5): ${actualAvgHoursPerWeek.toFixed(2)}h/week`)
@@ -620,13 +709,15 @@ export const threeSplitAverageCheck: LawCheck = {
       totalRedDaysWorked,
       totalHolidayZones,
       planDurationWeeks: actualWeeks,
+      effectiveWeeks: effectiveWeeks,
       planWorkPercent: plan.work_percent,
       hoursToSubtractFromFShifts,
       hoursToSubtractFromFShiftsNight,
       hoursToSubtractFromVacation,
       hoursToSubtractFromVacationNight,
-      totalHolidayHoursWithoutOverlays,
-      totalNightHoursWithoutOverlays,
+      nightHoursInHolidayZones: 0, // No longer used, set to 0
+      rawHolidayHoursBeforeAdjustment,
+      rawNightHoursBeforeAdjustment,
       f3Days: f3Days.length,
       f4Days: f4Days.length,
       f5Days: f5Days.length,
@@ -659,7 +750,7 @@ export const threeSplitAverageCheck: LawCheck = {
       result.violations = [{
         weekIndex: -1,
         dayOfWeek: -1,
-        description: 'Does not meet requirements for either 35.5h or 33.6h work week'
+        description: 'Kvalifiserer ikkje for 35,5t/veke eller 3-delt snitt. Du kan vere kvalifisert som turnusarbeidar med 37,5t arbeidsveke. Så du har rett på tillegg frå Tariffavtalen.'
       }]
     }
 
