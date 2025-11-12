@@ -1,7 +1,9 @@
-// src/app/api/ai/populate-turnus-gemini/route.ts - WITH OVERLAY SUPPORT AND RETRY
+// src/app/api/ai/populate-turnus-gemini/route.ts - WITH OVERLAY MAPPING
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { getGeminiPrompt } from '@/lib/ai/prompts'
+import { mapOverlayType } from '@/lib/ai/overlay-mapping'
 
 // Define types
 interface CustomShiftDefinition {
@@ -162,46 +164,7 @@ export async function POST(request: Request) {
               mimeType: mimeType
             }
           },
-          `Du analyserer eit norsk turnusdokument frå helsesektoren.
-
-**KRITISK: Overlay-handling**
-
-rotation_pattern skal vere ein array av objekt:
-
-{
-  "shift": "VAKTNAMN" eller null,
-  "overlay": "OVERLAY" eller null,
-  "day": 0-6
-}
-
-**Regel:**
-- "(K1) FE" → {"shift": "K1", "overlay": "FE", "day": 0}
-- "FE" (utan parentes) → {"shift": "FE", "overlay": null, "day": 0}
-- "D1" → {"shift": "D1", "overlay": null, "day": 0}
-
-**Eksempel - Uke 26:**
-Input: (K1) FE | (K1) FE | FE | | (N1) FE | FE | (F1) FE
-
-Output (7 objekt):
-[
-  {"shift": "K1", "overlay": "FE", "day": 0},
-  {"shift": "K1", "overlay": "FE", "day": 1},
-  {"shift": "FE", "overlay": null, "day": 2},
-  {"shift": null, "overlay": null, "day": 3},
-  {"shift": "N1", "overlay": "FE", "day": 4},
-  {"shift": "FE", "overlay": null, "day": 5},
-  {"shift": "F1", "overlay": "FE", "day": 6}
-]
-
-**VIKTIG:**
-- ALLTID 7 objekt per veke
-- day går 0-6, start på 0 for neste veke
-
-Returner JSON:
-{
-  "custom_shifts": [{"name": "D1", "start_time": "07:45", "end_time": "15:15", "hours": 7.5}],
-  "rotation_pattern": [{"shift": "D1", "overlay": null, "day": 0}, ...]
-}`
+          getGeminiPrompt()
         ])
         
         console.log(`✅ Success with model: ${actualModelUsed}`)
@@ -270,7 +233,10 @@ Returner JSON:
     const shiftNameToIdMap = new Map<string, string>()
     
     for (const customShift of extracted.custom_shifts) {
-      if (['F', 'F1', 'F2', 'F3', 'F4', 'F5'].includes(customShift.name)) continue
+      if (['F', 'F1', 'F2', 'F3', 'F4', 'F5', 'FE'].includes(customShift.name)) {
+        console.log(`⏭️ Skipping standard F-shift: ${customShift.name}`)
+        continue
+      }
 
       const { data: existingShift } = await supabase
         .from('shifts')
@@ -306,6 +272,8 @@ Returner JSON:
     const { data: allShifts } = await supabase.from('shifts').select('*').eq('plan_id', planId)
     allShifts?.forEach(shift => shiftNameToIdMap.set(shift.name, shift.id))
 
+    console.log('📋 Available shifts in map:', Array.from(shiftNameToIdMap.keys()))
+
     await supabase.from('rotations').delete().eq('plan_id', planId)
 
     // Create rotations
@@ -325,6 +293,14 @@ Returner JSON:
       const shiftId = entry.shift ? shiftNameToIdMap.get(entry.shift) : null
       const overlayShiftId = entry.overlay ? shiftNameToIdMap.get(entry.overlay) : null
       
+      // Map overlay name to database overlay_type
+      const overlayType = mapOverlayType(entry.overlay)
+      
+      // Debug logging
+      if (entry.shift || entry.overlay) {
+        console.log(`Day ${entry.day}: shift="${entry.shift}" (ID: ${shiftId || 'NOT FOUND'}), overlay="${entry.overlay}" → overlay_type="${overlayType}" (ID: ${overlayShiftId || 'NOT FOUND'})`)
+      }
+      
       if (!shiftId && !overlayShiftId) continue
       
       rotations.push({
@@ -333,7 +309,7 @@ Returner JSON:
         day_of_week: entry.day,
         shift_id: shiftId,
         overlay_shift_id: overlayShiftId,
-        overlay_type: entry.overlay || null,
+        overlay_type: overlayType,
       })
     }
 

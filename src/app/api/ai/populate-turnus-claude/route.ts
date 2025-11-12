@@ -1,7 +1,9 @@
-// src/app/api/ai/populate-turnus/route.ts - WITH OVERLAY SUPPORT
+// src/app/api/ai/populate-turnus-claude/route.ts - WITH OVERLAY MAPPING
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { getClaudePrompt } from '@/lib/ai/prompts'
+import { mapOverlayType } from '@/lib/ai/overlay-mapping'
 
 // Define types for extracted data
 interface CustomShiftDefinition {
@@ -170,133 +172,7 @@ export async function POST(request: Request) {
             },
             {
               type: 'text',
-              text: `Du analyserer eit norsk turnusdokument frå helsesektoren.
-
-**KRITISK: Korleis lese tabellen**
-
-Kvar rad i dokumentet representerer ÉIN VEKE med NØYAKTIG 7 kolonnar:
-
-Kolonne 1 = Måndag (Man)
-Kolonne 2 = Tysdag (Tir)
-Kolonne 3 = Onsdag (Ons)
-Kolonne 4 = Torsdag (Tor)
-Kolonne 5 = Fredag (Fre)
-Kolonne 6 = Laurdag (Lør)
-Kolonne 7 = Søndag (Søn)
-
-**KRITISK: Overlay-handling (FE/F3/F4/F5)**
-
-rotation_pattern skal vere ein array av objekt med 3 felt:
-
-{
-  "shift": "VAKTNAMN" eller null,
-  "overlay": "OVERLAY" eller null,
-  "day": 0-6
-}
-
-**Tolking av dokumentet:**
-
-"(K1) FE" → {"shift": "K1", "overlay": "FE", "day": 0}
-"FE" (utan parentes) → {"shift": "FE", "overlay": null, "day": 0}
-"D1" → {"shift": "D1", "overlay": null, "day": 0}
-"" (tom) → {"shift": null, "overlay": null, "day": 0}
-
-**Eksempel 1 - Uke 26 (ferie med overlays):**
-\`\`\`
-Uke 26: 22.06.2026 - 28.06.2026 | (K1) FE | (K1) FE | FE | (N1) FE | (N1) FE | FE | (F1) FE
-\`\`\`
-
-Dag-for-dag analyse:
-- Måndag (day 0): "(K1) FE" → {"shift": "K1", "overlay": "FE", "day": 0}
-- Tysdag (day 1): "(K1) FE" → {"shift": "K1", "overlay": "FE", "day": 1}
-- Onsdag (day 2): "FE" → {"shift": "FE", "overlay": null, "day": 2}
-- Torsdag (day 3): [tom] → {"shift": null, "overlay": null, "day": 3}
-- Fredag (day 4): "(N1) FE" → {"shift": "N1", "overlay": "FE", "day": 4}
-- Laurdag (day 5): "FE" → {"shift": "FE", "overlay": null, "day": 5}
-- Søndag (day 6): "(F1) FE" → {"shift": "F1", "overlay": "FE", "day": 6}
-
-Output for uke 26 (7 objekt, ein per dag):
-[
-  {"shift": "K1", "overlay": "FE", "day": 0},
-  {"shift": "K1", "overlay": "FE", "day": 1},
-  {"shift": "FE", "overlay": null, "day": 2},
-  {"shift": null, "overlay": null, "day": 3},
-  {"shift": "N1", "overlay": "FE", "day": 4},
-  {"shift": "FE", "overlay": null, "day": 5},
-  {"shift": "F1", "overlay": "FE", "day": 6}
-]
-
-**Eksempel 2 - Uke 50 (vanleg veke utan overlays):**
-\`\`\`
-Uke 50: 08.12.2025 - 14.12.2025 | D1 | D1 | L1 | L1 | | | F1
-\`\`\`
-
-Output (7 objekt):
-[
-  {"shift": "D1", "overlay": null, "day": 0},
-  {"shift": "D1", "overlay": null, "day": 1},
-  {"shift": "L1", "overlay": null, "day": 2},
-  {"shift": "L1", "overlay": null, "day": 3},
-  {"shift": null, "overlay": null, "day": 4},
-  {"shift": null, "overlay": null, "day": 5},
-  {"shift": "F1", "overlay": null, "day": 6}
-]
-
-**Eksempel 3 - F3 compensation:**
-\`\`\`
-Uke 14: | K1 | K1 | F3 | F3 | | | F1
-\`\`\`
-
-Onsdag (day 2): "F3" (ingen parentes) → {"shift": "F3", "overlay": null, "day": 2}
-Torsdag (day 3): "F3" (ingen parentes) → {"shift": "F3", "overlay": null, "day": 3}
-
-Men hvis det var "(D1) F3" → {"shift": "D1", "overlay": "F3", "day": 2}
-
-**VIKTIG REGLAR:**
-
-1. **Alltid 7 objekt per veke** (ein per dag, Måndag-Søndag)
-2. **day går frå 0-6** for kvar veke, start på 0 igjen for neste veke
-3. **Parentes betyr overlay**: "(K1) FE" = K1-vakt med FE oppå
-4. **Ingen parentes = berre shift**: "FE" = berre ferie, "D1" = berre dagvakt
-5. **Tom kolonne** = {"shift": null, "overlay": null, "day": X}
-
-**Din oppgave:**
-
-1. Hent ut ALLE vaktkode-definisjonar frå "Vaktkode" tabellen (med tider)
-2. Les KVAR VEKE-RAD i turnustabellen
-3. For kvar veke:
-   - Tell kolonnane frå venstre: 1=Mån, 2=Tys, 3=Ons, 4=Tor, 5=Fre, 6=Lau, 7=Søn
-   - Output nøyaktig 7 objekt (ein per dag)
-   - Bruk day 0-6 for dagane (0=Måndag, 6=Søndag)
-4. For neste veke, start på day 0 igjen
-
-**Returner BERRE denne JSON-strukturen:**
-
-{
-  "custom_shifts": [
-    {
-      "name": "D1",
-      "start_time": "07:45",
-      "end_time": "15:15",
-      "hours": 7.5,
-      "description": "07:45 - 15:15 (7,50t)"
-    }
-  ],
-  "rotation_pattern": [
-    {"shift": "D1", "overlay": null, "day": 0},
-    {"shift": "D1", "overlay": null, "day": 1},
-    ...
-  ]
-}
-
-**Validering før du returnerer:**
-✓ rotation_pattern har objekt med shift, overlay, og day
-✓ Nøyaktig 7 objekt per veke
-✓ day er 0-6, start på 0 for kvar nye veke
-✓ overlay er null når det IKKJE er parentes
-✓ overlay har verdi når det ER parentes: (VAKT) OVERLAY
-
-**VIKTIG: Returner BERRE gyldig JSON. Ingen markdown, ingen forklaringar, ingen kodeblokkar.**`,
+              text: getClaudePrompt(),
             },
           ],
         },
@@ -405,7 +281,8 @@ Men hvis det var "(D1) F3" → {"shift": "D1", "overlay": "F3", "day": 2}
     if (extracted.custom_shifts && extracted.custom_shifts.length > 0) {
       for (const customShift of extracted.custom_shifts) {
         // Skip standard F-shifts as they're created automatically
-        if (['F', 'F1', 'F2', 'F3', 'F4', 'F5'].includes(customShift.name)) {
+        if (['F', 'F1', 'F2', 'F3', 'F4', 'F5', 'FE'].includes(customShift.name)) {
+          console.log(`⏭️ Skipping standard F-shift: ${customShift.name}`)
           continue
         }
 
@@ -463,6 +340,8 @@ Men hvis det var "(D1) F3" → {"shift": "D1", "overlay": "F3", "day": 2}
       shiftNameToIdMap.set(shift.name, shift.id)
     })
 
+    console.log('📋 Available shifts in map:', Array.from(shiftNameToIdMap.keys()))
+
     // Delete existing rotations for this plan
     await supabase
       .from('rotations')
@@ -489,6 +368,14 @@ Men hvis det var "(D1) F3" → {"shift": "D1", "overlay": "F3", "day": 2}
         const shiftId = entry.shift ? shiftNameToIdMap.get(entry.shift) : null
         const overlayShiftId = entry.overlay ? shiftNameToIdMap.get(entry.overlay) : null
         
+        // Map overlay name to database overlay_type
+        const overlayType = mapOverlayType(entry.overlay)
+        
+        // Debug logging
+        if (entry.shift) {
+          console.log(`Day ${entry.day}: shift="${entry.shift}" (ID: ${shiftId || 'NOT FOUND'}), overlay="${entry.overlay}" → overlay_type="${overlayType}" (ID: ${overlayShiftId || 'NOT FOUND'})`)
+        }
+        
         // Skip if completely empty day (no shift and no overlay)
         if (!shiftId && !overlayShiftId) {
           continue
@@ -500,7 +387,7 @@ Men hvis det var "(D1) F3" → {"shift": "D1", "overlay": "F3", "day": 2}
           day_of_week: entry.day,
           shift_id: shiftId,
           overlay_shift_id: overlayShiftId,
-          overlay_type: entry.overlay || null,
+          overlay_type: overlayType,
         })
       }
 

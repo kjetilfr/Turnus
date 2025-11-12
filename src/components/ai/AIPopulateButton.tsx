@@ -21,8 +21,8 @@ export default function AIPopulateButton({ planId }: AIPopulateButtonProps) {
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
-        <span className="hidden sm:inline">Fyll med AI</span>
-        <span className="sm:hidden">AI</span>
+        <span className="hidden sm:inline">Bruk KI</span>
+        <span className="sm:hidden">KI</span>
       </button>
 
       {/* Modal */}

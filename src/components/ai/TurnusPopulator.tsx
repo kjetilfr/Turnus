@@ -239,7 +239,7 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
                   : 'border-gray-200 hover:border-orange-300'
               }`}
             >
-              <div className="font-bold">2.0 Flash</div>
+              <div className="text-gray-500 font-bold">2.0 Flash</div>
               <div className="text-gray-600">Mest stabil</div>
             </button>
             <button
@@ -250,7 +250,7 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
                   : 'border-gray-200 hover:border-orange-300'
               }`}
             >
-              <div className="font-bold">2.5 Flash</div>
+              <div className="text-gray-500 font-bold">2.5 Flash</div>
               <div className="text-gray-600">Rask</div>
             </button>
             <button
@@ -261,7 +261,7 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
                   : 'border-gray-200 hover:border-orange-300'
               }`}
             >
-              <div className="font-bold">2.5 Pro</div>
+              <div className="text-gray-500 font-bold">2.5 Pro</div>
               <div className="text-gray-600">Kraftig</div>
             </button>
           </div>

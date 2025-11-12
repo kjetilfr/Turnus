@@ -1,7 +1,9 @@
-// src/app/api/ai/populate-turnus-gpt4o/route.ts - WITH OVERLAY SUPPORT
+// src/app/api/ai/opulate-turnus-gpt4o/route.ts - WITH OVERLAY MAPPING
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
+import { getGPT4oPrompt } from '@/lib/ai/prompts'
+import { mapOverlayType } from '@/lib/ai/overlay-mapping'
 
 // Define types for extracted data
 interface CustomShiftDefinition {
@@ -124,69 +126,7 @@ export async function POST(request: Request) {
           content: [
             {
               type: 'text',
-              text: `Du analyserer eit norsk turnusdokument frå helsesektoren.
-
-**KRITISK: Overlay-handling (FE/F3/F4/F5)**
-
-rotation_pattern skal vere ein array av objekt med 3 felt:
-
-{
-  "shift": "VAKTNAMN" eller null,
-  "overlay": "OVERLAY" eller null,
-  "day": 0-6
-}
-
-**Tolking av dokumentet:**
-
-"(K1) FE" → {"shift": "K1", "overlay": "FE", "day": 0}
-"FE" (utan parentes) → {"shift": "FE", "overlay": null, "day": 0}
-"D1" → {"shift": "D1", "overlay": null, "day": 0}
-"" (tom) → {"shift": null, "overlay": null, "day": 0}
-
-**Eksempel 1 - Uke 26 (ferie med overlays):**
-Input: (K1) FE | (K1) FE | FE | | (N1) FE | FE | (F1) FE
-
-Output (7 objekt, ein per dag):
-[
-  {"shift": "K1", "overlay": "FE", "day": 0},
-  {"shift": "K1", "overlay": "FE", "day": 1},
-  {"shift": "FE", "overlay": null, "day": 2},
-  {"shift": null, "overlay": null, "day": 3},
-  {"shift": "N1", "overlay": "FE", "day": 4},
-  {"shift": "FE", "overlay": null, "day": 5},
-  {"shift": "F1", "overlay": "FE", "day": 6}
-]
-
-**Eksempel 2 - Uke 50 (vanleg veke):**
-Input: D1 | D1 | L1 | L1 | | | F1
-
-Output (7 objekt):
-[
-  {"shift": "D1", "overlay": null, "day": 0},
-  {"shift": "D1", "overlay": null, "day": 1},
-  {"shift": "L1", "overlay": null, "day": 2},
-  {"shift": "L1", "overlay": null, "day": 3},
-  {"shift": null, "overlay": null, "day": 4},
-  {"shift": null, "overlay": null, "day": 5},
-  {"shift": "F1", "overlay": null, "day": 6}
-]
-
-**VIKTIG:**
-- ALLTID 7 objekt per veke
-- day går frå 0-6, start på 0 for neste veke
-- overlay er null når det IKKJE er parentes
-
-Returner BERRE gyldig JSON (ingen markdown):
-
-{
-  "custom_shifts": [
-    {"name": "D1", "start_time": "07:45", "end_time": "15:15", "hours": 7.5, "description": "..."}
-  ],
-  "rotation_pattern": [
-    {"shift": "D1", "overlay": null, "day": 0},
-    ...
-  ]
-}`
+              text: getGPT4oPrompt()
             }
           ]
         }
@@ -243,7 +183,8 @@ Returner BERRE gyldig JSON (ingen markdown):
     
     // Create custom shifts
     for (const customShift of extracted.custom_shifts) {
-      if (['F', 'F1', 'F2', 'F3', 'F4', 'F5'].includes(customShift.name)) {
+      if (['F', 'F1', 'F2', 'F3', 'F4', 'F5', 'FE'].includes(customShift.name)) {
+        console.log(`⏭️ Skipping standard F-shift: ${customShift.name}`)
         continue
       }
 
@@ -295,6 +236,8 @@ Returner BERRE gyldig JSON (ingen markdown):
       shiftNameToIdMap.set(shift.name, shift.id)
     })
 
+    console.log('📋 Available shifts in map:', Array.from(shiftNameToIdMap.keys()))
+
     // Delete existing rotations
     await supabase.from('rotations').delete().eq('plan_id', planId)
 
@@ -317,6 +260,14 @@ Returner BERRE gyldig JSON (ingen markdown):
       const shiftId = entry.shift ? shiftNameToIdMap.get(entry.shift) : null
       const overlayShiftId = entry.overlay ? shiftNameToIdMap.get(entry.overlay) : null
       
+      // Map overlay name to database overlay_type
+      const overlayType = mapOverlayType(entry.overlay)
+      
+      // Debug logging
+      if (entry.shift) {
+        console.log(`Day ${entry.day}: shift="${entry.shift}" (ID: ${shiftId || 'NOT FOUND'}), overlay="${entry.overlay}" → overlay_type="${overlayType}" (ID: ${overlayShiftId || 'NOT FOUND'})`)
+      }
+      
       // Skip if completely empty
       if (!shiftId && !overlayShiftId) {
         continue
@@ -328,7 +279,7 @@ Returner BERRE gyldig JSON (ingen markdown):
         day_of_week: entry.day,
         shift_id: shiftId,
         overlay_shift_id: overlayShiftId,
-        overlay_type: entry.overlay || null,
+        overlay_type: overlayType,
       })
     }
 
