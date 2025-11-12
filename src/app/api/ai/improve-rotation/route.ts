@@ -30,8 +30,8 @@ function buildPrompt(userPrompt: string, planDetails: any, rotations: any[], shi
 
 4. **Reglar frå brukar:**
    - Kviletid før F1: ${rules?.rest_period_f1 || 35} timar (AML § 10-8 (5))
-   - Kviletid mellom vakter: ${rules?.rest_between_shifts || 11} timar (AML § 10-8 (1))
-   - Maks vaktlengde: ${rules?.max_shift_length || 13} timar (AML § 10-4 (2))
+   - Kviletid mellom vakter: ${rules?.rest_between_shifts || 9} timar (AML § 10-8 (1))
+   - Maks vaktlengde: ${rules?.max_shift_length || 12.5} timar (AML § 10-4 (2))
 
 **User's request:**
 ${userPrompt}

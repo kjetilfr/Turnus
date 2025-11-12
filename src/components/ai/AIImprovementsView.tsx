@@ -45,7 +45,7 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
   // Rule inputs with defaults from AML
   const [restPeriodF1, setRestPeriodF1] = useState('35') // hours - AML § 10-8 (5)
   const [restBetweenShifts, setRestBetweenShifts] = useState('11') // hours - AML § 10-8 (1)
-  const [maxShiftLength, setMaxShiftLength] = useState('13') // hours - AML § 10-4 (2)
+  const [maxShiftLength, setMaxShiftLength] = useState('12.5') // hours - AML § 10-4 (2)
 
   const handleGenerateSuggestions = async () => {
     if (!userPrompt.trim()) {
@@ -220,12 +220,12 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
                 type="number"
                 min="5"
                 step={0.5}
-                max="12.5"
+                max="14.5"
                 value={maxShiftLength}
                 onChange={(e) => setMaxShiftLength(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
               />
-              <p className="text-xs text-gray-500 mt-1">Standard: 13t (AML § 10-4 (2))</p>
+              <p className="text-xs text-gray-500 mt-1">Standard: 12,5t (AML § 10-4 (2))</p>
             </div>
           </div>
         </div>
