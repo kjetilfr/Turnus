@@ -1,14 +1,12 @@
-// src/app/api/stripe/webhook/route.ts - FIXED FOR VERCEL (Body parser disabled)
+// src/app/api/stripe/webhook/route.ts - WITH DUPLICATE SUBSCRIPTION PROTECTION
 import { supabaseAdmin } from '@/lib/supabase/service'
 import { stripe } from '@/lib/stripe/server'
 import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type Stripe from 'stripe'
 
-// CRITICAL: Disable body parsing so we get the raw body
 export const runtime = 'nodejs'
 
-// Define the type for subscription upsert data
 interface SubscriptionUpsertData {
   user_id: string
   stripe_customer_id: string
@@ -22,7 +20,6 @@ interface SubscriptionUpsertData {
 }
 
 export async function POST(request: Request) {
-  // Get the raw body as text (not parsed JSON)
   const body = await request.text()
   const headersList = await headers()
   const signature = headersList.get('stripe-signature')
@@ -38,7 +35,6 @@ export async function POST(request: Request) {
   let event: Stripe.Event
 
   try {
-    // Verify the webhook signature with the raw body
     event = stripe.webhooks.constructEvent(
       body,
       signature,
@@ -75,11 +71,38 @@ export async function POST(request: Request) {
           )
         }
 
-        console.log(`📝 Checkout completed for user: ${userId}`)
-        console.log(`   Customer ID: ${session.customer}`)
-        console.log(`   Subscription ID: ${session.subscription}`)
+        console.log(`🔍 Checkout completed for user: ${userId}`)
 
-        // Create or update subscription record with basic info
+        // ✅ CHECK FOR DUPLICATE ACTIVE SUBSCRIPTIONS
+        const { data: existingActiveSub } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('user_id', userId)
+          .in('status', ['active', 'trialing', 'past_due'])
+          .single()
+
+        if (existingActiveSub && existingActiveSub.stripe_subscription_id !== session.subscription) {
+          console.error('❌ User already has active subscription, canceling new one')
+          
+          // Cancel the new subscription
+          if (session.subscription) {
+            try {
+              await stripe.subscriptions.cancel(session.subscription as string)
+              console.log('✅ Canceled duplicate subscription:', session.subscription)
+            } catch (cancelError) {
+              console.error('❌ Failed to cancel duplicate subscription:', cancelError)
+            }
+          }
+
+          return NextResponse.json(
+            { 
+              received: true, 
+              message: 'Duplicate subscription prevented and canceled' 
+            }
+          )
+        }
+
+        // Create or update subscription record
         const { data: upsertData, error: upsertError } = await supabase
           .from('subscriptions')
           .upsert({
@@ -111,81 +134,81 @@ export async function POST(request: Request) {
         const subscription = event.data.object as Stripe.Subscription
         const customerId = subscription.customer as string
 
-        console.log(`📝 Processing ${event.type} for customer: ${customerId}`)
-        console.log(`   Subscription ID: ${subscription.id}`)
-        console.log(`   Status: ${subscription.status}`)
+        console.log(`🔍 Processing ${event.type} for customer: ${customerId}`)
 
-        // First, try to find existing user by customer ID
-        console.log('🔍 Looking up subscription by customer ID:', customerId)
-
+        // Find user by customer ID
         const { data: existingSub, error: fetchError } = await supabase
-        .from('subscriptions')
-        .select('user_id')
-        .eq('stripe_customer_id', customerId)
-        .maybeSingle()
-
-        console.log('🔍 Supabase query result:', { existingSub, fetchError })
+          .from('subscriptions')
+          .select('user_id')
+          .eq('stripe_customer_id', customerId)
+          .maybeSingle()
 
         if (fetchError) {
-        console.error('❌ Database error looking up customer:', customerId, fetchError)
-        return NextResponse.json(
+          console.error('❌ Database error:', fetchError)
+          return NextResponse.json(
             { error: 'Database error' },
             { status: 500 }
-        )
+          )
         }
 
-        // If no user found, try to get user_id from subscription/customer metadata
         let userId: string | null = existingSub?.user_id || null
 
+        // Try to get user_id from metadata if not found
         if (!userId) {
-          console.log('⚠️ No existing subscription found, checking Stripe metadata...')
-          
-          // Check subscription metadata
           try {
             const fullSubscription = await stripe.subscriptions.retrieve(subscription.id)
             userId = fullSubscription.metadata?.supabase_user_id || null
-            
-            if (userId) {
-              console.log(`✅ Found user_id in subscription metadata: ${userId}`)
-            }
           } catch (stripeError) {
-            console.error('❌ Error fetching subscription from Stripe:', stripeError)
+            console.error('❌ Error fetching subscription:', stripeError)
           }
         }
 
-        // If still no user, check customer metadata
         if (!userId) {
-          console.log('⚠️ No user_id in subscription metadata, checking customer metadata...')
-          
           try {
             const customer = await stripe.customers.retrieve(customerId)
             if (customer && !customer.deleted) {
               userId = customer.metadata?.supabase_user_id || null
-              
-              if (userId) {
-                console.log(`✅ Found user_id in customer metadata: ${userId}`)
-              }
             }
           } catch (stripeError) {
-            console.error('❌ Error fetching customer from Stripe:', stripeError)
+            console.error('❌ Error fetching customer:', stripeError)
           }
         }
 
-        // If we still don't have a user_id, return success and wait for checkout.session.completed
         if (!userId) {
-          console.error('❌ Cannot find user_id for customer:', customerId)
-          console.error('   This event arrived before checkout.session.completed')
-          console.error('   Returning success - checkout.session.completed will handle this')
-          
+          console.error('❌ Cannot find user_id, waiting for checkout.session.completed')
           return NextResponse.json({ 
             received: true, 
-            message: 'User not found yet, will be created by checkout.session.completed' 
+            message: 'User not found yet' 
           })
         }
 
-        console.log(`   Found user: ${userId}`)
+        // ✅ CHECK FOR DUPLICATE ACTIVE SUBSCRIPTIONS
+        if (subscription.status === 'active' || subscription.status === 'trialing') {
+          const { data: otherActiveSubs } = await supabase
+            .from('subscriptions')
+            .select('stripe_subscription_id')
+            .eq('user_id', userId)
+            .in('status', ['active', 'trialing'])
+            .neq('stripe_subscription_id', subscription.id)
 
-        // Build upsert data with proper typing
+          if (otherActiveSubs && otherActiveSubs.length > 0) {
+            console.error('❌ Found other active subscriptions, canceling this one')
+            
+            try {
+              await stripe.subscriptions.cancel(subscription.id)
+              console.log('✅ Canceled duplicate subscription:', subscription.id)
+              
+              return NextResponse.json({ 
+                received: true, 
+                message: 'Duplicate subscription canceled' 
+              })
+            } catch (cancelError) {
+              console.error('❌ Failed to cancel duplicate:', cancelError)
+            }
+          }
+        }
+
+        // Build upsert data
         const upsertData: SubscriptionUpsertData = {
           user_id: userId,
           stripe_customer_id: customerId,
@@ -194,7 +217,6 @@ export async function POST(request: Request) {
           updated_at: new Date().toISOString(),
         }
 
-        // Add period dates
         if (subscription.items.data[0].current_period_start) {
           upsertData.current_period_start = new Date(subscription.items.data[0].current_period_start * 1000).toISOString()
         }
@@ -203,21 +225,13 @@ export async function POST(request: Request) {
           upsertData.current_period_end = new Date(subscription.items.data[0].current_period_end * 1000).toISOString()
         }
 
-        // Add trial end if exists
         if (subscription.trial_end) {
           upsertData.trial_end = new Date(subscription.trial_end * 1000).toISOString()
         }
 
-        // Add cancel_at_period_end
         if (subscription.cancel_at_period_end !== undefined) {
           upsertData.cancel_at_period_end = subscription.cancel_at_period_end
         }
-
-        console.log('📊 Upserting subscription data:', {
-          user_id: upsertData.user_id,
-          status: upsertData.status,
-          subscription_id: upsertData.stripe_subscription_id,
-        })
 
         const { data: updatedData, error: updateError } = await supabase
           .from('subscriptions')
@@ -243,7 +257,7 @@ export async function POST(request: Request) {
         const subscription = event.data.object as Stripe.Subscription
         const customerId = subscription.customer as string
 
-        console.log(`📝 Subscription deleted: ${subscription.id}`)
+        console.log(`🔍 Subscription deleted: ${subscription.id}`)
 
         const { data: updatedData, error: updateError } = await supabase
           .from('subscriptions')
@@ -265,13 +279,12 @@ export async function POST(request: Request) {
       }
 
       case 'invoice.payment_succeeded':
-      case 'invoice.paid': { // Handle both events
+      case 'invoice.paid': {
         const invoice = event.data.object as Stripe.Invoice
         const customerId = invoice.customer as string
 
         console.log(`💰 Payment succeeded for customer: ${customerId}`)
 
-        // Payment succeeded - ensure subscription is active
         const { data: updatedData, error: updateError } = await supabase
           .from('subscriptions')
           .update({

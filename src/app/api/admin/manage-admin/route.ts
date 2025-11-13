@@ -46,12 +46,12 @@ export async function POST(request: Request) {
     }
 
     // Update the user's metadata
+    // FIXED: Explicitly set is_admin to true or false instead of removing the key
     const currentMetadata = targetUser.user.user_metadata || {}
-    const updatedMetadata = targetIsAdmin
-      ? { ...currentMetadata, is_admin: true }
-      : Object.fromEntries(
-          Object.entries(currentMetadata).filter(([key]) => key !== 'is_admin')
-        )
+    const updatedMetadata = {
+      ...currentMetadata,
+      is_admin: targetIsAdmin
+    }
 
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       userId,
