@@ -19,6 +19,7 @@
     "@stripe/stripe-js": "^8.2.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.58.0",
+    "lucide-react": "^0.553.0",
     "next": "15.5.4",
     "openai": "^6.8.1",
     "react": "19.1.0",

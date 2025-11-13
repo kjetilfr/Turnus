@@ -1,4 +1,4 @@
-// src/components/ai/AIImprovementsView.tsx
+// src/components/ai/AIImprovementsView.tsx - FIXED with better error handling
 'use client'
 
 import { useState } from 'react'
@@ -41,6 +41,8 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
   const [aiResponse, setAiResponse] = useState<AIResponse | null>(null)
   const [applying, setApplying] = useState(false)
   const [selectedModel, setSelectedModel] = useState<AIModel>('auto')
+  const [loadingStage, setLoadingStage] = useState<string>('')
+  const [retryCount, setRetryCount] = useState(0)
   
   // Rule inputs with defaults from AML
   const [restPeriodF1, setRestPeriodF1] = useState('35') // hours - AML § 10-8 (5)
@@ -56,49 +58,96 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
     setLoading(true)
     setError(null)
     setAiResponse(null)
+    setLoadingStage('Kontaktar AI...')
+    setRetryCount(0)
 
-    try {
-      const response = await fetch('/api/ai/improve-rotation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          planId: plan.id,
-          userPrompt,
-          rotations,
-          shifts,
-          aiModel: selectedModel,
-          planDetails: {
-            name: plan.name,
-            duration_weeks: plan.duration_weeks,
-            type: plan.type,
-            work_percent: plan.work_percent,
-            tariffavtale: plan.tariffavtale,
-            date_started: plan.date_started
-          },
-          rules: {
-            rest_period_f1: parseInt(restPeriodF1),
-            rest_between_shifts: parseInt(restBetweenShifts),
-            max_shift_length: parseInt(maxShiftLength)
-          }
+    const makeRequest = async (attemptNumber: number = 0): Promise<void> => {
+      try {
+        if (attemptNumber > 0) {
+          setLoadingStage(`Prøver på nytt (forsøk ${attemptNumber + 1}/3)...`)
+          setRetryCount(attemptNumber)
+        } else {
+          setLoadingStage('Sender forespurnad til AI...')
+        }
+
+        const response = await fetch('/api/ai/improve-rotation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            planId: plan.id,
+            userPrompt,
+            rotations,
+            shifts,
+            aiModel: selectedModel,
+            planDetails: {
+              name: plan.name,
+              duration_weeks: plan.duration_weeks,
+              type: plan.type,
+              work_percent: plan.work_percent,
+              tariffavtale: plan.tariffavtale,
+              date_started: plan.date_started
+            },
+            rules: {
+              rest_period_f1: parseInt(restPeriodF1),
+              rest_between_shifts: parseInt(restBetweenShifts),
+              max_shift_length: parseFloat(maxShiftLength)
+            }
+          }),
+          signal: AbortSignal.timeout(300000) // 5 minute timeout
         })
-      })
 
-      const data = await response.json()
+        setLoadingStage('Analyserer svar...')
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Kunne ikkje generere forslag')
+        const data = await response.json()
+
+        if (!response.ok) {
+          // Check if it's a timeout or server error that should be retried
+          if ((response.status >= 500 || response.status === 408) && attemptNumber < 2) {
+            console.log(`Server error ${response.status}, retrying...`)
+            await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2 seconds
+            return makeRequest(attemptNumber + 1)
+          }
+          
+          throw new Error(data.error || `Feil: ${response.status} - ${response.statusText}`)
+        }
+
+        // Add ai_model to response data
+        setAiResponse({
+          ...data.data,
+          ai_model: data.ai_model
+        })
+        
+        setLoadingStage('')
+        console.log('✅ AI response received successfully')
+      } catch (err) {
+        console.error('AI request error:', err)
+        
+        // Check if it's a timeout or network error that should be retried
+        if (attemptNumber < 2) {
+          const isNetworkError = err instanceof Error && 
+            (err.name === 'AbortError' || 
+             err.message.includes('network') || 
+             err.message.includes('timeout') ||
+             err.message.includes('fetch'))
+          
+          if (isNetworkError) {
+            console.log('Network error, retrying...')
+            await new Promise(resolve => setTimeout(resolve, 3000)) // Wait 3 seconds
+            return makeRequest(attemptNumber + 1)
+          }
+        }
+        
+        // Final error
+        setError(err instanceof Error ? err.message : 'Ukjend feil oppstod')
+        setLoadingStage('')
+      } finally {
+        if (attemptNumber === 0 || attemptNumber >= 2) {
+          setLoading(false)
+        }
       }
-
-      // Add ai_model to response data
-      setAiResponse({
-        ...data.data,
-        ai_model: data.ai_model
-      })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ukjend feil')
-    } finally {
-      setLoading(false)
     }
+
+    await makeRequest(0)
   }
 
   const handleApplyChanges = async () => {
@@ -118,21 +167,29 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
         body: JSON.stringify({
           planId: plan.id,
           changes: aiResponse.proposed_changes
-        })
+        }),
+        signal: AbortSignal.timeout(60000) // 1 minute timeout
       })
 
       const data = await response.json()
 
-      if (!response.ok) {
+      if (!response.ok && response.status !== 207) { // 207 is partial success
         throw new Error(data.error || 'Kunne ikkje bruke endringar')
+      }
+
+      // Handle partial success
+      if (data.failed && data.failed > 0) {
+        alert(`⚠️ Brukte ${data.applied} av ${data.total} endringar. ${data.failed} endringar feila.`)
+      } else {
+        alert(`✅ Brukte ${data.applied} av ${data.total} endringar`)
       }
 
       // Refresh the page to show updated rotation
       router.refresh()
       setAiResponse(null)
       setUserPrompt('')
-      alert(`✅ Brukte ${data.applied} av ${data.total} endringar`)
     } catch (err) {
+      console.error('Apply error:', err)
       setError(err instanceof Error ? err.message : 'Ukjend feil ved å bruke endringar')
     } finally {
       setApplying(false)
@@ -188,7 +245,8 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
                 max="48"
                 value={restPeriodF1}
                 onChange={(e) => setRestPeriodF1(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
+                disabled={loading}
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 disabled:opacity-50"
               />
               <p className="text-xs text-gray-500 mt-1">Standard: 35t (AML § 10-8 (5))</p>
             </div>
@@ -205,7 +263,8 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
                 max="24"
                 value={restBetweenShifts}
                 onChange={(e) => setRestBetweenShifts(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
+                disabled={loading}
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 disabled:opacity-50"
               />
               <p className="text-xs text-gray-500 mt-1">Standard: 11t (AML § 10-8 (1))</p>
             </div>
@@ -223,7 +282,8 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
                 max="14.5"
                 value={maxShiftLength}
                 onChange={(e) => setMaxShiftLength(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
+                disabled={loading}
+                className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 disabled:opacity-50"
               />
               <p className="text-xs text-gray-500 mt-1">Standard: 12,5t (AML § 10-4 (2))</p>
             </div>
@@ -243,24 +303,26 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
             <button
               type="button"
               onClick={() => setSelectedModel('auto')}
+              disabled={loading}
               className={`p-3 border-2 rounded-lg text-left transition-all ${
                 selectedModel === 'auto'
                   ? 'border-purple-500 bg-purple-100 ring-2 ring-purple-200'
                   : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50 bg-white'
-              }`}
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <div className="font-semibold text-sm text-gray-900">Auto</div>
-              <div className="text-xs text-gray-600 mt-1">Vel beste modell</div>
+              <div className="text-xs text-gray-600 mt-1">Vel beste</div>
             </button>
 
             <button
               type="button"
               onClick={() => setSelectedModel('claude')}
+              disabled={loading}
               className={`p-3 border-2 rounded-lg text-left transition-all ${
                 selectedModel === 'claude'
                   ? 'border-purple-500 bg-purple-100 ring-2 ring-purple-200'
                   : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50 bg-white'
-              }`}
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <div className="font-semibold text-sm text-gray-900">Claude</div>
               <div className="text-xs text-gray-600 mt-1">Sonnet 4</div>
@@ -269,11 +331,12 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
             <button
               type="button"
               onClick={() => setSelectedModel('gpt4o')}
+              disabled={loading}
               className={`p-3 border-2 rounded-lg text-left transition-all ${
                 selectedModel === 'gpt4o'
                   ? 'border-purple-500 bg-purple-100 ring-2 ring-purple-200'
                   : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50 bg-white'
-              }`}
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <div className="font-semibold text-sm text-gray-900">GPT-4o</div>
               <div className="text-xs text-gray-600 mt-1">OpenAI</div>
@@ -282,11 +345,12 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
             <button
               type="button"
               onClick={() => setSelectedModel('gemini-flash')}
+              disabled={loading}
               className={`p-3 border-2 rounded-lg text-left transition-all ${
                 selectedModel === 'gemini-flash'
                   ? 'border-purple-500 bg-purple-100 ring-2 ring-purple-200'
                   : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50 bg-white'
-              }`}
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <div className="font-semibold text-sm text-gray-900">Gemini</div>
               <div className="text-xs text-gray-600 mt-1">2.0 Flash</div>
@@ -295,11 +359,12 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
             <button
               type="button"
               onClick={() => setSelectedModel('gemini-pro')}
+              disabled={loading}
               className={`p-3 border-2 rounded-lg text-left transition-all ${
                 selectedModel === 'gemini-pro'
                   ? 'border-purple-500 bg-purple-100 ring-2 ring-purple-200'
                   : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50 bg-white'
-              }`}
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <div className="font-semibold text-sm text-gray-900">Gemini</div>
               <div className="text-xs text-gray-600 mt-1">2.5 Pro</div>
@@ -307,7 +372,7 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
           </div>
           
           <p className="text-xs text-gray-600 mt-2">
-            💡 <strong>Auto</strong> vel beste modell basert på oppgåva. <strong>Claude</strong> er best for norsk turnusforståelse.
+            💡 <strong>Auto</strong> vel beste modell basert på oppgåva. <strong>GPT-4o</strong> er mest stabil for forbetringar.
           </p>
         </div>
 
@@ -347,6 +412,29 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
           />
         </div>
 
+        {/* Loading Stage Display */}
+        {loading && loadingStage && (
+          <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+            <div className="flex items-center gap-3">
+              <svg className="animate-spin h-5 w-5 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-purple-900">{loadingStage}</p>
+                {retryCount > 0 && (
+                  <p className="text-xs text-purple-700 mt-1">
+                    Dette kan ta litt tid, venlegast vent...
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="mt-2 w-full bg-purple-200 rounded-full h-2">
+              <div className="bg-purple-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+            </div>
+          </div>
+        )}
+
         {/* Error Display */}
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -354,7 +442,14 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
               <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="text-sm text-red-800">{error}</p>
+              <div className="flex-1">
+                <p className="text-sm text-red-800">{error}</p>
+                {error.includes('timeout') && (
+                  <p className="text-xs text-red-700 mt-1">
+                    Tips: Prøv å forenkle forespurnaden eller vel ein annan AI-modell.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -412,7 +507,7 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
               </div>
               <button
                 onClick={handleApplyChanges}
-                disabled={applying}
+                disabled={applying || aiResponse.changes_count === 0}
                 className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {applying ? (
@@ -441,7 +536,7 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
             </div>
 
             {/* Improvements List */}
-            {aiResponse.improvements.length > 0 && (
+            {aiResponse.improvements && aiResponse.improvements.length > 0 && (
               <div className="mb-6">
                 <h4 className="font-semibold text-gray-900 mb-3">Forbetringar:</h4>
                 <ul className="space-y-2">
@@ -458,7 +553,7 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
             )}
 
             {/* Changes Table */}
-            {aiResponse.proposed_changes.length > 0 && (
+            {aiResponse.proposed_changes && aiResponse.proposed_changes.length > 0 && (
               <div>
                 <h4 className="font-semibold text-gray-900 mb-3">Detaljerte endringar:</h4>
                 <div className="overflow-x-auto">
@@ -501,10 +596,23 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
                 </div>
               </div>
             )}
+
+            {aiResponse.changes_count === 0 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-start gap-2">
+                  <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-sm text-yellow-800">
+                    AI fann ingen endringar som oppfyller dine krav. Prøv å justere krava eller endre forespurnaden.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Visual Comparison */}
-          {aiResponse.new_rotation && (
+          {aiResponse.new_rotation && aiResponse.new_rotation.length > 0 && (
             <RotationVisualComparison
               currentRotation={rotations}
               proposedRotation={aiResponse.new_rotation}

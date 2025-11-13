@@ -1,160 +1,373 @@
-// src/app/api/ai/improve-rotation/route.ts
+// src/app/api/ai/improve-rotation/route.ts - FIXED with TypeScript types
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
+// Set max duration to 5 minutes for AI processing
+export const maxDuration = 300
+
 type AIModel = 'auto' | 'claude' | 'gpt4o' | 'gemini-flash' | 'gemini-pro'
 
-// Shared prompt builder
-function buildPrompt(userPrompt: string, planDetails: any, rotations: any[], shifts: any[], rules: any) {
+interface SimplifiedRotation {
+  w: number
+  d: number
+  s: string | null
+  o: string | null
+}
+
+interface SimplifiedShift {
+  id: string
+  name: string
+  start: string
+  end: string
+}
+
+interface PlanDetails {
+  name: string
+  duration_weeks: number
+  type: string
+  work_percent?: number
+  tariffavtale?: string
+  date_started?: string
+}
+
+interface Rules {
+  rest_period_f1?: number
+  rest_between_shifts?: number
+  max_shift_length?: number
+}
+
+interface ProposedChange {
+  week_index: number
+  day_of_week: number
+  current_shift_id: string | null
+  proposed_shift_id: string | null
+  reason: string
+}
+
+interface ImprovementsResponse {
+  summary: string
+  changes_count: number
+  improvements: string[]
+  proposed_changes: ProposedChange[]
+  new_rotation?: unknown[]
+}
+
+// Shared prompt builder - SIMPLIFIED to reduce token usage
+function buildPrompt(
+  userPrompt: string, 
+  planDetails: PlanDetails, 
+  rotations: { week_index: number; day_of_week: number; shift_id: string | null; overlay_shift_id: string | null }[], 
+  shifts: { id: string; name: string; start_time: string; end_time: string }[], 
+  rules: Rules
+): string {
+  // Calculate shift hours for the AI to use (before simplification)
+  const calculateShiftHours = (startTime: string, endTime: string): number => {
+    if (!startTime || !endTime) return 0
+    const start = startTime.split(':').map(Number)
+    const end = endTime.split(':').map(Number)
+    let hours = end[0] - start[0] + (end[1] - start[1]) / 60
+    if (hours < 0) hours += 24 // Handle overnight shifts
+    return hours
+  }
+
+  const shiftHoursMap: Record<string, number> = {}
+  shifts.forEach(s => {
+    shiftHoursMap[s.id] = calculateShiftHours(s.start_time, s.end_time)
+  })
+
+  // Calculate current total hours
+  const currentTotalHours = rotations.reduce((sum, r) => {
+    if (r.shift_id && shiftHoursMap[r.shift_id]) {
+      return sum + shiftHoursMap[r.shift_id]
+    }
+    return sum
+  }, 0)
+
   return `You are an expert in Norwegian healthcare shift scheduling and labor law (Arbeidsmiljøloven). 
 
 **KRITISKE NORSKE TURNUSREGLAR:**
 
-1. **Arbeidshelg-frekvens:**
+1. **Arbeidshelg-definisjon:**
+   - Ein arbeidshelg består av ALLE TRE dagane: fredag, laurdag OG søndag
+   - Dersom du flyttar arbeidshelg, må du flytte ALLE tre dagane (fredag, laurdag, søndag)
    - Med vanlege vakter (7-7.5t): Arbeidshelg er typisk kvar 3. helg
    - Med langvakter (12.5t eller lengre): Arbeidshelg er typisk kvar 4. helg
-   - Sjekk turnusen for å identifisere faktisk arbeidshelg-frekvens
 
-2. **F1 (Fridag 1) plassering:**
-   - F1 skal ALLTID ligge til søndag UNNTATT når det er arbeidshelg
-   - Når det er arbeidshelg, skal F1 ikkje ligge til søndag
+2. **Vakttypar:**
+   - Vanlege vakter: 7-7.5 timar
+   - Nattevakter: Vakter som krysser midnatt (t.d. 23:00-07:00)
+   - Langvakter: 12.5 timar eller meir
+
+3. **F1 (Fridag 1) plassering:**
+   - F1 skal ALLTID ligge til søndag
+   - UNNTAKET: Når det er arbeidshelg (fredag+laurdag+søndag med vakter) skal F1 IKKJE ligge til søndag
    - Dette er SVÆRT viktig for kviletid og helgestruktur
-
-3. **Endringar som IKKJE tel:**
-   - Å bytte ein vakt mot seg sjølv (eks: L1 → L1) er IKKJE ein endring
-   - Dersom det ikkje er faktisk endring, skal det IKKJE bli nemnt i proposed_changes
-   - Berre REELLE endringar skal rapporterast
 
 4. **Reglar frå brukar:**
    - Kviletid før F1: ${rules?.rest_period_f1 || 35} timar (AML § 10-8 (5))
-   - Kviletid mellom vakter: ${rules?.rest_between_shifts || 9} timar (AML § 10-8 (1))
+   - Kviletid mellom vakter: ${rules?.rest_between_shifts || 11} timar (AML § 10-8 (1))
    - Maks vaktlengde: ${rules?.max_shift_length || 12.5} timar (AML § 10-4 (2))
 
 **User's request:**
 ${userPrompt}
 
-**Current Plan Details:**
-${JSON.stringify(planDetails, null, 2)}
+**Current Plan:**
+Name: ${planDetails.name}
+Duration: ${planDetails.duration_weeks} weeks
+Type: ${planDetails.type}
+Current total hours: ${currentTotalHours.toFixed(1)} hours
 
-**Current Rotation (all shifts):**
-${JSON.stringify(rotations, null, 2)}
+**Current Rotation (w=week, d=day, s=shift_id, o=overlay):**
+${JSON.stringify(rotations.map(r => ({
+  w: r.week_index,
+  d: r.day_of_week,
+  s: r.shift_id,
+  o: r.overlay_shift_id
+}))).slice(0, 3000)}
 
-**Available Shifts:**
-${JSON.stringify(shifts, null, 2)}
+**Available Shifts with hours:**
+${JSON.stringify(shifts.map(s => ({ 
+  id: s.id, 
+  name: s.name, 
+  start: s.start_time, 
+  end: s.end_time,
+  hours: shiftHoursMap[s.id] 
+})))}
 
-**Your task:**
-Analyze the current rotation and propose specific changes to meet the user's request. 
+**CRITICAL INSTRUCTIONS:**
 
-**VIKTIG ANALYSESTEG:**
-1. Identifiser arbeidshelg-frekvens (kvar 3. eller 4. helg)
-2. Sjekk at F1 ligg riktig i forhold til arbeidshelg
-3. Identifiser BERRE reelle endringar (ikkje L1→L1 osv)
-4. Følg brukar sine reglar for kviletid og vaktlengde
-5. Respekter norsk arbeidsmiljølov og tariffavtalar
+1. **IDENTIFY RECURRING PATTERNS:** 
+   - If a problem occurs in week X, check if the same pattern repeats in other weeks
+   - The rotation typically has a pattern that repeats (e.g., every 4 weeks, every 12 weeks)
+   - You MUST fix ALL occurrences of the problem, not just one instance
+   - For a ${planDetails.duration_weeks}-week plan, look for patterns that repeat throughout
 
-**Return your response as JSON in this exact format:**
+2. **ARBEIDSHELG FLYTTING:**
+   - Dersom du må flytte ein arbeidshelg, må du flytte ALLE TRE dagane
+   - Ein arbeidshelg = fredag + laurdag + søndag (alle tre må ha vakter)
+   - Eksempel: Dersom du flyttar arbeidshelg frå veke 2 til veke 3, må du:
+     * Fjerne vakter på fredag, laurdag OG søndag i veke 2
+     * Legge til vakter på fredag, laurdag OG søndag i veke 3
 
+3. **MAINTAIN TOTAL WORKING HOURS:**
+   - Current total hours: ${currentTotalHours.toFixed(1)} hours
+   - When changing a 7.5h shift to 12.5h shift (+5h), you MUST remove 5h elsewhere
+   - When changing a 12.5h shift to 7.5h shift (-5h), you MUST add 5h elsewhere
+   - The final total hours MUST be approximately the same (within ±2 hours)
+   - Options to balance hours:
+     * Remove a short shift elsewhere in the same week or nearby
+     * Change a long shift to a shorter one
+     * Remove a shift entirely (set to null)
+   - ALWAYS include compensating changes to balance the hours
+
+4. **ANALYZE THE FULL ROTATION:**
+   - Look at the ENTIRE ${planDetails.duration_weeks}-week rotation
+   - Count how many times the problem occurs
+   - Fix every instance of the problem
+   - Remember: F1 skal alltid ligge til søndag UTANOM arbeidshelger
+
+**CRITICAL: Return ONLY valid JSON. No markdown, no extra text.**
+
+Required JSON structure:
 {
-  "summary": "Brief summary of what changes you're proposing in Norwegian (Nynorsk preferred). Mention arbeidshelg-frekvens if relevant.",
-  "changes_count": 5,
-  "improvements": [
-    "Improvement 1 description in Norwegian",
-    "Improvement 2 description in Norwegian"
-  ],
+  "summary": "Brief summary in Norwegian mentioning how many weeks were affected",
+  "changes_count": 0,
+  "improvements": ["List of benefits in Norwegian"],
   "proposed_changes": [
     {
       "week_index": 0,
       "day_of_week": 0,
-      "current_shift_id": "shift-id-or-null",
-      "proposed_shift_id": "new-shift-id-or-null",
-      "reason": "Brief reason for this change in Norwegian"
-    }
-  ],
-  "new_rotation": [
-    {
-      "week_index": 0,
-      "day_of_week": 0,
-      "shift_id": "shift-id-or-null",
-      "overlay_shift_id": null,
-      "overlay_type": null
+      "current_shift_id": "uuid-or-null",
+      "proposed_shift_id": "uuid-or-null",
+      "reason": "Reason in Norwegian (mention if this balances hours)"
     }
   ]
 }
 
-**Important guidelines:**
-- Write all text in Norwegian (Nynorsk if possible, otherwise Bokmål)
-- ONLY propose changes that directly address the user's request
-- Use shift IDs from the available shifts list
-- If proposing to remove a shift, use null for proposed_shift_id
-- If adding a shift to an empty day, use null for current_shift_id
-- Be specific about which week and day you're changing
-- Provide clear reasons for each change
-- Consider the entire rotation pattern, not just individual days
-- The new_rotation array should contain the COMPLETE updated rotation (all weeks, all days)
-- Include entries for empty days with shift_id: null
-- NEVER include changes where current and proposed are identical
-- Mention arbeidshelg pattern if it affects F1 placement
-- Return ONLY valid JSON, no other text`
+**IMPORTANT:**
+- Return ONLY the JSON object
+- Do NOT include "new_rotation" field (too large)
+- Only include changes that differ from current
+- Include ALL instances of recurring problems
+- ALWAYS include hour-balancing changes when you change shift lengths
+- In your summary, mention: "Endra X veker" or "Fann Y tilfelle av problemet"
+- Maximum 50 proposed_changes (increased from 20 to handle recurring patterns)
+`
 }
 
-async function callClaude(prompt: string) {
-  const anthropic = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-  })
-
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 16000,
-    messages: [{ role: 'user', content: prompt }],
-  })
-
-  const responseText = message.content[0].type === 'text' 
-    ? message.content[0].text 
-    : ''
-
-  return {
-    responseText,
-    tokensUsed: message.usage.input_tokens + message.usage.output_tokens
-  }
-}
-
-async function callGPT4o(prompt: string) {
-  const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  })
-
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    messages: [{ role: 'user', content: prompt }],
-    response_format: { type: 'json_object' },
-    max_tokens: 16000,
-  })
-
-  return {
-    responseText: response.choices[0].message.content || '',
-    tokensUsed: response.usage?.total_tokens || 0
-  }
-}
-
-async function callGemini(prompt: string, model: 'gemini-2.0-flash-exp' | 'gemini-2.5-pro') {
-  const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!)
-  
-  const geminiModel = genAI.getGenerativeModel({ 
-    model,
-    generationConfig: {
-      responseMimeType: 'application/json'
+// Helper to attempt JSON repair for truncated responses
+function attemptJSONRepair(text: string): ImprovementsResponse | null {
+  try {
+    // Try direct parse first
+    return JSON.parse(text) as ImprovementsResponse
+  } catch (e) {
+    // Try to find complete JSON objects
+    const jsonMatch = text.match(/\{[\s\S]*?\}(?=\s*$)/)
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]) as ImprovementsResponse
+      } catch (e2) {
+        // Try to repair truncated JSON
+        let cleaned = text.trim()
+        
+        // Remove any trailing incomplete strings
+        cleaned = cleaned.replace(/,\s*"[^"]*$/, '')
+        
+        // Close any open objects/arrays
+        const openBraces = (cleaned.match(/\{/g) || []).length
+        const closeBraces = (cleaned.match(/\}/g) || []).length
+        const openBrackets = (cleaned.match(/\[/g) || []).length
+        const closeBrackets = (cleaned.match(/\]/g) || []).length
+        
+        for (let i = 0; i < openBrackets - closeBrackets; i++) {
+          cleaned += ']'
+        }
+        for (let i = 0; i < openBraces - closeBraces; i++) {
+          cleaned += '}'
+        }
+        
+        try {
+          return JSON.parse(cleaned) as ImprovementsResponse
+        } catch (e3) {
+          return null
+        }
+      }
     }
-  })
+  }
+  return null
+}
 
-  const result = await geminiModel.generateContent(prompt)
-  const responseText = result.response.text()
+async function callClaude(prompt: string, retryCount = 0): Promise<{ responseText: string; tokensUsed: number }> {
+  const maxRetries = 2
+  
+  try {
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      timeout: 120000,
+      maxRetries: 2,
+    })
 
-  return {
-    responseText,
-    tokensUsed: 0 // Gemini doesn't provide token counts in the same way
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: prompt }],
+    })
+
+    const responseText = message.content[0].type === 'text' 
+      ? message.content[0].text 
+      : ''
+
+    return {
+      responseText,
+      tokensUsed: message.usage.input_tokens + message.usage.output_tokens
+    }
+  } catch (error) {
+    console.error(`Claude attempt ${retryCount + 1} failed:`, error)
+    
+    if (retryCount < maxRetries) {
+      const waitTime = Math.min(1000 * Math.pow(2, retryCount), 5000)
+      console.log(`Retrying Claude in ${waitTime}ms...`)
+      await new Promise(resolve => setTimeout(resolve, waitTime))
+      return callClaude(prompt, retryCount + 1)
+    }
+    
+    throw error
+  }
+}
+
+async function callGPT4o(prompt: string, retryCount = 0): Promise<{ responseText: string; tokensUsed: number }> {
+  const maxRetries = 2
+  
+  try {
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+      timeout: 120000,
+      maxRetries: 2,
+    })
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' },
+      max_tokens: 4096,
+      temperature: 0.7,
+    })
+
+    return {
+      responseText: response.choices[0].message.content || '',
+      tokensUsed: response.usage?.total_tokens || 0
+    }
+  } catch (error) {
+    console.error(`GPT-4o attempt ${retryCount + 1} failed:`, error)
+    
+    if (retryCount < maxRetries) {
+      const waitTime = Math.min(1000 * Math.pow(2, retryCount), 5000)
+      console.log(`Retrying GPT-4o in ${waitTime}ms...`)
+      await new Promise(resolve => setTimeout(resolve, waitTime))
+      return callGPT4o(prompt, retryCount + 1)
+    }
+    
+    throw error
+  }
+}
+
+async function callGemini(
+  prompt: string, 
+  model: 'gemini-2.0-flash-exp' | 'gemini-2.5-flash' | 'gemini-2.5-pro', 
+  retryCount = 0
+): Promise<{ responseText: string; tokensUsed: number }> {
+  const maxRetries = 2
+  
+  try {
+    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!)
+    
+    const geminiModel = genAI.getGenerativeModel({ 
+      model,
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.7,
+        maxOutputTokens: 4096,
+      }
+    })
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Gemini timeout')), 120000)
+    })
+
+    const result = await Promise.race([
+      geminiModel.generateContent(prompt),
+      timeoutPromise
+    ])
+
+    // Type guard for result
+    if (!result || typeof result !== 'object' || !('response' in result)) {
+      throw new Error('Invalid Gemini response')
+    }
+
+    const responseText = (result as { response: { text: () => string } }).response.text()
+
+    return {
+      responseText,
+      tokensUsed: 0
+    }
+  } catch (error) {
+    console.error(`Gemini ${model} attempt ${retryCount + 1} failed:`, error)
+    
+    const is503 = error instanceof Error && error.message.includes('503')
+    const is429 = error instanceof Error && error.message.includes('429')
+    const isTimeout = error instanceof Error && error.message.includes('timeout')
+    
+    if (retryCount < maxRetries && (is503 || is429 || isTimeout)) {
+      const waitTime = Math.min(1000 * Math.pow(2, retryCount), 5000)
+      console.log(`Retrying Gemini ${model} in ${waitTime}ms...`)
+      await new Promise(resolve => setTimeout(resolve, waitTime))
+      return callGemini(prompt, model, retryCount + 1)
+    }
+    
+    throw error
   }
 }
 
@@ -181,7 +394,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { planId, userPrompt, rotations, shifts, planDetails, rules, aiModel } = await request.json()
+    const body = await request.json()
+    const { planId, userPrompt, rotations, shifts, planDetails, rules, aiModel } = body
 
     if (!planId || !userPrompt || !rotations || !shifts || !planDetails) {
       return NextResponse.json(
@@ -205,108 +419,207 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    // Build the prompt
+    // Simplify the rotation data to reduce prompt size
+    const simplifiedRotations: SimplifiedRotation[] = rotations.map((r: {
+      week_index: number
+      day_of_week: number
+      shift_id: string | null
+      overlay_shift_id: string | null
+    }) => ({
+      w: r.week_index,
+      d: r.day_of_week,
+      s: r.shift_id,
+      o: r.overlay_shift_id
+    }))
+
+    const simplifiedShifts: SimplifiedShift[] = shifts.map((s: {
+      id: string
+      name: string
+      start_time: string
+      end_time: string
+    }) => ({
+      id: s.id,
+      name: s.name,
+      start: s.start_time,
+      end: s.end_time
+    }))
+
+    // Build the prompt with ORIGINAL data (not simplified)
     const prompt = buildPrompt(userPrompt, planDetails, rotations, shifts, rules)
 
     // Determine which model to use
     let selectedModel: AIModel = aiModel || 'auto'
     if (selectedModel === 'auto') {
-      // Default to Claude for Norwegian labor law understanding
-      selectedModel = 'claude'
+      selectedModel = 'gpt4o' // Default to GPT-4o
     }
 
-    console.log(`🤖 Calling ${selectedModel} for rotation improvements...`)
+    console.log(`🤖 Using ${selectedModel} for rotation improvements...`)
     const startTime = Date.now()
 
     let responseText = ''
     let tokensUsed = 0
     let actualModel = selectedModel
 
-    try {
-      switch (selectedModel) {
-        case 'claude':
-          if (!process.env.ANTHROPIC_API_KEY) {
-            throw new Error('Claude API key ikkje konfigurert')
-          }
-          const claudeResult = await callClaude(prompt)
-          responseText = claudeResult.responseText
-          tokensUsed = claudeResult.tokensUsed
-          actualModel = 'claude'
-          break
+    // Model fallback order
+    const modelFallbackOrder: Record<string, string[]> = {
+      'claude': ['gpt4o', 'gemini-flash'],
+      'gpt4o': ['claude', 'gemini-flash'],
+      'gemini-flash': ['gpt4o', 'claude'],
+      'gemini-pro': ['gemini-flash', 'gpt4o', 'claude']
+    }
 
-        case 'gpt4o':
-          if (!process.env.OPENAI_API_KEY) {
-            throw new Error('OpenAI API key ikkje konfigurert')
-          }
-          const gptResult = await callGPT4o(prompt)
-          responseText = gptResult.responseText
-          tokensUsed = gptResult.tokensUsed
-          actualModel = 'gpt4o'
-          break
+    const tryModel = async (model: string): Promise<boolean> => {
+      try {
+        console.log(`🔄 Trying ${model}...`)
+        
+        switch (model) {
+          case 'claude':
+            if (!process.env.ANTHROPIC_API_KEY) {
+              console.log('❌ Claude API key not configured')
+              return false
+            }
+            const claudeResult = await callClaude(prompt)
+            responseText = claudeResult.responseText
+            tokensUsed = claudeResult.tokensUsed
+            actualModel = 'claude'
+            return true
 
-        case 'gemini-flash':
-          if (!process.env.GOOGLE_AI_API_KEY) {
-            throw new Error('Google AI API key ikkje konfigurert')
-          }
-          const geminiFlashResult = await callGemini(prompt, 'gemini-2.0-flash-exp')
-          responseText = geminiFlashResult.responseText
-          tokensUsed = geminiFlashResult.tokensUsed
-          actualModel = 'gemini-flash'
-          break
+          case 'gpt4o':
+            if (!process.env.OPENAI_API_KEY) {
+              console.log('❌ OpenAI API key not configured')
+              return false
+            }
+            const gptResult = await callGPT4o(prompt)
+            responseText = gptResult.responseText
+            tokensUsed = gptResult.tokensUsed
+            actualModel = 'gpt4o'
+            return true
 
-        case 'gemini-pro':
-          if (!process.env.GOOGLE_AI_API_KEY) {
-            throw new Error('Google AI API key ikkje konfigurert')
-          }
-          const geminiProResult = await callGemini(prompt, 'gemini-2.5-pro')
-          responseText = geminiProResult.responseText
-          tokensUsed = geminiProResult.tokensUsed
-          actualModel = 'gemini-pro'
-          break
+          case 'gemini-flash':
+            if (!process.env.GOOGLE_AI_API_KEY) {
+              console.log('❌ Google AI API key not configured')
+              return false
+            }
+            const geminiFlashResult = await callGemini(prompt, 'gemini-2.0-flash-exp')
+            responseText = geminiFlashResult.responseText
+            tokensUsed = geminiFlashResult.tokensUsed
+            actualModel = 'gemini-flash'
+            return true
 
-        default:
-          throw new Error('Ugyldig AI-modell valgt')
+          case 'gemini-pro':
+            if (!process.env.GOOGLE_AI_API_KEY) {
+              console.log('❌ Google AI API key not configured')
+              return false
+            }
+            const geminiProResult = await callGemini(prompt, 'gemini-2.5-pro')
+            responseText = geminiProResult.responseText
+            tokensUsed = geminiProResult.tokensUsed
+            actualModel = 'gemini-pro'
+            return true
+
+          default:
+            return false
+        }
+      } catch (error) {
+        console.error(`❌ ${model} failed:`, error)
+        return false
       }
-    } catch (error) {
-      console.error(`❌ Error with ${selectedModel}:`, error)
+    }
+
+    // Try the selected model first
+    let success = await tryModel(selectedModel)
+
+    // If failed, try fallback models
+    if (!success) {
+      const fallbacks = modelFallbackOrder[selectedModel] || ['gpt4o', 'claude']
       
-      // If selected model fails and it's not Claude, fallback to Claude
-      if (selectedModel !== 'claude' && process.env.ANTHROPIC_API_KEY) {
-        console.log('🔄 Falling back to Claude...')
-        const claudeResult = await callClaude(prompt)
-        responseText = claudeResult.responseText
-        tokensUsed = claudeResult.tokensUsed
-        actualModel = 'claude'
-      } else {
-        throw error
+      for (const fallbackModel of fallbacks) {
+        console.log(`🔄 Falling back to ${fallbackModel}...`)
+        success = await tryModel(fallbackModel)
+        if (success) break
       }
+    }
+
+    if (!success || !responseText) {
+      throw new Error('All AI models failed to generate a response')
     }
 
     const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(2)
     console.log(`✅ ${actualModel} responded in ${elapsedTime}s`)
+    console.log(`📊 Response length: ${responseText.length} characters`)
 
-    // Extract JSON from response
-    let jsonMatch = responseText.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      // Try to find JSON in code blocks
-      const codeBlockMatch = responseText.match(/```json\n?([\s\S]*?)\n?```/)
+    // Extract and repair JSON
+    let improvements: ImprovementsResponse | null = null
+
+    // Strategy 1: Direct parse
+    improvements = attemptJSONRepair(responseText)
+    
+    if (!improvements) {
+      // Strategy 2: Extract from code blocks
+      const codeBlockMatch = responseText.match(/```json?\n?([\s\S]*?)\n?```/)
       if (codeBlockMatch) {
-        jsonMatch = [codeBlockMatch[1]]
+        improvements = attemptJSONRepair(codeBlockMatch[1].trim())
       }
     }
     
-    if (!jsonMatch) {
+    if (!improvements) {
+      console.error('Failed to parse response (first 800 chars):', responseText.substring(0, 800))
+      console.error('Response end (last 200 chars):', responseText.substring(responseText.length - 200))
       throw new Error('Kunne ikkje ekstrahere JSON frå AI sitt svar')
     }
 
-    const improvements = JSON.parse(jsonMatch[0])
+    console.log('✅ JSON parsed successfully')
 
-    // Filter out non-changes (where current_shift_id === proposed_shift_id)
+    // Validate and fix the response structure
+    if (!improvements.proposed_changes) {
+      improvements.proposed_changes = []
+    }
+
+    // Filter out non-changes
     if (improvements.proposed_changes) {
+      const originalCount = improvements.proposed_changes.length
       improvements.proposed_changes = improvements.proposed_changes.filter(
-        (change: any) => change.current_shift_id !== change.proposed_shift_id
+        (change: ProposedChange) => change.current_shift_id !== change.proposed_shift_id
       )
+      const filteredCount = improvements.proposed_changes.length
+      if (filteredCount < originalCount) {
+        console.log(`🔍 Filtered out ${originalCount - filteredCount} non-changes`)
+      }
       improvements.changes_count = improvements.proposed_changes.length
+    }
+
+    // Limit to 50 changes max (increased to handle recurring patterns)
+    if (improvements.proposed_changes.length > 50) {
+      console.log(`⚠️ Limiting changes from ${improvements.proposed_changes.length} to 50`)
+      improvements.proposed_changes = improvements.proposed_changes.slice(0, 50)
+      improvements.changes_count = 50
+    }
+
+    // Log hour balance analysis
+    const shiftHours: Record<string, number> = {}
+    shifts.forEach((s: { id: string; start_time: string; end_time: string }) => {
+      if (!s.start_time || !s.end_time) {
+        shiftHours[s.id] = 0
+        return
+      }
+      const start = s.start_time.split(':').map(Number)
+      const end = s.end_time.split(':').map(Number)
+      let hours = end[0] - start[0] + (end[1] - start[1]) / 60
+      if (hours < 0) hours += 24
+      shiftHours[s.id] = hours
+    })
+
+    let totalHourChange = 0
+    improvements.proposed_changes.forEach((change: ProposedChange) => {
+      const currentHours = change.current_shift_id ? (shiftHours[change.current_shift_id] || 0) : 0
+      const proposedHours = change.proposed_shift_id ? (shiftHours[change.proposed_shift_id] || 0) : 0
+      totalHourChange += proposedHours - currentHours
+    })
+
+    console.log(`📊 Total hour change: ${totalHourChange > 0 ? '+' : ''}${totalHourChange.toFixed(1)}h`)
+    
+    if (Math.abs(totalHourChange) > 2) {
+      console.warn(`⚠️ Warning: Large hour imbalance detected (${totalHourChange.toFixed(1)}h)`)
     }
 
     // Track AI usage
@@ -324,6 +637,8 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error('💥 Rotation improvements error:', error)
+    console.error('Error details:', error instanceof Error ? error.stack : error)
+    
     return NextResponse.json(
       { 
         error: 'Kunne ikkje generere forbetringsforslag', 
