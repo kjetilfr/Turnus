@@ -1,4 +1,4 @@
-// src/app/api/ai/improve-rotation/route.ts - FIXED with TypeScript types
+// src/app/api/ai/improve-rotation/route.ts - FIXED: Only use selected model, no fallbacks
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
@@ -419,31 +419,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    // Simplify the rotation data to reduce prompt size
-    const simplifiedRotations: SimplifiedRotation[] = rotations.map((r: {
-      week_index: number
-      day_of_week: number
-      shift_id: string | null
-      overlay_shift_id: string | null
-    }) => ({
-      w: r.week_index,
-      d: r.day_of_week,
-      s: r.shift_id,
-      o: r.overlay_shift_id
-    }))
-
-    const simplifiedShifts: SimplifiedShift[] = shifts.map((s: {
-      id: string
-      name: string
-      start_time: string
-      end_time: string
-    }) => ({
-      id: s.id,
-      name: s.name,
-      start: s.start_time,
-      end: s.end_time
-    }))
-
     // Build the prompt with ORIGINAL data (not simplified)
     const prompt = buildPrompt(userPrompt, planDetails, rotations, shifts, rules)
 
@@ -458,94 +433,106 @@ export async function POST(request: Request) {
 
     let responseText = ''
     let tokensUsed = 0
-    let actualModel = selectedModel
 
-    // Model fallback order
-    const modelFallbackOrder: Record<string, string[]> = {
-      'claude': ['gpt4o', 'gemini-flash'],
-      'gpt4o': ['claude', 'gemini-flash'],
-      'gemini-flash': ['gpt4o', 'claude'],
-      'gemini-pro': ['gemini-flash', 'gpt4o', 'claude']
-    }
+    // Call the selected model only - NO FALLBACKS
+    try {
+      switch (selectedModel) {
+        case 'claude':
+          if (!process.env.ANTHROPIC_API_KEY) {
+            return NextResponse.json(
+              { error: 'Claude API-nøkkel er ikkje konfigurert. Kontakt administrator.' },
+              { status: 503 }
+            )
+          }
+          const claudeResult = await callClaude(prompt)
+          responseText = claudeResult.responseText
+          tokensUsed = claudeResult.tokensUsed
+          break
 
-    const tryModel = async (model: string): Promise<boolean> => {
-      try {
-        console.log(`🔄 Trying ${model}...`)
-        
-        switch (model) {
-          case 'claude':
-            if (!process.env.ANTHROPIC_API_KEY) {
-              console.log('❌ Claude API key not configured')
-              return false
-            }
-            const claudeResult = await callClaude(prompt)
-            responseText = claudeResult.responseText
-            tokensUsed = claudeResult.tokensUsed
-            actualModel = 'claude'
-            return true
+        case 'gpt4o':
+          if (!process.env.OPENAI_API_KEY) {
+            return NextResponse.json(
+              { error: 'OpenAI API-nøkkel er ikkje konfigurert. Kontakt administrator.' },
+              { status: 503 }
+            )
+          }
+          const gptResult = await callGPT4o(prompt)
+          responseText = gptResult.responseText
+          tokensUsed = gptResult.tokensUsed
+          break
 
-          case 'gpt4o':
-            if (!process.env.OPENAI_API_KEY) {
-              console.log('❌ OpenAI API key not configured')
-              return false
-            }
-            const gptResult = await callGPT4o(prompt)
-            responseText = gptResult.responseText
-            tokensUsed = gptResult.tokensUsed
-            actualModel = 'gpt4o'
-            return true
+        case 'gemini-flash':
+          if (!process.env.GOOGLE_AI_API_KEY) {
+            return NextResponse.json(
+              { error: 'Google AI API-nøkkel er ikkje konfigurert. Kontakt administrator.' },
+              { status: 503 }
+            )
+          }
+          const geminiFlashResult = await callGemini(prompt, 'gemini-2.0-flash-exp')
+          responseText = geminiFlashResult.responseText
+          tokensUsed = geminiFlashResult.tokensUsed
+          break
 
-          case 'gemini-flash':
-            if (!process.env.GOOGLE_AI_API_KEY) {
-              console.log('❌ Google AI API key not configured')
-              return false
-            }
-            const geminiFlashResult = await callGemini(prompt, 'gemini-2.0-flash-exp')
-            responseText = geminiFlashResult.responseText
-            tokensUsed = geminiFlashResult.tokensUsed
-            actualModel = 'gemini-flash'
-            return true
+        case 'gemini-pro':
+          if (!process.env.GOOGLE_AI_API_KEY) {
+            return NextResponse.json(
+              { error: 'Google AI API-nøkkel er ikkje konfigurert. Kontakt administrator.' },
+              { status: 503 }
+            )
+          }
+          const geminiProResult = await callGemini(prompt, 'gemini-2.5-pro')
+          responseText = geminiProResult.responseText
+          tokensUsed = geminiProResult.tokensUsed
+          break
 
-          case 'gemini-pro':
-            if (!process.env.GOOGLE_AI_API_KEY) {
-              console.log('❌ Google AI API key not configured')
-              return false
-            }
-            const geminiProResult = await callGemini(prompt, 'gemini-2.5-pro')
-            responseText = geminiProResult.responseText
-            tokensUsed = geminiProResult.tokensUsed
-            actualModel = 'gemini-pro'
-            return true
-
-          default:
-            return false
-        }
-      } catch (error) {
-        console.error(`❌ ${model} failed:`, error)
-        return false
+        default:
+          return NextResponse.json(
+            { error: `Ukjend AI-modell: ${selectedModel}` },
+            { status: 400 }
+          )
       }
-    }
-
-    // Try the selected model first
-    let success = await tryModel(selectedModel)
-
-    // If failed, try fallback models
-    if (!success) {
-      const fallbacks = modelFallbackOrder[selectedModel] || ['gpt4o', 'claude']
+    } catch (error) {
+      console.error(`❌ ${selectedModel} failed:`, error)
       
-      for (const fallbackModel of fallbacks) {
-        console.log(`🔄 Falling back to ${fallbackModel}...`)
-        success = await tryModel(fallbackModel)
-        if (success) break
+      // Return specific error message based on the error type
+      let errorMessage = `${selectedModel.toUpperCase()} kunne ikkje generere svar.`
+      
+      if (error instanceof Error) {
+        if (error.message.includes('timeout')) {
+          errorMessage += ' Tidsavbrot (timeout).'
+        } else if (error.message.includes('429')) {
+          errorMessage += ' For mange førespurnader. Prøv igjen om litt.'
+        } else if (error.message.includes('503')) {
+          errorMessage += ' Tenesta er mellombels utilgjengeleg.'
+        } else if (error.message.includes('401') || error.message.includes('403')) {
+          errorMessage += ' API-nøkkel er ugyldig eller mangler tilgang.'
+        } else {
+          errorMessage += ` Feilmelding: ${error.message}`
+        }
       }
+      
+      return NextResponse.json(
+        { 
+          error: errorMessage,
+          model: selectedModel,
+          details: error instanceof Error ? error.message : 'Ukjend feil'
+        },
+        { status: 500 }
+      )
     }
 
-    if (!success || !responseText) {
-      throw new Error('All AI models failed to generate a response')
+    if (!responseText) {
+      return NextResponse.json(
+        { 
+          error: `${selectedModel.toUpperCase()} returnerte eit tomt svar.`,
+          model: selectedModel
+        },
+        { status: 500 }
+      )
     }
 
     const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(2)
-    console.log(`✅ ${actualModel} responded in ${elapsedTime}s`)
+    console.log(`✅ ${selectedModel} responded in ${elapsedTime}s`)
     console.log(`📊 Response length: ${responseText.length} characters`)
 
     // Extract and repair JSON
@@ -565,7 +552,14 @@ export async function POST(request: Request) {
     if (!improvements) {
       console.error('Failed to parse response (first 800 chars):', responseText.substring(0, 800))
       console.error('Response end (last 200 chars):', responseText.substring(responseText.length - 200))
-      throw new Error('Kunne ikkje ekstrahere JSON frå AI sitt svar')
+      return NextResponse.json(
+        { 
+          error: 'Kunne ikkje ekstrahere JSON frå AI sitt svar',
+          model: selectedModel,
+          rawResponse: responseText.substring(0, 500)
+        },
+        { status: 500 }
+      )
     }
 
     console.log('✅ JSON parsed successfully')
@@ -625,13 +619,13 @@ export async function POST(request: Request) {
     // Track AI usage
     await supabase.from('ai_usage').insert({
       user_id: user.id,
-      feature_type: `rotation_improvements_${actualModel}`,
+      feature_type: `rotation_improvements_${selectedModel}`,
       tokens_used: tokensUsed,
     })
 
     return NextResponse.json({
       success: true,
-      ai_model: actualModel,
+      ai_model: selectedModel,
       data: improvements,
     })
 

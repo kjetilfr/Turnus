@@ -27,7 +27,7 @@ const SUPPORTED_EXTENSIONS = ['.pdf', '.docx', '.doc', '.rtf']
 
 export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProps) {
   const [file, setFile] = useState<File | null>(null)
-  const [selectedModel, setSelectedModel] = useState<'claude' | 'gpt4o' | 'gemini' | 'auto'>('auto')
+  const [selectedModel, setSelectedModel] = useState<'claude' | 'gpt4o' | 'gemini'>('gemini') // Default to Gemini
   const [geminiVersion, setGeminiVersion] = useState<'gemini-2.0-flash-exp' | 'gemini-2.5-flash' | 'gemini-2.5-pro'>('gemini-2.0-flash-exp')
   const [progress, setProgress] = useState<UploadProgress>({
     stage: 'idle',
@@ -69,14 +69,6 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
   }
 
   const getApiEndpoint = () => {
-    if (selectedModel === 'auto') {
-      const fileExtension = file?.name.toLowerCase().substring(file.name.lastIndexOf('.'))
-      if (fileExtension === '.pdf') {
-        return '/api/ai/populate-turnus-gpt4o'
-      }
-      return '/api/ai/populate-turnus'
-    }
-
     switch (selectedModel) {
       case 'gpt4o':
         return '/api/ai/populate-turnus-gpt4o'
@@ -84,7 +76,7 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
         return '/api/ai/populate-turnus-gemini'
       case 'claude':
       default:
-        return '/api/ai/populate-turnus'
+        return '/api/ai/populate-turnus-claude'
     }
   }
 
@@ -105,13 +97,39 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
         formData.append('geminiModel', geminiVersion)
       }
 
-      const endpoint = getApiEndpoint()
-      const response = await fetch(endpoint, {
+      // Try with selected model first
+      let endpoint = getApiEndpoint()
+      let response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       })
 
-      const data = await response.json()
+      let data = await response.json()
+
+      // If the selected model fails, try fallback order
+      if (!response.ok && response.status === 503) {
+        const fallbackOrder = getFallbackOrder(selectedModel)
+        
+        for (const fallbackModel of fallbackOrder) {
+          console.log(`Trying fallback model: ${fallbackModel}`)
+          
+          // Update selected model and endpoint
+          const fallbackEndpoint = fallbackModel === 'gemini' ? '/api/ai/populate-turnus-gemini' :
+                                    fallbackModel === 'gpt4o' ? '/api/ai/populate-turnus-gpt4o' :
+                                    '/api/ai/populate-turnus-claude'
+          
+          response = await fetch(fallbackEndpoint, {
+            method: 'POST',
+            body: formData,
+          })
+          
+          data = await response.json()
+          
+          if (response.ok) {
+            break // Success with fallback
+          }
+        }
+      }
 
       if (!response.ok) {
         if (response.status === 403) {
@@ -153,6 +171,20 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
       console.error('Upload error:', err)
       setError(err instanceof Error ? err.message : 'Kunne ikkje laste opp fil')
       setProgress({ stage: 'idle', message: '' })
+    }
+  }
+
+  // Get fallback order based on preference
+  const getFallbackOrder = (currentModel: string): string[] => {
+    switch (currentModel) {
+      case 'gemini':
+        return ['gpt4o', 'claude']
+      case 'gpt4o':
+        return ['gemini', 'claude']
+      case 'claude':
+        return ['gemini', 'gpt4o']
+      default:
+        return ['gemini', 'gpt4o', 'claude']
     }
   }
 
@@ -280,7 +312,7 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
                 ⚠️ {modelBusyWarning.busyModel} er oppteken
               </h4>
               <p className="text-sm text-orange-800 mb-3">
-                Modellen er overlasta med førespurnader akkurat no. Alle Gemini-modellar prøvde å køyre, men ingen var tilgjengelege.
+                Modellen er overlasta med førespurnader akkurat no.
               </p>
               {modelBusyWarning.suggestion && (
                 <p className="text-sm text-orange-900 font-semibold bg-orange-100 p-2 rounded">
@@ -408,7 +440,7 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
 
       <div className="mt-4 bg-gray-50 rounded-lg p-3">
         <p className="text-xs text-gray-600">
-          💡 Tips: Bruk &quot;Auto&quot; eller &quot;GPT-4o&quot; for mest stabil opplevelse. Gemini kan vere oppteken i periodar med høg trafikk.
+          💡 Tips: Gemini er vanlegvis raskast. Om ein modell er oppteken, prøver systemet automatisk neste modell.
         </p>
       </div>
     </div>

@@ -2,8 +2,8 @@
 'use client'
 
 interface AIModelSelectorProps {
-  onModelSelect: (model: 'claude' | 'gpt4o' | 'gemini' | 'auto') => void
-  selectedModel: 'claude' | 'gpt4o' | 'gemini' | 'auto'
+  onModelSelect: (model: 'claude' | 'gpt4o' | 'gemini') => void
+  selectedModel: 'claude' | 'gpt4o' | 'gemini'
   fileType?: string
 }
 
@@ -30,24 +30,29 @@ export default function AIModelSelector({ onModelSelect, selectedModel, fileType
       <label className="block text-sm font-semibold text-gray-700 mb-2">
         Vel AI-modell
       </label>
-      <div className="grid grid-cols-2 gap-3">
-        {/* Auto (Default) */}
+      <div className="grid grid-cols-3 gap-3">
+        {/* Gemini (Primary/Default) */}
         <button
-          onClick={() => onModelSelect('auto')}
+          onClick={() => onModelSelect('gemini')}
+          disabled={!getModelCompatibility('gemini')}
           className={`p-3 rounded-lg border-2 transition-all ${
-            selectedModel === 'auto'
-              ? 'border-purple-600 bg-purple-50'
-              : 'border-gray-200 hover:border-purple-300'
+            selectedModel === 'gemini'
+              ? 'border-orange-600 bg-orange-50'
+              : getModelCompatibility('gemini')
+              ? 'border-gray-200 hover:border-orange-300'
+              : 'border-gray-200 opacity-50 cursor-not-allowed'
           }`}
         >
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-lg">🤖</span>
-            <span className="font-bold text-gray-500 text-sm">Auto (Anbefalt)</span>
+            <span className="text-lg">💎</span>
+            <span className="font-bold text-gray-500 text-sm">Gemini</span>
           </div>
-          <p className="text-xs text-gray-600">Vel beste modell automatisk</p>
+          <p className="text-xs text-gray-600">
+            {getModelCompatibility('gemini') ? 'Stor kontekst (Google)' : 'Støttar alle format'}
+          </p>
         </button>
 
-        {/* GPT-4o */}
+        {/* GPT-4o (Secondary) */}
         <button
           onClick={() => onModelSelect('gpt4o')}
           disabled={!getModelCompatibility('gpt4o')}
@@ -68,7 +73,7 @@ export default function AIModelSelector({ onModelSelect, selectedModel, fileType
           </p>
         </button>
 
-        {/* Claude */}
+        {/* Claude (Tertiary) */}
         <button
           onClick={() => onModelSelect('claude')}
           disabled={!getModelCompatibility('claude')}
@@ -88,32 +93,11 @@ export default function AIModelSelector({ onModelSelect, selectedModel, fileType
             {getModelCompatibility('claude') ? 'Djup forståing (Anthropic)' : 'Berre PDF'}
           </p>
         </button>
-
-        {/* Gemini */}
-        <button
-          onClick={() => onModelSelect('gemini')}
-          disabled={!getModelCompatibility('gemini')}
-          className={`p-3 rounded-lg border-2 transition-all ${
-            selectedModel === 'gemini'
-              ? 'border-orange-600 bg-orange-50'
-              : getModelCompatibility('gemini')
-              ? 'border-gray-200 hover:border-orange-300'
-              : 'border-gray-200 opacity-50 cursor-not-allowed'
-          }`}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-lg">💎</span>
-            <span className="font-bold text-gray-500 text-sm">Gemini</span>
-          </div>
-          <p className="text-xs text-gray-600">
-            {getModelCompatibility('gemini') ? 'Stor kontekst (Google)' : 'Støttar alle format'}
-          </p>
-        </button>
       </div>
       
-      {fileType && !getModelCompatibility(selectedModel) && selectedModel !== 'auto' && (
+      {fileType && !getModelCompatibility(selectedModel) && (
         <div className="mt-2 text-xs text-orange-600">
-          ⚠️ Denne modellen støttar ikkje {fileType}-filer. Vel &quot;Auto&quot; eller ein annan modell.
+          ⚠️ Denne modellen støttar ikkje {fileType}-filer. Vel ein annan modell.
         </div>
       )}
     </div>

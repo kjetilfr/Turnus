@@ -31,7 +31,7 @@ interface AIResponse {
   ai_model?: string
 }
 
-type AIModel = 'auto' | 'claude' | 'gpt4o' | 'gemini-flash' | 'gemini-pro'
+type AIModel = 'claude' | 'gpt4o' | 'gemini-flash' | 'gemini-pro'
 
 export default function AIImprovementsView({ plan, rotations, shifts }: AIImprovementsViewProps) {
   const router = useRouter()
@@ -40,7 +40,7 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
   const [error, setError] = useState<string | null>(null)
   const [aiResponse, setAiResponse] = useState<AIResponse | null>(null)
   const [applying, setApplying] = useState(false)
-  const [selectedModel, setSelectedModel] = useState<AIModel>('auto')
+  const [selectedModel, setSelectedModel] = useState<AIModel>('gemini-flash') // Default to Gemini
   const [loadingStage, setLoadingStage] = useState<string>('')
   const [retryCount, setRetryCount] = useState(0)
   
@@ -61,7 +61,7 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
     setLoadingStage('Kontaktar AI...')
     setRetryCount(0)
 
-    const makeRequest = async (attemptNumber: number = 0): Promise<void> => {
+    const makeRequest = async (attemptNumber: number = 0, modelToUse: AIModel = selectedModel): Promise<void> => {
       try {
         if (attemptNumber > 0) {
           setLoadingStage(`Prøver på nytt (forsøk ${attemptNumber + 1}/3)...`)
@@ -78,7 +78,7 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
             userPrompt,
             rotations,
             shifts,
-            aiModel: selectedModel,
+            aiModel: modelToUse,
             planDetails: {
               name: plan.name,
               duration_weeks: plan.duration_weeks,
@@ -105,7 +105,22 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
           if ((response.status >= 500 || response.status === 408) && attemptNumber < 2) {
             console.log(`Server error ${response.status}, retrying...`)
             await new Promise(resolve => setTimeout(resolve, 2000)) // Wait 2 seconds
-            return makeRequest(attemptNumber + 1)
+            return makeRequest(attemptNumber + 1, modelToUse)
+          }
+          
+          // If current model failed, try fallback
+          if (response.status === 503 && attemptNumber === 0) {
+            const fallbackModels = getFallbackOrder(modelToUse)
+            for (const fallbackModel of fallbackModels) {
+              console.log(`Trying fallback model: ${fallbackModel}`)
+              await new Promise(resolve => setTimeout(resolve, 1000))
+              try {
+                await makeRequest(0, fallbackModel)
+                return // Success with fallback
+              } catch (err) {
+                continue // Try next fallback
+              }
+            }
           }
           
           throw new Error(data.error || `Feil: ${response.status} - ${response.statusText}`)
@@ -133,7 +148,7 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
           if (isNetworkError) {
             console.log('Network error, retrying...')
             await new Promise(resolve => setTimeout(resolve, 3000)) // Wait 3 seconds
-            return makeRequest(attemptNumber + 1)
+            return makeRequest(attemptNumber + 1, modelToUse)
           }
         }
         
@@ -148,6 +163,12 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
     }
 
     await makeRequest(0)
+  }
+
+  // Get fallback order based on preference
+  const getFallbackOrder = (currentModel: AIModel): AIModel[] => {
+    const preferenceOrder: AIModel[] = ['gemini-flash', 'gpt4o', 'claude', 'gemini-pro']
+    return preferenceOrder.filter(m => m !== currentModel)
   }
 
   const handleApplyChanges = async () => {
@@ -299,57 +320,15 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
             Velg AI-modell
           </h3>
           
-          <div className="grid grid-cols-5 gap-2">
-            <button
-              type="button"
-              onClick={() => setSelectedModel('auto')}
-              disabled={loading}
-              className={`p-3 border-2 rounded-lg text-left transition-all ${
-                selectedModel === 'auto'
-                  ? 'border-purple-500 bg-purple-100 ring-2 ring-purple-200'
-                  : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50 bg-white'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              <div className="font-semibold text-sm text-gray-900">Auto</div>
-              <div className="text-xs text-gray-600 mt-1">Vel beste</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSelectedModel('claude')}
-              disabled={loading}
-              className={`p-3 border-2 rounded-lg text-left transition-all ${
-                selectedModel === 'claude'
-                  ? 'border-purple-500 bg-purple-100 ring-2 ring-purple-200'
-                  : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50 bg-white'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              <div className="font-semibold text-sm text-gray-900">Claude</div>
-              <div className="text-xs text-gray-600 mt-1">Sonnet 4</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSelectedModel('gpt4o')}
-              disabled={loading}
-              className={`p-3 border-2 rounded-lg text-left transition-all ${
-                selectedModel === 'gpt4o'
-                  ? 'border-purple-500 bg-purple-100 ring-2 ring-purple-200'
-                  : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50 bg-white'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              <div className="font-semibold text-sm text-gray-900">GPT-4o</div>
-              <div className="text-xs text-gray-600 mt-1">OpenAI</div>
-            </button>
-
+          <div className="grid grid-cols-4 gap-2">
             <button
               type="button"
               onClick={() => setSelectedModel('gemini-flash')}
               disabled={loading}
               className={`p-3 border-2 rounded-lg text-left transition-all ${
                 selectedModel === 'gemini-flash'
-                  ? 'border-purple-500 bg-purple-100 ring-2 ring-purple-200'
-                  : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50 bg-white'
+                  ? 'border-orange-500 bg-orange-100 ring-2 ring-orange-200'
+                  : 'border-gray-300 hover:border-orange-400 hover:bg-orange-50 bg-white'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <div className="font-semibold text-sm text-gray-900">Gemini</div>
@@ -362,17 +341,45 @@ export default function AIImprovementsView({ plan, rotations, shifts }: AIImprov
               disabled={loading}
               className={`p-3 border-2 rounded-lg text-left transition-all ${
                 selectedModel === 'gemini-pro'
-                  ? 'border-purple-500 bg-purple-100 ring-2 ring-purple-200'
-                  : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50 bg-white'
+                  ? 'border-orange-500 bg-orange-100 ring-2 ring-orange-200'
+                  : 'border-gray-300 hover:border-orange-400 hover:bg-orange-50 bg-white'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <div className="font-semibold text-sm text-gray-900">Gemini</div>
               <div className="text-xs text-gray-600 mt-1">2.5 Pro</div>
             </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedModel('gpt4o')}
+              disabled={loading}
+              className={`p-3 border-2 rounded-lg text-left transition-all ${
+                selectedModel === 'gpt4o'
+                  ? 'border-green-500 bg-green-100 ring-2 ring-green-200'
+                  : 'border-gray-300 hover:border-green-400 hover:bg-green-50 bg-white'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              <div className="font-semibold text-sm text-gray-900">GPT-4o</div>
+              <div className="text-xs text-gray-600 mt-1">OpenAI</div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedModel('claude')}
+              disabled={loading}
+              className={`p-3 border-2 rounded-lg text-left transition-all ${
+                selectedModel === 'claude'
+                  ? 'border-blue-500 bg-blue-100 ring-2 ring-blue-200'
+                  : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50 bg-white'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              <div className="font-semibold text-sm text-gray-900">Claude</div>
+              <div className="text-xs text-gray-600 mt-1">Sonnet 4</div>
+            </button>
           </div>
           
           <p className="text-xs text-gray-600 mt-2">
-            💡 <strong>Auto</strong> vel beste modell basert på oppgåva. <strong>GPT-4o</strong> er mest stabil for forbetringar.
+            💡 <strong>Gemini</strong> er vanlegvis raskast. <strong>GPT-4o</strong> er mest stabil for komplekse forbetringar.
           </p>
         </div>
 
