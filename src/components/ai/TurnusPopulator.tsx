@@ -98,7 +98,7 @@ export default function TurnusPopulator({ planId, onClose }: TurnusPopulatorProp
       }
 
       // Try with selected model first
-      let endpoint = getApiEndpoint()
+      const endpoint = getApiEndpoint()
       let response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
